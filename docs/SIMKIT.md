@@ -1,8 +1,128 @@
-# SimKit — 공통 틀 사용 설명서 (개발자용)
+# SimKit — 공통 틀 사용 설명서 (개발자용, R2 고도화 2차)
 
-> 작성: 에듀테크팀 플랫폼 담당 · 2026-10-28
-> 근거: `docs/04_팀장결정서.md` §1-3·§2·§3 · 레퍼런스 `32_프랑스혁명-수업사이트`(tokens·base·Nav·키 규칙)
-> 다섯 시뮬레이터 개발자는 이 틀 **위에서만** 만든다. 틀을 고칠 일이 생기면 직접 고치지 말고 플랫폼 담당에게 요청한다.
+> 작성: 에듀테크1(디자인 리드) · 2026-10-28
+> 근거: `docs/개선/R1_계획.md` §2(디자인 방향)·§3(A1~A18, H1~H2) · 이전 판: `docs/04_팀장결정서.md`
+> 다섯 시뮬레이터는 이 틀 **위에서만** 만든다. `shared/` 를 고칠 일이 생기면 디자인 리드에게 요청한다.
+> 바로 동작하는 예제: `sims/_template/index.html` (= `shared/TEMPLATE.html`) — R2 새 API 를 모두 씀.
+
+---
+
+## 0. R2(고도화 2차)에서 바뀐 것 — 먼저 읽기
+
+> 근거: `docs/개선/R2_계획.md` §2·§3(A~G)·§6 · 작성: 에듀테크1 · 2026-10-28
+> 교사 평가 "디자인이 어설프고 UI 가 불편·어렵다, 내용도 친절하게" 에 대한 공통 틀 답. 아래 0-3 체크리스트를 5종이 반영한다.
+
+### 0-1. 원칙 (R1 다섯 + R2 셋)
+6. **그림 위에는 아무것도 올리지 않는다.** 토스트는 실험 화면 위 가운데 **한 줄**(빈 모서리), 해설은 **오른쪽 패널 맨 위 카드**, 예측·모드 창은 실험 화면 **아래쪽 카드**(위쪽 장면·눈금은 보임). 실험 화면에 남는 것: 그림·라벨·모서리 칩·보기 범위 버튼.
+7. **같은 일은 한 곳에서 한 이름으로.** 아래 0-2 표 그대로 쓴다.
+8. **설명은 한 줄 → 펼치기.** 판정·해설·개념 카드·정리 질문 모두 한 줄이 먼저, 식·기호·원리는 `▾` 뒤. 전문어는 `{{용어}}`(첫 등장 괄호 풀이 자동 — `help({inlineTerms:true})`).
+
+### 0-2. 버튼·문구 이름 고정표 (grep 으로 검사)
+| 하는 일 | 자리 | 이름(그대로) | 쓰지 말 것 |
+|---|---|---|---|
+| 실행 | 하단 막대 | `▶ 실행` → 실행 중 `⏸ 멈추기` → 멈춤 `▶ 이어서 실행` → 끝 `↻ 다시 실행`(윤곽선) | 띠 버튼에 '실행하기' |
+| 기록 | 상단 띠(끝난 뒤에만) | `기록하기` | 하단 기록 버튼, 문장 속 `[기록하기]` → '기록하기 버튼으로' |
+| 단계 이동 | 상단 띠 | `비교하러 가기 ▸` `정리하러 가기 ▸` `실행하러 가기 ▸` | '다음 단계 ▸' 와 함께 두 개 |
+| 예측 다시 열기 | 상단 띠(예측 단계) | `예측하기` | '예측 입력', '예측 질문 받기' |
+| 되돌리기 | 하단 막대 | `기본값으로 되돌리기` (패널 묶음 머리 `기본값으로 ↺`) | '처음 설정으로', '초기화' |
+| 장면 넘기기 | 하단 막대 | `◀ 한 장면 뒤로` `한 장면 앞으로 ▶` | '한 칸' |
+| 메뉴 | 하단 막대 | `그 밖의 기능 ▾` (기록 모두 지우기·전체 화면·도움말·교사 모드·조작판 접기) | '⋯ 더보기' |
+| 머리 버튼 | 제목 줄 | `수업 정보 · 교사용 ▾` `? 도움말` `⤢ 전체 화면` (같은 윤곽선) | |
+| 기록 칩 | 띠 오른쪽 | `저장한 실험 1/5` `(최대 5)` `표 보기` | |
+| 기록 이름 | 표·범례·나란히 | `● 기록 1` `▲ 기록 2` `■ 기록 3` `◆ 기록 4` `★ 기록 5` (`SK.recLabel(i)`) | 색만으로 구분 |
+| 비교 고르기 | 기록 큰 판 | `비교할 기록 A [●1][▲2] · B [●1][▲2]` | '앞 기록/뒤 기록' |
+| 모드 | 패널 맨 위 | `지금: ○○ [실험 고르기]` | '바꾸기' |
+| 해설 | 패널 맨 위 카드 / 큰 판 머리 칩 | `이번 실험 결과` `접기 ▴` `왜 그럴까? ▾` / `해설 보기 ▾` | |
+
+### 0-3. R2 체크리스트 — 각 시뮬레이터가 할 일
+| # | 할 일 | 공통 틀이 해 준 것 / 시뮬이 할 것 |
+|---|---|---|
+| A1 | 토스트 **28자 이내**(넘으면 콘솔 경고 + 띠 문장으로 감). `SK.finish(msg)` 는 이제 **띠 문장**으로 간다(토스트 아님). 긴 안내는 `SK.say(text, ms)` | 시뮬: 콘솔의 `SimKit(R2): 토스트는 28자…` 경고를 0건으로 |
+| A2 | `.sim-note` 가 패널 맨 위 `.panel-note` 로 옮겨졌다. **자체 회피 코드 삭제**: projectile 궤적 하강·convex 정면창 `SK.el.note` 이동·double-slit 광축/확대창 하강·`.sim.has-note` CSS(collision·convex·orbit) | 공통: `SK.el.note` 는 늘 숨은 빈 칸(회피 값 0) → 지금은 깨지지 않지만 지울 것 |
+| A2 | `takeaway(fn)` 은 `{line:'한 줄', more:'왜 그럴까? 안 전문'}` 반환 권장(문자열이면 한 줄) | 시뮬: 긴 해설 문장을 line/more 로 나누기 |
+| A3 | 숫자 예측 `numeric:{label:'얼마나 멀리 갈까?', unit, min, max: 수|함수, example, overText, key, decimals, tolerance}` — 라벨은 **질문형**, placeholder 는 `예: 40` 자동 | 시뮬: label '사거리' → 질문형 |
+| A3 | 선택형은 **고른 뒤 [예측하기]** 로 확정(두 번 누르기·숫자키+Enter 도 됨). `predict({figure:'<svg…>'})` 로 그림 1장 | double-slit: 레이저→틈→스크린 그림 |
+| A4 | 카드를 누르면 **값이 바로 적용**(패널 숫자 바뀜) → 토스트 `카드 ①: v₀ 10 m/s · θ 0°` → (autoPredict) 예측 창. **예측 창이 떠 있는 동안 결과 층(무늬·상·궤적)을 숨길 것**: render 에서 `if (SK.predicting()) …` 또는 `cfg.onPredictOpen/Close`·`SK.onPredict(fn(open))` | 시뮬: 결과 층 숨김. 자체 자동 예측(projectile 처음 `SK.predict`, collision `applyPreset(0)`)은 공통 autoPredict 와 겹치므로 정리 |
+| A4 | 모드를 고르면(chooseMode) 첫 예측 카드가 자동 적용·예측 창이 뜬다. 닫으면 띠 `예측하기` 로 다시 연다 | double-slit·orbit: onPick 안 자체 예측 호출 정리 |
+| A5 | 패널: 묶음 머리 고정(sticky)·끝 페이드·`아래에 더 있어요 ↓`=다음 묶음으로. 수치 칸 머리줄 아래 `0.5~3 kg · 버튼 한 번에 0.5` 자동. `addVar({ticks:[{v,label}]})` 로 눈금에 이름(예: 달/지구) | 시뮬: 눈금 이름 쓰고 싶으면 객체 배열 |
+| B1 | 띠 버튼은 **실행이 아닌 행동만**. `stepTasks[i].action` 에 '▶ 실행하기' 류를 넣으면 무시된다. 실행 중·멈춤 중엔 '기록하기'가 뜨지 않는다 | 시뮬: stepTasks 문장 **25자 안팎**, '아래 기록하기' 언급 삭제(하단 기록 버튼 없음) |
+| B2 | `R` 키·[기본값으로 되돌리기] = `SK.resetDefaults()`(기록되는 값 → 처음 값, 실행 처음으로, 기록·모드·표시 도구는 그대로). `SK.reset()` 은 예전처럼 **실행만** 처음으로 | 시뮬: 문장 속 '[처음 설정으로]' → '기본값으로 되돌리기' 또는 '↻ 다시 실행' |
+| B3 | 버튼의 단축키 글자는 정밀 포인터 마우스 올림·교사 설정에서만. 터치 기기는 도움말 '단축키' 탭 숨김 | — |
+| B4 | `SK.josa(word,'으로/로'|'을/를'|'이/가'|'은/는'|'과/와')`, `SK.withJosa(word,'으로/로')`. 숫자·단위 끝은 읽는 소리로(7.9 km/s→로, 1→로, 3→으로). 토스트·띠·finish 의 `(으)로` `(을)를` `(이)가` `은(는)` `[기록하기]로` 는 공통 틀이 자동으로 고쳐 주지만(`SK.tidy`) **원문에서 지울 것**. 단위 뒤 조사 붙여쓰기(`7.9 km/s로`) | orbit 1334행 `(으)로` 등 |
+| C1 | 기록 표 열 `priority` 1(작은 표·큰 판)·2(큰 판)·3(열 더 보기에서만). 머리글 2줄(이름/단위) 자동. 큰 판 위에 `바꾼 값(기록 1 → 2): v₀ 20 → 15 m/s` 자동. 넓으면 오른쪽 그림자+'← 옆으로 밀어 보기' | 시뮬: 열이 5개 넘으면 priority 2·3 나누기 |
+| C1 | 기록 선·범례에 모양 기호: `SK.recStyle(i).mark`(●▲■◆★), `SK.recLabel(rec)`, `SK.recTag(rec)`(견본+기호+이름 요소) | 그래프 범례·캔버스 라벨에 '기록 n' 대신 `SK.recLabel` |
+| C3 | 큰 판 전용 자리: `SK.recordTable(null, {columns, extra: el})` 또는 `SK.recordExtra(el)` | collision `recBigBody.insertBefore(card, recVs)`·double-slit `insertBefore(ui.check, …)` → `extra` 로 |
+| C4 | 5개가 차면 안내 + 큰 판 각 줄 ✕ 로 하나 지우기(`SK.deleteRecord(i)`) — 번호·색은 다시 매김. 시뮬이 `rec.n`/`rec.slot` 을 따로 저장해 두었다면 `onRecords` 에서 다시 읽기 | convex(기록 칸 남은 수 안내 문장) |
+| D1 | 도움말 '이렇게 해요' 세로 깨짐 고침(`.help-step` 2칸 격자). 서랍 폭 `min(720u, 100vw−40u)` | — |
+| D2 | 개념 카드 `concepts:[{title, summary(한 줄), plain('줄1\n줄2'), example, figure(SVG 글), formula, symbols:[{s,meaning,unit}], why, live(p)}]` — 렌더 순서 summary→plain→example→figure→[식 보기]→[왜 그럴까?]→지금 값으로. 예전 `{title, formula, plain, live}` 도 그대로 보임 | 5종: summary·symbols·why 로 나누기 |
+| D3 | `terms:{ '초점거리': {def, short, alias:['초점 거리','f']} }` — 같은 말은 같은 풀이, 넣은 순서대로 | — |
+| D4 | `think({id, q, choices, answer, why, hint, hintFold, reveal, when: p => …})` · `SK.think.remove(id)` · 모드가 바뀌면 `SK.refreshThinks()`. 답을 누르면 '답은 ○○' + 이유가 바로. 보기 없는 계산형 hint 는 '힌트 보기'로 접힘 | double-slit·orbit 의 자체 숨김(thinkCards[m]) → `when` 으로 |
+| D5 | 예측 판정은 **선택지 글자**로: `내 예측: 동시에 → 맞았어요` / 숫자형 `예측 40 m · 실제 40.8 m · 차이 0.8 m` | 선택지 글은 짧게(그대로 판정 문장에 들어감) |
+| E1 | 카드 아래 줄 = `preset.changes`(예 `'v₀ 10 → 20'`, `'g: 달'`, 14자 안팎). 없으면 `change` 를 쓰고 콘솔 경고. 분류(tag)는 색 점+말풍선 | 5종 `changes` 추가 |
+| E3 | `preset.mode:'위성 모드'` 를 주면 토스트가 `카드 ③: 위성 모드로 바뀌어요` | orbit |
+| E4 | `predict({afterHint:'자료 카드를 보세요'})` 로 예측 뒤 토스트 문구 바꾸기(28자 이내) | orbit 케플러 |
+| G2 | chooseMode: 기본 선택 없음, 카드를 누르면 바로 시작, 패널 줄 `지금: ○○ [실험 고르기]` | — |
+| G3 | 글자 전용 색 `--color-ok-text` `--color-warn-text` `--color-ink-chip`. `status()` 는 **배열만**(문자열이면 콘솔 경고) | 5종 status 배열 확인 |
+| G6 | `SK.stageInset()` → `{top, bottom}`(캔버스 단위): 모서리 칩이 차지하는 위·아래 높이. 라벨·궤적을 그 밖으로 | 라벨이 상태 칩 밑으로 들어가는 곳 |
+| 글자 | 캔버스 글자 **22u 이상**(`--fs-caption` 20→22). 공통 그래프는 22 로 올림 | 측정(2026-10-28, 처음 화면): projectile 20 · double-slit 18 · collision 20 · orbit 12 · convex 16 → 22 이상으로 |
+
+### 0-4. 하위 호환 · 깨지는 지점 (정확히)
+- **그대로 동작**: `predictOnPreset`(→ `autoPredict` 로 읽음, false 면 끔) · `SK.el.note`(늘 숨은 빈 칸) · `SK.el.btnRec`(숨은 버튼, 클릭하면 기록) · `preset.change`(아래 줄 대용) · 예전 `concepts` 구조 · 문자열 `takeaway`·`terms` · 숫자 `ticks` · `notice(text, type, ms, action)` · `recordTable(null,{columns})`·`rt.el` · `SK.reset()`(실행만 처음으로).
+- **동작이 바뀜(시뮬이 확인할 것)**
+  1. 카드 클릭 순서: 예전 '예측 → 고른 뒤 값 적용' → 이제 **'값 적용(onApply) → 예측 창'**. 예측 창 ✕ 는 카드 취소가 아니라 예측만 닫음. `onApply` 안에서 `SK.prediction` 을 읽던 코드는 **이전 예측**을 읽게 됨(예전과 같음).
+  2. 선택형 예측: 보기를 누르면 **바로 닫히지 않고** 고른 상태 → [예측하기]. 숫자키 1~9 도 고르기만 함(Enter 로 확정).
+  3. `SK.finish(msg)` 의 msg 는 토스트가 아니라 **띠 문장**(6초). 28자 넘는 `notice` 도 띠로 간다.
+  4. `R` 키는 `resetDefaults`(값까지 처음으로). 시뮬 `onKey` 에서 R 을 따로 쓰면 그쪽이 먼저.
+  5. 띠 `stepTasks[i].action` 의 label 이 `▶`·`⏸`·`↻`·'실행하기'·'이어서 실행'·'다시 실행' 이면 숨김. orbit `{label:'자료 카드 보기'}` 같은 실행 아닌 행동은 그대로.
+  6. 기록 큰 판 표에 ✕ 버튼이 첫 칸에 붙는다. `rt.el` 안 표를 직접 꾸미던 코드(convex `recHead.insertBefore`)는 머리 구조가 `[제목][열 더 보기][끝]` 으로 바뀌어 **위치가 달라질 수 있음** → `extra` 로 옮길 것.
+  7. 예측·모드 창이 실험 화면 **아래쪽**으로 내려감(배경 흐림 없음, 어둡기 0.25) → 위쪽 결과 층이 보이므로 A4 숨김 필요.
+  8. 패널 `.panel-sec__title` 이 sticky(배경 sunk). 패널에 직접 넣은 요소가 제목과 겹치면 z-index 4 아래로.
+- **콘솔 경고로 알려 주는 것**: 토스트 28자 초과 · `status()` 문자열 · `preset.changes` 없음 · 카드 이름 12자 초과.
+
+### 0-5. 확인 방법 (리드 통합 확인)
+- `python tools/shot.py sims/<slug>/index.html?mode=… _review/R2_after/<이름>.png …` (G4: 쿼리 됨) — 1280×720·1920×1080·1180×820 × 단계(예측 창/실행 끝/비교/정리/도움말).
+- 자동 검사 `python _review/R2/edu1/check.py`: 토스트∩띠 bbox 0 · `.sim-stage` 안 해설 0 · 보이는 kbd 0 · `(으)로` 0 · `[기록하기]` 0 · 하단 기록 버튼 0 · 캔버스 최소 글자(px, 논리 단위).
+- 도움말 '이렇게 해요' 1280 에서 한 줄 20자 이상(D1).
+
+---
+
+## 0R1. R1 에서 바뀐 것 (참고 — R2 가 덮어쓴 곳은 위 §0 이 우선)
+
+### 0-1. 디자인 원칙 다섯 가지
+1. **지금 할 일 하나** — 제목 아래 띠(`.sim-task`)에 단계 스테퍼 + '지금 할 일' 문장 + 주 행동 버튼 1개.
+2. **단계별 점진 공개** — 예측: 장면+예측 카드+핵심 수치 / 실행: 계기판·그래프 / 비교: 오른쪽 칸이 **기록 표 큰 판**으로 바뀜 / 정리: 오른쪽 칸이 **정리 질문 판**으로 바뀜.
+3. **잘림 0** — shared 에서 `text-overflow: ellipsis` 를 쓰지 않는다. 긴 글은 `word-break: keep-all` 로 2줄, 또는 접기.
+4. **말은 풀어쓴다** — '즉시'→'⚡ 바로 반영', '다시 시작'→'↻ 바꾸면 처음부터 다시', '1배'→'속도 ×1', '◀ ▶'→'한 칸 뒤로/앞으로', '지우기'→'기록 모두 지우기', '초기화'→'처음 설정으로', '기록'→'기록하기', '기록 0/5'→'저장한 실험 0/5', '직전'→'직전 실행(저장 안 됨)', '■ 준비'→'실행 전 · t = 0.00 s'. **단축키는 화면에 쓰지 않는다**(버튼 위에 마우스를 올리거나 `? 도움말 › 단축키` 탭에서만).
+5. **개념 도우미는 공통 부품** — 시뮬레이터는 내용(JSON)만 넣는다: `help()` `term()` `takeaway()` `reveal()` `think()`.
+
+### 0-2. 각 시뮬레이터가 해야 할 반영 작업 (체크리스트)
+| # | 할 일 | 해당 |
+|---|---|---|
+| 1 | `init` 에서 **`steps` 옵션 삭제**. 단계 이름은 `예측·실행·비교·정리` 고정. `data-step-only` 값·`onStep` 비교 문자열을 `'비교'`/`'정리'` 로 바꾼다. (지금은 예전 이름을 별칭으로 받아 줘서 깨지지 않지만 콘솔 경고가 뜸) | convex-lens(`'생각해 보기'`·`'규칙 찾기'`), double-slit(`'생각해 보기'`) |
+| 2 | `stepTasks:[{text, action:{label,onClick}}]` 4개로 단계별 '지금 할 일' 문장을 쓴다(없으면 공통 문장). action 을 비우면 공통 버튼(실행하기/기록하기/비교하러 가기…)이 상황에 맞게 바뀜 | 5종 |
+| 3 | 실험 카드(프리셋) **name 12자 이내**로 다시 쓰기(넘으면 콘솔 경고 + 작은 글씨). `tag` 는 예전 키 그대로(표시 말은 shared 가 바꿈: 탐구 재현→교과서 탐구, 대표 문항→교과서 문제, 오개념→흔한 오해 확인) | 5종 |
+| 4 | 모든 `preset.predict` 에 **`answer`(1부터)·`why` 필수**, 또는 `judge(p, values)→번호`. 숫자 예측은 `numeric:{label, unit, min, max, key, decimals, tolerance}`. 실행이 끝나면(`finish`) 판정이 자동으로 뜬다 | 5종 (projectile 은 자체 judge 를 지우고 `judge` 로 옮길 것) |
+| 5 | 실험 카드는 이제 **예측 카드를 먼저 띄우고, 답을 고른 뒤 값 적용**(`onApply` 도 그 뒤). ✕ 로 닫으면 카드 취소, '예측 없이 바로 실행'은 값 적용 후 실행. 기록이 있으면 확인창 | 5종 확인 |
+| 6 | `status()` 는 **배열** 반환 권장 `['지구','공기 저항 없음','g 9.8']` (칩 하나에 한 덩어리). 문자열이면 ` · ` 로 나눔. 'H로 공개' 같은 키 안내는 빼기 | 5종 |
+| 7 | 패널 순서가 **수치 → 상황 → 화면에 표시하기 → 더 많은 설정**. `addVar` 는 핵심 2~3개만 `'values'`, 나머지는 `'deep'`. 패널 맨 위에 직접 끼워 넣은 것(projectile 의 g 막대 `SK.el.panel.insertBefore`)은 `'values'` 안으로 | 5종 |
+| 8 | **하단 띠가 88u(한 줄)로 줄었다.** 계기판은 1줄 3~4개, 그래프는 1개. 2줄 계기판·띠 안 큰 판은 칸 안에서 잘린다(막대를 덮지는 않음). 기록 표 칸은 띠에서 빠짐 → `SimKit.el.band.style.gridTemplateColumns` 를 3칸으로 주면 앞 2칸만 씀 | projectile(계기판 6개), collision(계기판 4개+그래프 3개), orbit, double-slit, lens(상의 모습 판) |
+| 9 | `.teacher-only` 는 **교사 모드에서만** 보인다(`?teacher=1` 또는 H 3초). 학생이 봐야 할 설명·정답은 거기 두지 말고 `SK.reveal()`(답 확인하기)·`SK.think({…why})` 로 | projectile(정답 줄), lens(빈칸 답), collision(H 버튼) |
+| 10 | `notice` 는 **1개만** 뜬다(새 것이 옛 것을 바꿈). 끝 안내와 기록 안내를 한 문장으로: `SK.finish('착지 — [기록하기]로 저장해요')`. 'S 로', 'Space 로', 'R 후' 같은 키 이름 금지 | 5종 |
+| 11 | 토스트·발문 카드·수식 박스를 **실험 화면 안에 직접 그리지 말 것** → 결과 문장은 `SK.takeaway()`, 정리 발문은 `SK.think()`, 식은 `SK.help({concepts})` | projectile·collision·orbit(think 를 cornerBR/TR 에 붙임), double-slit(수식 박스) |
+| 12 | `SK.help({how, concepts, terms})` 로 `? 도움말` 채우기, 라벨에 `{{용어}}` 쓰기, 실행 끝 `SK.takeaway()` | 5종 |
+| 13 | `chooseMode` 쓰는 곳: `desc` 한 줄 필수('이걸 고르면 무엇을 해 보나'), 라벨 앞 '①' 빼기(shared 가 붙임), 성취기준 코드는 desc 에서 빼기. 허브가 `?mode=` 로 넘김(이중슬릿 physics/quantum, 위성 cannon). 패널의 같은 선택(값이 같은 addChoice)은 자동으로 접히고 '지금: ○○ [바꾸기]' 한 줄이 됨 | double-slit, orbit |
+| 14 | 캔버스 라벨이 겹치는 곳은 `SK.placeLabel(ctx, items)` | orbit·lens·collision |
+| 15 | 실험 화면은 **1250×660**(예전 700). `stageFit:true` 면 1250×700 그림이 0.94배로 줄어 그대로 보임. 새로 그리면 `stageH: 660` 을 주고 660 기준으로 | 5종(선택) |
+
+### 0-3. 하위 호환(지금 5종이 깨지지 않게 한 것)
+- `cfg.steps` → 경고 후 무시, 예전 이름은 **별칭**: `data-step-only="생각해 보기"` 도 4단계에서 보이고, `onStep(i, 예전이름, 새이름)` 으로 넘어감.
+- `data-step-only` 해석(A1): 속성 전체가 단계 이름과 같으면 OK → `|` `,` 로 나눔 → 공백으로 나눔(예전 `"비교 정리"`).
+- `SK.el.panel` = 패널 **스크롤 칸**(예전처럼 `insertBefore`·`appendChild` 됨). `SK.el.panelFoot` 그대로.
+- `SK.el.records` = 오른쪽 아래 **기록 칩**(`hidden` 으로 숨기기 가능). `recordTable(null, …)` 은 기록 큰 판에 그려지고 반환 `el` 안에 `.rec-box__head` · `tbody` 가 그대로 있다(렌즈의 '같은 거리 찾기' 버튼 호환).
+- `.sim-today` 는 '수업 정보 ▾' 안에 있다. 시뮬레이터가 글을 바꾸면 '지금 할 일' 띠의 '오늘 알아볼 것' 줄도 따라감.
+- `html.teacher` 클래스도 함께 붙인다(렌즈 CSS 호환). `SK.isTeacher()`·`cfg.onTeacher(on)` 그대로.
+- `predict()` 는 이제 `{choice, index, number}|null` 을 돌려준다(예전: 번호). 지금 5종은 직접 부르지 않음. `SK.prediction` 은 예전 필드(`answer`·`index`·`counts`)를 그대로 가진다.
+- 키 `H` 짧게 = 아무 일 없음(교사 모드는 3초). `[ ]` 속도는 ×0.1·×0.25·×0.5·×1·×2.
 
 ---
 
@@ -10,66 +130,56 @@
 
 ```
 49_물리-수업시뮬레이터/
-├─ index.html                 허브 표지 (카드 5장, 1~5 키로 열기)
+├─ index.html                 허브 (카드 5장, 1~5 키, ?mode= 전달)
 ├─ shared/
-│  ├─ fonts.css               @font-face (로컬 woff2)
-│  ├─ fonts/                  PretendardVariable.woff2, noto-serif-kr-{korean,latin}-{500,700,900}-normal.woff2, LICENSE-*.txt
-│  ├─ tokens.css              디자인 토큰 (--u, --color-*, --fs-*, --space-*, --radius-*, --shadow-*, --dur-*)
-│  ├─ base.css                리셋·16:9 무대·상단 메뉴·부품 클래스
-│  ├─ shell.css               시뮬레이터 화면 뼈대 배치(제목 줄·실험 화면·조절 패널·하단 띠·하단 막대)
-│  ├─ sim.js                  window.SimKit (결정서의 'shell.js' 역할)
-│  └─ TEMPLATE.html           복사해서 시작하는 최소 예제
-└─ sims/
-   ├─ _template/index.html    TEMPLATE.html 과 같은 내용 — 바로 열어 동작 확인용
-   └─ <slug>/index.html + sim.js     ← 여기에 만든다
+│  ├─ fonts.css · fonts/      로컬 글꼴
+│  ├─ tokens.css              디자인 토큰 (--u, --color-*, --fs-*, --space-* …)
+│  ├─ base.css                리셋·무대·부품 클래스 (R1 부품은 파일 끝 19~30번)
+│  ├─ shell.css               시뮬레이터 화면 뼈대 배치 (R1 전면 수정)
+│  ├─ sim.js                  window.SimKit
+│  └─ TEMPLATE.html           복사해서 시작하는 예제 (= sims/_template/index.html)
+└─ sims/<slug>/index.html + sim.js (+ <slug>.css)
 ```
-
-slug: `projectile-energy` · `double-slit-quantum` · `collision-momentum` · `orbit-gravity` · `convex-lens`
-
-**시작하는 법**
-1. `shared/TEMPLATE.html` → `sims/<slug>/index.html` 로 복사.
-2. `<body data-sim="<slug>">` 로 바꾼다(식별색이 제목 밑줄·칩·예측 카드에 들어감).
-3. 인라인 `<script>` 내용을 `sims/<slug>/sim.js` 로 옮기고 `<script src="sim.js"></script>`.
-4. `index.html` 을 더블클릭(file://)해서 열리는지 확인.
-
 불러오는 순서(바꾸지 말 것): `fonts.css → tokens.css → base.css → shell.css → ../../shared/sim.js → sim.js`
 
 ---
 
 ## 2. 화면 뼈대 (1920×1080 기준, 단위 u) — `SimKit.init()` 이 만든다
 
-| 칸 | 클래스 / `SimKit.el.*` | 위치·크기 | 내용 |
-|---|---|---|---|
-| 제목 줄 | `.sim-top` / `top` | y 0~88 | 브랜드(허브 링크) · 명조 40u 제목(식별색 밑줄) · 과목·단원·성취기준 칩 · 오늘 알아볼 것 · 상태 줄(24u) · 단계 탭 |
-| 실험 화면 | `.sim-stage` / `stage` | x40 y100, 1250×700 | `SimKit.view` 캔버스(논리 좌표 1250×700). 모서리 판 `cornerTL/TR/BL/BR` |
-| 조절 패널 | `.sim-panel` / `panel` | x1310 y100, 570×860 | `SimKit.panel('situation' → 'values' → 'tools' → 'deep')` 순서 고정. 비어 있는 칸은 숨음 |
-| 하단 띠 | `.sim-band` / `band` | x40 y816, 1250×144 | `meters`(계기판) · `graph`(그래프) · `records`(기록 표) 3칸, 비율 5:4:4. 바꾸려면 `SimKit.el.band.style.gridTemplateColumns` |
-| 하단 막대 | `.sim-bar` / `bar` | y976~1064 | [프리셋 1~5] [▶ 실행 Space][◀ ,][▶ .][속도] [기록 S][초기화 R][지우기 C] |
-| T 접기 | `.sim.is-collapsed` | 실험 화면 1840×860 | 패널·하단 띠 숨김. `stageFit:true` 면 1250×700 그림이 비율대로 커짐 |
-| 세로 태블릿 | `@media (orientation: portrait)` | 설계 1330×2000 | 실험 화면 → 하단 띠 → 패널(2열) → 하단 막대 순으로 세로 배치. 실험 화면 크기는 그대로 |
-
-창 비율이 16:9 가 아니면 무대 전체가 줄어들고 남는 곳은 양피지색(레터박스).
+```
+y0   ~72    .sim-top     [← 허브] 제목(명조 34u, 식별색 밑줄)  (교사 모드: 과목·성취기준 칩)   [수업 정보 ▾][? 도움말][⤢ 전체 화면]
+y72  ~132   .sim-task    ①예측 ─ ②실행 ─ ③비교 ─ ④정리 │ (오늘 알아볼 것) 지금 할 일 문장   [주 행동 버튼] [다음 단계 ▸]
+y140 ~800   .sim-stage   1250×660 (x40) · 왼쪽 위 상태 칩 줄(status) · .sim-note(예측 판정·결과 해설, 실행 끝나면 맨 위)
+y140 ~900   .sim-panel   570×760 (x1310) 수치 → 상황 → 화면에 표시하기 → 더 많은 설정 ▾ · 머리: 범례 '⚡ 바로 반영 · ↻ 처음부터 다시'
+            .rec-big     (같은 자리, 비교 단계) 기록 표 큰 판 · 기록 2개 필요 안내 · 두 기록 나란히 보기(▲▼)
+            .think-board (같은 자리, 정리 단계, think() 가 있을 때) 정리 질문 카드
+y812 ~900   .sim-band    1010×88 계기판 | 그래프 (5:4)        .rec-chip 228×88 '저장한 실험 n/5 [표 보기]'
+y916 ~1036  .sim-bar     실험 카드 5장(2줄) | [▶ 실행] [◀ 한 칸 뒤로][앞으로 ▶][속도 ×1 ▾] / [기록하기][처음 설정으로][⋯ 더보기]
+y806        .notice-zone 토스트 1개, 3초, 실험 화면과 하단 띠 사이 가운데 (모달보다 위)
+```
+- `SimKit.el.*`: `root slide top task note stage panel(스크롤 칸) panelBox recBig thinkBoard band meters graph records(기록 칩) bar presets cornerTL/TR/BL/BR status notices`
+- 오른쪽 칸 전환: 비교 단계 → 기록 큰 판, 정리 단계 → 질문 판(think 가 있으면). 판 머리 '설정 보기 ▸', 패널 머리 '기록 표 보기 ▸', 기록 칩 '표 보기/표 닫기'. `SK.showSide('panel'|'records'|'think')`.
+- 패널은 안에서 스크롤, 끝이 아니면 아래 그림자 + '아래에 더 있어요 ↓'(누르면 내려감). 칸마다 '기본값으로 ↺'.
+- T(또는 ⋯ › 조작판 접기): 패널·띠 숨기고 실험 화면 1840×760.
+- 폭 600px 이하: 맨 위 '태블릿이나 PC 에서 열어 주세요' 띠(세로 배치는 R2).
 
 ---
 
-## 3. 클래스 목록 (base.css)
+## 3. 클래스 (base.css · shell.css)
 
 | 분류 | 클래스 |
 |---|---|
-| 무대 | `.app` `.slide` · 상단 메뉴 `.menu` `.menu__brand` `.brand-mark` `.menu__name` `.menu__list` `.menu__item[aria-current=step]` `.menu__key` |
-| 버튼(72u 이상) | `.btn` `.btn--primary` `.btn--secondary` `.btn--quiet` `.btn--danger` `.btn--icon` `.btn--lg` `.btn--sm`(표 안 보조만) `.btn__key` `.btn__sub` `[aria-pressed=true]` |
-| 칩·꼬리표 | `.chip` `--sim` `--primary` `--copper` `--warn` `--ok` `--outline` · 프리셋 꼬리표 `.chip[data-tag="탐구 재현|대표 문항|오개념|과학사|교통안전|작용·반작용|발사체|생활 속|기묘함"]` · `.tag--live`(즉시) `.tag--restart`(다시 시작) |
-| 변수 위젯 | `.var` `.var__head` `.var__label` `.var__sym` `.var__input` `.var__unit` `.var__row` `.var__step` `.range` `.var__ticks` `.var__bubble` `.var__msg` · 상태 `.is-dragging` `.is-pending` `.is-disabled` |
-| 상황 전환 | `.ctl` `.ctl__label` · 세그먼트 `.seg` `.seg__opt` · 카드형 `.seg--cards` · 체크 토글 `.check` `.check__box` `.check__state` |
-| 프리셋 | `.preset` `.preset__key` `.preset__name` · 설명 줄 `.preset-info` (`.is-change` 바꿀 값 / `.is-fixed` 고정한 값) |
-| 계기판 | `.meters` `.meter[data-q=velocity|force|energy-k|energy-p|heat]` `.meter__label` `.meter__value`(56u) `.meter__value--md` `.meter__unit` `.meter.is-hidden-value`(H 전 흐림) |
-| 그래프 | `.graph-box` `.graph-box__title` `.graph-box__legend` `.graph-box__canvas` |
-| 기록 표 | `.rec-box` `.rec-table` `td.is-changed`(바뀐 변수 굵게) `tr.is-ghost`(직전 실행) `.rec-swatch` |
-| 질문 판 | `.think` `.think__label` `.think__q` `.think__hint` ('생각해 보기') |
-| 예측 카드 | `.predict-layer` `.predict` `.predict__q` `.predict__choices` `.predict__info` |
-| 안내·창 | `.notice` `--warn` `--restart` `--ok` · `.dialog-layer` `.dialog` · 서랍 `.drawer` `.guide-table` |
-| 기타 | `.progress`(진행 알약) `kbd` `.num`(표 숫자) `.teacher-only`(H 때만 보임) `[data-step-only="비교 정리"]` `.sr-only` |
-| 실험 화면 판 | `.stage-corner--tl/tr/bl/br` (shell.css) |
+| 지금 할 일 | `.sim-task` `.task-steps` `.task-step[aria-current=step]` `.task-step.is-done` `.task-step__num` `.task-now__text` `.task-now__sub` `.task-now__act` |
+| 버튼 | `.btn` `--primary` `--secondary` `--quiet` `--danger` `--icon` `--sm`(56u) `--lg` · `.btn__key`(기본 숨김, `html.show-keys`·호버·키보드 포커스에서만) |
+| 변수 위젯 | `.var` `.var__head` `.var__label` `.var__sym` `.var__range`(범위 상시) `.var__input` `.var__unit` `.var__row` `.var__step` `.var__stepinfo`(±step) `.range`(트랙 10u·손잡이 56u) `.var__ticks`(20u 먹색, 3개, 손잡이 밑은 숨김) `.var__err`(범위 밖 고정 안내) `.var__hint` · `.is-pending` `.is-flash` `.is-folded` |
+| 반영 아이콘 | `.apply-ico--live`(⚡) `.apply-ico--restart`(↻, 실행 중 바꾸면 '↻ 다음 실행부터') — 예전 `.tag--live/--restart` 는 CSS 만 남음 |
+| 실험 카드 | `.preset-card` `.preset-card__name`(2줄) `.preset-card__key` `.preset-card__tag`(20u 풀어쓴 말) `.preset-tip`(호버 설명) `.preset-info`(고른 카드, 왼쪽 위) |
+| 상태 칩 | `.stage-status .chip` `.is-run` `.is-done` `.is-pend` |
+| 예측 | `.predict-layer` `.predict` `.predict__close` `.predict__choices`(80u 버튼) `.predict__num` `.is-shake` · 판정 `.verdict--hit/--miss/--info` `.verdict__mark` |
+| 설명 도우미 | `.sim-note` `.takeaway` `.reveal`(`<details>`, `html.reveal-locked` 면 잠김) `.empty` `.think-card` `.term`(점선 밑줄) `.term-tip` `.drawer--help` `.help-tab` `.concept` `.concept__formula` `.concept__live` |
+| 기록 | `.rec-chip` `.rec-big` `.rec-need` `.rec-box` `.rec-table`(`td.is-changed`, `tr.is-ghost`) `.scroll-shadow`(좌우 그림자) `.vs` `.vs-table` `.vs-up`(▲) `.vs-down`(▼) |
+| 창·메뉴 | `.dialog-layer` `.dialog` `.mode-layer`(흐림+70%) `.mode-card` `.mode-opt` `.pop-menu` `.info-pop` `.drawer` `.guide-card` |
+| 교사 | `html.is-teacher`(+`html.teacher`) `.teacher-only` |
 
 ---
 
@@ -79,148 +189,142 @@ slug: `projectile-energy` · `double-slit-quantum` · `collision-momentum` · `o
 ```js
 SimKit.init({
   slug: 'projectile-energy', title: '포물선 운동과 역학적 에너지',
-  subject: '역학과 에너지 (진로 선택)', unit: '(1) 시공간과 운동',
-  standards: ['12역학01-02'], today: '수평으로 던진 공과 그냥 떨어뜨린 공, 무엇이 먼저 땅에 닿을까?',
-  // steps 생략 = ['예측','실행','비교','정리'],  onStep(i, name)
-  dt: 1/240,               // 고정 물리 간격(초)
-  stageFit: true,          // 논리 좌표 1250×700 고정 (false: view.w/h 가 칸 크기 u 를 따름)
-  reset(p)   { ... },      // p = SimKit.params. 처음 상태 만들기
-  step(dt,p) { ... },      // 한 걸음. 끝나면 SimKit.finish('문장')
-  render(view, p) { ... }, // view.ctx 에 그리기 (바탕은 이미 지워져 있음)
-  capture(p) { return { series: { y: [[t,y],...] }, values: { range: 40 } }; }, // 기록·직전 흐림용
-  save() { return {...}; }, load(s) { ... },     // 선택: ',' 한 프레임 뒤로
-  status(p) { return 'g = 10 m/s² · 공기 저항 끔'; },
-  predictOnPreset: true
+  subject: '역학과 에너지', unit: '(1) 시공간과 운동', standards: ['12역학01-02'],   // '수업 정보 ▾' 와 교사 모드에서만
+  today: '옆으로 던진 공과 떨어뜨린 공, 무엇이 먼저 땅에 닿을까?',                     // 예측 단계 첫 진입 때 띠 위 보조 줄
+  stepTasks: [ { text: '30°와 60° 중 어느 쪽이 멀리 갈지 먼저 골라요.' },
+               { text: '▶ 실행하고 떨어지는 곳을 봐요.' },
+               { text: '각도만 바꿔 두 번 기록하고 비교해요.' },
+               { text: '정리 질문에 답해 봐요.', action: { label: '개념 보기', onClick: () => SimKit.toggleHelp(true, 'concepts') } } ],
+  onStep(i, name) {},
+  dt: 1/240, stageFit: true, stageH: 660,
+  reset(p) {}, step(dt, p) {}, render(view, p) {}, capture(p) { return { series:{}, values:{} }; },
+  save() {}, load(s) {},
+  status(p) { return ['지구', '공기 저항 없음', 'g ' + p.g]; },
+  predictOnPreset: true, confirmPresetWithRecords: true, onTeacher(on) {}
 });
 ```
-`init` 직후 같은 틱 안에서 `addVar/addChoice/addToggle/meters/graph/recordTable/setPresets/guide` 를 부른다. 첫 `reset` 은 그 다음 틱에 자동 호출.
 
-### 4-2. 값 두 벌 — 가장 중요한 규칙
-- `SimKit.ui[key]` = 패널에 보이는 값, `SimKit.params[key]` = **지금 실행에 쓰는 값**. 물리 코드는 **언제나 `params` 만** 읽는다.
-- `apply:'live'`(즉시): 바꾸면 params 도 바로 바뀜. `apply:'restart'`(다시 시작, 기본): 실행 전이면 곧바로 reset, 실행 중이면 params 는 그대로 두고 "다음 실행부터 적용돼요 — R" 안내 + 꼬리표 강조 + 상태 줄 표시.
-- `SimKit.get(key)`, `SimKit.set(key, v, {silent})`, `SimKit.valueText(key, v)`(표용 글자).
+### 4-2. 값 두 벌
+`SimKit.ui`(패널) / `SimKit.params`(지금 실행). 물리 코드는 **params 만** 읽는다. `apply:'live'` ⚡ 바로 반영, `apply:'restart'` ↻ 실행 전이면 바로 reset, 실행 중이면 '다음 실행부터 적용돼요 — [처음 설정으로]' 토스트(이미 기록한 실행이면 '이 실행은 이미 기록했어요 — 바꾼 값은 다음 실행부터…').
 
-### 4-3. 수치 바꾸기 (요구 A)
+### 4-3. 수치·상황
 ```js
-SimKit.addVar('values', { key:'v0', label:'처음 속력', symbol:'v₀', unit:'m/s',
-  min:0, max:30, step:1, value:20, decimals:0, precision:1, ticks:[0,10,20,30],
-  apply:'restart', record:true, teacher:false, hint:'', onChange(v, info){} });
+SimKit.addVar('values', { key:'f', label:'{{초점거리}}', symbol:'f', unit:'cm', min:5, max:20, step:1, value:10,
+  ticks:[5, 10, 20], apply:'live', hint:'렌즈를 바꾸는 것과 같아요' });     // 라벨 줄: 이름 ⚡ 5~20 [10] cm / − 슬라이더 + ±1
+SimKit.addChoice('situation', { key:'planet', label:'어디에서?', options:[{value:'earth',label:'지구',sub:'g 9.8'}], style:'cards' });
+SimKit.addToggle('tools', { key:'showV', label:'속도 화살표', value:true });
+// 값이 바뀌면 그 변수 이름으로 깜빡임 — render 에서:
+if (SimKit.isFlashing('f')) { /* 초점 표시를 굵게 */ }   // SimKit.flashLevel('f') → 0~1, SimKit.flash('f') 로 직접 켜기
 ```
-슬라이더(손잡이 48u, 끄는 동안 손가락 위 말풍선) + −/+(누르고 있으면 반복) + 숫자칸(`inputmode=decimal`, Enter 확정, Esc 취소) + 단위 + 꼬리표. 숫자칸은 `precision` 자리까지 정확한 값 입력 가능(슬라이더 눈금에 묶이지 않음). 범위 밖 → 빨간 안내 "범위는 a ~ b 예요. 가장 가까운 b 로 맞췄어요." 반환 `{get, set, setRange, enable, el}`.
+- `ticks` 가 4개 이상이면 양 끝 + 가운데 1개로 줄인다. 범위 밖 입력: 입력칸 아래에 '99은(는) 넣을 수 없어요 — 범위 5~20 cm 라서 가장 가까운 20(으)로 맞췄어요' (다음 입력까지 남음).
+- 변수 이름은 '질량 m₁' 처럼 한글 뒤에 기호(`label` + `symbol`).
 
-### 4-4. 상황 바꾸기 (요구 B)
+### 4-4. 실험 카드(프리셋)
 ```js
-SimKit.addChoice('situation', { key:'planet', label:'어디에서 던질까?', style:'cards', apply:'restart',
-  options:[{value:'earth',label:'지구',sub:'g = 9.8'},{value:'moon',label:'달',sub:'g = 1.6'}], value:'earth' });
-SimKit.addToggle('tools', { key:'showV', label:'속도 화살표', value:true });   // tools 는 기본 record:false
-SimKit.setPresets([{ name:'30°와 60°', tag:'탐구 재현', change:'θ 30° → 60°', fixed:'v₀ 20 m/s, h 0',
-  values:{ theta:30, v0:20, h:0 }, predict:{ question:'어느 쪽이 더 멀리 갈까?', choices:['30°','60°','같다'] },
-  onApply(p){} }]);       // 최대 5개, 키 1~5. 누르면: 값 설정 → reset(직전 실행 보관) → 설명 줄 → 예측 카드
-SimKit.chooseMode({ title:'무엇을 알아볼까요?', modes:[{value:'cannon',label:'뉴턴의 대포',desc:'...'}], onPick(v){} });
+SimKit.setPresets([{ name:'30°와 60°', tag:'탐구 재현', change:'θ 30° → 60°', fixed:'v₀ 20 m/s',
+  values:{ theta:30 },
+  predict:{ question:'어느 쪽이 더 멀리 갈까?', choices:['30°','60°','같다'], answer:3, why:'sin2θ 가 같아서' },
+  onApply(p){} }]);
 ```
+흐름: 카드 누름 → (기록이 있으면 확인창) → 예측 카드 → 답 고름 → 값 적용·reset → `onApply` → 토스트 '③ 30°와 60° 준비 완료 · 내 예측: ③ 같다 — ▶ 실행으로 확인!' → 실행 → `finish()` 때 판정 자동 표시.
 
-### 4-5. 비교 (요구 C)
-- **S** `SimKit.record()` → `capture()` + 기록 대상 변수 스냅샷 → `SimKit.records[i] = {n, slot, params, values, series, changed[], preset, prediction}`. 최대 5, 같은 실행 두 번 기록 안 됨, 직전 기록과 2개 이상 바뀌면 경고.
-- **R** `SimKit.reset()` → 실행했던 결과는 `SimKit.ghost`(직전 실행, 35% 흐림)로 자동 보관. 기록은 그대로.
-- **C** `SimKit.clearRecords()` → 확인 창 후 기록·직전 모두 삭제.
-- `SimKit.recordTable(null, {columns:[{key:'v0', from:'param'}, {key:'range', label:'수평 거리', unit:'m', decimals:1, from:'value'}]})` — 기록 칸에 표. 크게 보기 단추 있음.
-  - 열 옵션 `text: function(rec, prev) → string` — 그 줄의 기록 전체(`rec.params`·`rec.values`)를 보고 글자를 정한다. 예) 벽 모드 줄의 m₂ 는 `'–'`.
-  - 열 옵션 `changed: true | function(rec, prev) → bool` — 결과(`from:'value'`) 열에도 '바뀜' 굵게(`td.is-changed`)를 붙인다. `true` 면 `values[key]` 가 직전 기록과 다를 때. 작은 표와 '크게 보기' 창 모두에 적용되므로 표 DOM 을 직접 고치지 않는다.
-- `SimKit.graph(null, {title, x:{label:'t',unit:'s',min:0,max:'auto'}, y:{...}, series:[{key:'y',label:'높이',color:'--color-primary'}]})` → 매 render 에서 `g.draw({y: points})`. 직전·기록 선은 저절로 겹침.
-- 실험 화면 위 궤적 겹치기: `SimKit.records.forEach(r => SimKit.drawPath(ctx, r.series.path, SimKit.recStyle(r.slot), map))`, 직전은 `SimKit.ghostStyle()`.
-- `SimKit.onRecords(fn)` 기록·직전이 바뀔 때.
+### 4-5. 예측 카드 (A10)
+```js
+SimKit.predict({ question, choices, info, answer, why, judge(p, values), numeric:{label, unit, min, max, key, decimals, tolerance}, tag, handCount })
+  .then(r => { /* r = {choice:1~, index:0~, number} 또는 null(✕ 닫기·예측 없이 실행) */ });
+```
+- 선택지 큰 버튼(80u) + 보조 버튼 '예측 없이 바로 실행' + ✕. 카드가 떠 있을 때 Space·▶ 실행 → 카드 흔들림 + 띠에 '먼저 답을 고르거나 [예측 없이 바로 실행]을 누르세요'. 떠 있는 동안 시뮬 멈춤.
+- '✋ 손들기 수' 는 교사 모드에서만. 결과 `SimKit.prediction.counts`.
+- 판정(`finish()` 때): `answer`(1~) 또는 `judge()` → '✓ 맞았어요 · 내 예측 ② → 맞았어요 — 이유: why' / '✗ 아니었어요 · 정답은 ③'. 숫자 예측은 `capture().values[numeric.key]`(또는 `numeric.actual(p, values)`)와 비교해 '예측 40 m · 실제 40.8 m (차이 0.8 m)', `tolerance`(기본 10%) 안이면 '✓ 가까워요'.
+- 직접 띄우기: `SimKit.verdict('hit'|'miss'|'info', '문장')`, 지우기 `SimKit.hideNote()`.
 
-### 4-6. 그리기·계기판
-- `SimKit.view` = `{canvas, ctx, w, h, clear(), toLogical(pointerEvent)}` — 논리 좌표, 1 = 1u, 왼쪽 위 원점, HiDPI 자동.
-- `SimKit.canvas(container, {w,h,fit})` 추가 캔버스. `SimKit.color('--color-q-force')` 토큰 색. `SimKit.px(n)` n u 의 CSS px.
-- `SimKit.arrow(ctx, x1,y1,x2,y2, {color:'--color-q-velocity', width:5, dash:[8,6], label:'v'})`.
-- `SimKit.meters(null, [{key:'vx', label:'수평 속도', symbol:'vₓ', unit:'m/s', decimals:1, q:'velocity', hidden:false}])` → `m.update({vx: 12.3})`.
-- `SimKit.fmt(v, d)` 음수 '−', 소수 자리 고정.
+### 4-6. 설명 도우미 (A12)
+```js
+SimKit.help({
+  how: ['실험 카드를 눌러 예측을 골라요.', '▶ 실행하고 지켜봐요.', '한 가지만 바꿔 기록해요.'],
+  concepts: [{ title:'렌즈 공식', formula:'1/a + 1/b = 1/f', plain:'물체가 가까워지면 상은 멀어지고 커져요.',
+               live: p => '1/' + p.s + ' + 1/b = 1/' + p.f + ' → b = …' }],
+  terms: { '초점거리': '렌즈 가운데에서 빛이 모이는 곳까지 거리(cm)', '실상': '스크린에 맺히는 상' },
+  keys: [['V', '속도 화살표 켜고 끄기']]          // 이 실험 전용 키 (도움말 › 단축키 탭)
+});
+SimKit.term('초점거리')            // → <abbr class="term"> 마우스 올림·탭하면 풀이 말풍선. 라벨·발문 글 안에서는 '{{초점거리}}'
+SimKit.takeaway(p => '물체가 2f 에 있으면 상도 2f 에, 크기가 같아요.')   // 실행이 끝나면 '이 실험이 보여 주는 것' (null 로 지움)
+SimKit.reveal(el, '<b>정답</b> 같은 크기')                             // <details class="reveal"> '답 확인하기'
+SimKit.think({ q:'g 가 4배면 시간은?', choices:['4배','2배','½배'], answer:3, why:'t = √(2h/g)' })   // 정리 단계 오른쪽 판
+SimKit.think({ q:'질량을 두 배로 하면?', hint:'공기 저항이 없다면…', reveal:'그대로예요' })
+SimKit.empty(SimKit.el.graph, '힘 그래프')  // '▶ 실행하면 여기에 힘 그래프가 나와요' → {show(bool)}
+SimKit.graph(null, {..., empty:'높이 그래프'})   // 그래프는 선이 없으면 저절로 빈 상태 문구
+```
+- `? 도움말`(헤더 버튼·`?` 키): 탭 '이렇게 해요 / 개념 / 용어 / 단축키'. `SimKit.toggleHelp(true, 'concepts')`.
+- 교사 모드 서랍에 '[답 확인하기] 잠그기'(토론 전, 기본 열림)·'모든 답 펼치기'.
 
-### 4-7. 흐름·안내
-`play/pause/toggle/reset/finish(msg)/stepFrame(±1)/setSpeed(x)` · `time/running/started/finished/speed` · `goStep(i)/nextStep/prevStep/stepIndex/stepName` · `predict({question, choices, info, tag, handCount}) → Promise<번호|null>` (키 1~n · 카드의 '✋ 손들기 수' 를 누르면 선택지마다 손든 수 입력칸, 결과는 `SimKit.prediction.counts`; `handCount:false` 로 숨김) · `notice(text, 'info'|'warn'|'restart'|'ok', ms)`(실험 화면 아래 가운데, 최대 2개) · `confirm({title, body, ok, cancel, danger}) → Promise<bool>` · `dialog(...)` · `guide({rows:[{target, standard, discover, misconception}], sections:[{title, items:[]}], keys:'V 화살표'})` · `setStatus(text|null)` · `update()` · `requestRender()` · `onFrame(fn)` · `onKey(e => true면 처리 끝)` · `isTeacher()`.
+### 4-7. 기록·비교 (A8)
+- `record()`: 실행 중이면 거부('아직 실행 중이에요 — 끝나거나 ⏸ 멈춘 뒤에 기록해요'). 5개까지. 직전 기록과 2가지 이상 다르면 경고.
+- `recordTable(null, {columns:[{key, label, unit, decimals, from:'param'|'value', priority:1|2, text(rec,prev), changed}]})` → 기록 큰 판(모든 열, 좌우 스크롤 그림자). `recordTable(요소, …)` → 그 자리에 작은 표(**priority 1 열만**, 없으면 1로 봄) + '크게 보기'.
+- 비교 단계: 기록 0~1개면 '기록이 2개 이상 있어야 비교할 수 있어요 (지금 n개) …' + [지금 결과 기록하기]/[▶ 실행하기]. 2개 이상이면 '두 기록 나란히 보기'(앞/뒤 기록 고르기, 차이 ▲▼ 같음).
+- `recStyle(i)` `ghostStyle()` `drawPath()` `onRecords(fn)` 그대로.
+
+### 4-8. 모드 고르기 (A11)
+```js
+SimKit.chooseMode({ title:'무엇을 알아볼까요?', default:'cannon', urlKey:'mode', key:'mode',   // key 생략 시 값이 같은 addChoice 를 찾아 접음
+  modes:[{ value:'cannon', label:'뉴턴의 대포', desc:'얼마나 빨리 쏘면 지구를 돌까?' }, …],
+  onPick(v){} });     // 반환 {open(), get()}
+```
+- URL `?mode=값` 이면 창 없이 바로. 이번 세션에 한 번 골랐으면(sessionStorage) 창 없이 그 값. 같은 페이지에서 다시 부르면 창을 연다.
+- 창: 기본값 미리 선택, 큰 '이걸로 시작 ▸', ✕·Esc = 지금 것으로 시작, 숫자 키로 고르기. 떠 있는 동안 시뮬 멈춤·상태 칩 숨김·뒤 흐림.
+- 패널 머리에 '지금: 뉴턴의 대포 [바꾸기]'.
+
+### 4-9. 그 밖
+- `notice(text, 'info'|'warn'|'restart'|'ok', ms, {label, onClick})` — 1개, 3초(버튼이 있으면 4.5초).
+- `confirm/dialog({title, body, ok, cancel, danger})`.
+- `guide({rows, sections, keys})` — '수업 안내(교사)' 서랍(교사 모드 헤더 버튼). 표 대신 카드.
+- `placeLabel(ctx, [{x, y, text, anchor:'left'|'center'|'right', color, size, bg, leader}], {avoid:[상자], size})` — 겹치면 8u 씩 위/아래로, 반투명 칩 배경, 많이 밀리면 이음선. 반환: 상자 목록.
+- `setTeacher(bool)` `toggleTeacher()` `isTeacher()` · `toggleHelp()` `toggleGuide()` · `showSide()` · `setTask(i, {text, action})`.
+- 그대로인 것: `meters` (라벨에 `{{용어}}` 가능) · `graph` · `canvas` · `arrow` · `color` · `px` · `fmt` · `play/pause/toggle/reset/finish/stepFrame/setSpeed` · `goStep/nextStep/prevStep` · `setStatus` · `update` · `requestRender` · `onFrame` · `onKey`.
 
 ---
 
-## 5. 키 규칙 (모든 시뮬레이터 공통, `e.code` 사용 → 한글 입력 상태에서도 동작)
+## 5. 키 (e.code — 한글 입력 상태에서도 동작). 화면에는 쓰지 않고 `? 도움말 › 단축키` 에만
 
-| 키 | 하는 일 |
-|---|---|
-| F | 전체 화면 켜기/끄기 |
-| → / PageDown, ← / PageUp | 단계 예측 › 실행 › 비교 › 정리 (프레젠터 리모컨 호환) |
-| Space | 실행 / 일시정지 (끝난 뒤 누르면 새로 실행) |
-| 1~5 | 프리셋 (예측 카드·모드 카드가 떠 있으면 그 선택지) |
-| R | 초기화 — **기록은 지우지 않음** |
-| S | 기록 (최대 5) |
-| C | 기록 지우기 (확인 창: Enter 지우기 / Esc 취소) |
-| , / . | 한 프레임(1/60 초) 뒤 / 앞 |
-| [ / ] | 재생 속도 0.05 · 0.1 · 0.25 · 0.5 · 1배 |
-| H | 교사용 숨김값 (`.teacher-only`, `.meter.is-hidden-value`) |
-| T | 조작판 접기 (실험 화면 1840×860) |
-| Esc | 창·카드·서랍·심화 닫기 → 닫을 것이 없으면 1.5초 안에 두 번 = 허브로 |
-
-- 숫자칸·글자칸 포커스 중에는 공통 키가 모두 꺼진다(1~5 가 프리셋으로 넘어가지 않음). 슬라이더 포커스 중 화살표는 슬라이더가 받는다. 키보드로 포커스한 버튼의 Space/Enter 는 버튼을 누른다(마우스로 누른 버튼은 포커스가 저절로 빠짐).
-- 결정서는 H 를 '교사용 숨김값'으로 정했으므로 허브 복귀는 **Esc 두 번**(또는 왼쪽 위 브랜드)이다.
-- 시뮬레이터 전용 키(예: 위성 V)는 `SimKit.onKey` 로 추가하고 `guide({keys})` 에 적는다. 공통 키와 겹치지 않게.
-- 단계 탭에는 번호 키를 붙이지 않는다(1~5 는 프리셋).
+| 키 | 하는 일 | 키 | 하는 일 |
+|---|---|---|---|
+| Space | 실행 / 멈추기 (예측 카드가 떠 있으면 흔들림) | S | 기록하기 |
+| ← → / PageUp·Down | 단계 | R | 처음 설정으로 (기록 유지) |
+| 1~5 | 실험 카드 (예측·모드 카드에서는 그 선택지) | C | 기록 모두 지우기 (확인창) |
+| , . | 한 칸 뒤로 / 앞으로 (1/60초) | [ ] | 속도 ×0.1·×0.25·×0.5·×1·×2 |
+| F | 전체 화면 | T | 조작판 접기 |
+| ? | 도움말 | H 3초 누르기 | 교사 모드 켜기/끄기 (또는 URL `?teacher=1`) |
+| Esc | 메뉴·서랍·창 닫기 → 1.5초 안에 두 번 = 허브 | | |
 
 ---
 
 ## 6. 지켜야 할 규칙
-
-1. **file:// 로 동작**: 일반 `<script>` 만. ES module·`fetch`·XHR·CDN·외부 글꼴 금지. 데이터는 JS 객체로.
-2. **색은 토큰 이름으로만**: CSS 는 `var(--color-*)`, Canvas 는 `SimKit.color('--color-*')`. 16진수 직접 금지, `color-mix()` 금지. 물리량 색은 뜻이 고정: 속도 `--color-q-velocity`(청록), 힘·가속도 `--color-q-force`(구리), 운동 에너지 `-k`, 위치 에너지 `-p`(글자는 `-p-text`), 열·손실 `-heat`, 직전 실행 `--color-q-ghost`. 기록은 `SimKit.recStyle(i)`(색+선 모양 함께) — 색만으로 구분하지 않는다.
-3. **크기는 u**: CSS 는 `calc(n * var(--u))`, Canvas 는 논리 좌표(1 = 1u). 버튼·터치 대상 72u 이상, 슬라이더 손잡이 48u, 본문 글자 28u 이상(라벨·표 20~24u), 계기판 숫자 56u.
-4. **움직임 0.3초 이하**, 그림자는 `--shadow-*` 만. 소리 없음.
-5. **값은 params 로 읽는다**. 위젯 값을 물리 코드에서 직접 읽지 않는다. 모든 주요 변수는 `addVar`(슬라이더+숫자칸+단위+꼬리표)로 만든다.
-6. **요구 D**: 첫 화면 변수 3~4개. 성취기준과 관계없는 변수는 `'deep'`(심화 ▸)에만. 상황 전환 3가지 이상, 프리셋 3개 이상(꼬리표 + `change`/`fixed` 필수). 기본값·범위·`step` 은 결정서 §4 대응표의 교과서 값(계산이 깔끔한 값)을 그대로. 대응표는 `SimKit.guide({rows})` 에 **결정서와 같은 내용**으로 넣는다.
-7. **성취기준 코드는 결정서에 확인된 것만**. 모르면 `(확인 필요)`. 지어내지 않는다.
-8. **쉬운 말 + 기호**: 변수 이름은 `label:'처음 속력', symbol:'v₀'`. 안내 문구는 "~해요" 체.
-9. **기록**: `capture()` 는 실행을 비교하는 데 필요한 결과만(series 는 점 수백 개 이내로 솎아서). R 은 기록을 지우지 않는다.
-10. 끝나는 실험은 반드시 `SimKit.finish('문장')` 을 불러 '끝' 상태를 알린다.
-11. `shared/` 파일을 고치지 않는다. 필요한 스타일은 `sims/<slug>/` 안 `<style>` 또는 별도 CSS 로, 공통 클래스를 덮어쓰지 말고 새 클래스(접두사 `<slug 약어>-`)로.
-12. 검수 전 확인: 1920×1080 · 1280×720 · 세로 태블릿에서 잘림 없음, 콘솔 오류 0, 숫자칸 포커스 중 1~5 무시, 60 fps.
+1. file:// 로 동작(일반 `<script>`, fetch·module·CDN 금지).
+2. 색은 토큰 이름으로만. 상태는 **색 + 글자('켬/끔', '✓ 완료') + 선 모양**을 함께.
+3. 크기는 u. 버튼 72u(띠·막대 2단은 56u 허용), 손잡이 56u, 보조 글자 최소 20u(1280 에서 13px).
+4. 말줄임 금지, 키 이름 단독 금지, '~해요' 체.
+5. 실험 화면 안에는 그림과 짧은 라벨만. 긴 글은 takeaway / think / help 로.
+6. 학생 화면에 '교사용'·'손들기'·'H 키'·성취기준 코드가 보이지 않게(교사 모드에서만).
+7. 검수: 1280×720 · 1366×768 · 1920×1080 에서 잘림 0, 콘솔 오류 0, `node --check`.
 
 ---
 
-## 7. 디자인 토큰 요약 · 대비 검증 (2026-10-28, WCAG 공식으로 node 재계산, 바탕 #F5EFE0)
+## 7. 토큰 (R1, 바탕 #F5EFE0 기준 WCAG 대비, node 재계산)
 
-| 토큰 | 값 | 대비 | 용도 |
+| 토큰 | 값 | 대비 | 비고 |
 |---|---|---|---|
-| `--color-ink` / `-muted` | #1C1A17 / #4E473C | 15.1 / 8.0 | 글자 |
-| `--color-primary` (`-dark`, `-tint`) | #0F4C5C (#0A3542, #D6E6EA) | 8.3 (tint 위 7.4) | 선택·주 버튼·속도 |
-| `--color-copper` / `-text` / `-tint` | #9A5B1E / #7A4612 / #F1E4D3 | 4.7 / 6.8 (tint 위 6.2) | 힘·가속도 / 구리 글자 / '다시 시작' |
-| `--color-q-energy-k` / `-p` / `-p-text` / `-heat` | #1F6F5F / #B07A00 / #8A5A00 / #A8432A | 5.2 / 3.3(면 전용) / 5.2 / 5.2 | 에너지 막대 |
-| `--color-ok` / `--color-warn` | #2E6B3A / #8E2A26 | 5.6 / 7.3 | 상태 (결정서 근사 6.1 → 실측 5.6) |
-| `--color-line-strong` / `--color-focus` | #8A7E68 / #B26B00 | 3.5 / 3.7 | UI 3:1 충족 |
-| 식별색 projectile / slit / collision / orbit / lens | #1F6F5F / #6B3A7A / #A8432A / #3B3F8C / #8A5A00 | 5.2 / 7.3 / 5.2 / 8.0 / 5.2 | 카드 띠·밑줄·칩 |
-| 식별색 tint (12%) | #DBE0D1 / #E4D9D4 / #ECDACA / #DFDAD6 / #E8DDC5 | — | 칩 바탕 |
-| 식별색 `-text` (tint 위 글자) | #1F6254 / #6B3A7A / #933D27 / #3B3F8C / #7A5003 | 5.3 / 6.0 / 5.3 / 6.7 / 5.2 | projectile·collision·lens 는 원색이 tint 위 4.4~4.5 라 진한 글자색을 따로 둠 |
+| `--color-ink` / `--color-ink-muted` | #1C1A17 / **#5A5347** | 15.1 / 6.6 (sunk 위 6.0) | R1: 보조 글자 |
+| `--fs-caption` / `--fs-meta` / `--fs-control` | 20u / 24u / 26u | — | 1280 에서 13 / 16 / 17px |
+| `--space-thumb` / `--space-track` / `--space-btn-h-sm` | 56u / 10u / 56u | — | R1 신규·변경 |
+| 식별색 projectile / slit / collision / orbit / lens (채도 −20%) | #27675A / #684074 / #9B4B37 / #434684 / #7C560E | 5.8 / 7.1 / 5.3 / 7.5 / 5.7 | 바탕 위 |
+| 식별색 `-text` on `-tint` | #265B50 / #684074 / #884332 / #434684 / #6E4D0F | 5.8 / 5.9 / 5.4 / 6.2 / 5.7 | tint 위 글자 |
+| primary · copper · ok · warn | 그대로 | 8.3 · 4.7 · 5.6 · 7.3 | |
 
-`<body data-sim="<slug>">` 를 주면 `--sim` `--sim-tint` `--sim-text` 가 그 시뮬레이터 색으로 바뀐다. 부품은 이 세 변수만 쓴다.
+세로 화면 설계(1330×2000)는 R1 에서 뺐다(통째로 줄어듦). R2 에서 세로 배치.
 
 ---
 
-## 8. 검증 기록 (2026-10-28)
-- `node --check shared/sim.js` 통과, TEMPLATE·허브 인라인 스크립트 문법 통과.
-- 브라우저(로컬 정적 서버 경유, 1600×900 · 820×1180 세로): `sims/_template/index.html` 콘솔 오류 0 — Space 실행·끝, S 기록, 프리셋 2 → 예측 카드 → 3 선택, 숫자칸 40 입력 → 범위 안내 후 25, 실행 후 '다시 시작' 안내, 기록 표 크게 보기, T 접기, 세로 배치 확인. 허브 콘솔 오류 0.
-- file:// 직접 열기는 검증 도구가 로컬 파일 접근을 막아 확인하지 못함 — 코드에 fetch·module 이 없으므로 동작 조건은 충족. 교실 PC 에서 더블클릭으로 한 번 더 확인할 것.
-
----
-
-## 8. 최종 통합 점검에서 더한 것 (팀장, 2026-10-28)
-
-고도화팀의 `shared/` 수정 요청 가운데 다른 시뮬레이터를 깨뜨리지 않는 것을 반영했다. 다섯 시뮬레이터 모두 `node --check` 통과, 로컬 서버 브라우저 확인 콘솔 오류 0.
-
-| 요청 | 반영 |
-|---|---|
-| 기록 표 열에 그 줄의 값을 보고 글자를 정하는 기능 (충돌) | `columns[].text(rec, prev)` |
-| 결과 열에도 '바뀜' 굵게, 크게 보기 창 포함 (포물선·이중 슬릿·렌즈) | `columns[].changed` (true 또는 함수) |
-| `setSpeed` 안에서 다시 그리기 (위성) | `SimKit.setSpeed` 가 `requestRender` 를 겸함 |
-| 안내 말풍선이 3개까지 쌓여 프리셋 설명 줄·왼쪽 위 안내를 가림 (포물선·이중 슬릿) | 실험 화면 아래 가운데로 옮기고 최대 2개 |
-| 교사 화면 '손들기 수 입력' (포물선) | 예측 카드 '✋ 손들기 수' |
-| 꼬리표 색 '작용·반작용'·'발사체'(충돌), '생활 속'(렌즈), '기묘함'(이중 슬릿) | `base.css` 공통 색표 |
-| 제목 줄 넘침·상태 줄 겹침 (이중 슬릿) | `.sim-top__main` 은 내용 너비 기준, 상태 줄이 먼저 줄어듦(최소 190u), `.sim-top__line2` 넘침 숨김 |
-| 슬로 모션 배율 공식 기능 (충돌) | 미반영 — 지금은 `SimKit.setSpeed(배율)` 로 임의 배율을 넣을 수 있고 `[ ]` 는 5단만 순환. 필요하면 다음 차례 |
-
-시뮬레이터 쪽에서 지운 우회 코드: 포물선(`onRecords` 로 td 굵게), 이중 슬릿(`markChangedCells`, `DSQDebug`), 렌즈(`postTable` 의 is-changed 3줄), 충돌(`SK.valueText` 덮어쓰기), 위성(`SK.setSpeed` 감싸기).
+## 8. 검증 기록 (R1, 2026-10-28)
+- `node --check shared/sim.js` 통과.
+- `tools/shot.py` 로 허브(1280×720·1920×1080), 다섯 시뮬레이터 첫 화면(1280×720), 포물선 1366×768, 충돌 1920×1080 실행 중, 예제(`sims/_template`)의 예측→실행→판정→기록→비교→정리 흐름, 렌즈의 도움말·교사 모드·수업 안내·범위 밖 입력·⋯ 메뉴, 허브 → 이중슬릿(?mode=quantum)·위성(?mode=cannon) 을 찍어 확인. 콘솔 오류 0(경고는 `steps` 옵션·12자 넘는 카드 이름 안내뿐).
+- 스크린샷: `_review/edu1/`.

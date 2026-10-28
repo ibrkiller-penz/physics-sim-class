@@ -4,6 +4,7 @@
   python tools/shot.py <페이지> <저장.png> [동작 ...]
 
   <페이지>  프로젝트 기준 상대경로(예: sims/convex-lens/index.html) 또는 http 주소
+            쿼리도 됨(R2 G4): sims/orbit-gravity/index.html?mode=kepler  index.html?teacher=1
   동작      순서대로 실행한다.
               key:ArrowRight      키 누르기 (Space, KeyS, Digit1 ...)
               click:CSS선택자     요소 클릭
@@ -33,7 +34,11 @@ def main():
         print(__doc__)
         sys.exit(1)
     page_arg, out, actions = args[0], args[1], args[2:]
-    url = page_arg if page_arg.startswith("http") else (ROOT / page_arg).resolve().as_uri()
+    if page_arg.startswith("http"):
+        url = page_arg
+    else:
+        path, q, query = page_arg.partition("?")          # 파일 이름은 쿼리를 뗀 것
+        url = (ROOT / path).resolve().as_uri() + (("?" + query) if q else "")
 
     with sync_playwright() as p:
         browser = p.chromium.launch(channel="chrome", headless=True)

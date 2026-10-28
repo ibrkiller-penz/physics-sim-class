@@ -1,153 +1,346 @@
 /* =====================================================================
-   물리 시뮬레이터 실험실 — 시뮬레이터 화면 뼈대 (공통 틀, 2026-10-28)
+   물리 시뮬레이터 실험실 — 시뮬레이터 화면 뼈대 (공통 틀, R2 2026-10-28)
    tokens.css · base.css 다음에 불러온다. 마크업은 SimKit.init() 이 만든다.
-   근거: docs/04_팀장결정서.md §2-3 (1920×1080 기준, 단위 u)
+   근거: docs/개선/R2_계획.md §2-2 (1920×1080 기준, 단위 u)
 
-     제목 줄   .sim-top    x40~1880  y0~88
-     실험 화면 .sim-stage  x40~1290  y100~800   (1250×700)  ← Canvas 논리 좌표 1250×700
-     조절 패널 .sim-panel  x1310~1880 y100~960  (570×860)   상황 → 수치 → 표시 도구 → 심화▸
-     하단 띠   .sim-band   x40~1290  y816~960   (1250×144)  계기판 | 그래프 | 기록 표
-     하단 막대 .sim-bar    x40~1880  y976~1064  (1840×88)   프리셋 | 재생 | 기록
-     T 로 접기 .sim.is-collapsed → 실험 화면 x40~1880 y100~960 (1840×860)
-     세로 태블릿(폭<높이): 설계 화면 1330×2000, 패널이 실험 화면·하단 띠 아래로
+     제목 줄     .sim-top    x40~1880  y0~72     [← 허브] 제목 ……… [수업 정보 · 교사용 ▾][? 도움말][⤢ 전체 화면] (같은 윤곽선)
+     지금 할 일  .sim-task   x40~1880  y72~132   ①예측 ②실행 ③비교 ④정리 | 지금 할 일 문장(28u 굵게) [주 행동 — 실행 아님] [○○하러 가기 ▸]
+     실험 화면   .sim-stage  x40~1290  y140~800  (1250×660)  — 그림 위에는 아무것도 올리지 않는다(R2 원칙 6)
+                 .notice-zone (실험 화면 안 위 가운데 y148, 한 줄, 최대 760u) — 토스트 1개
+                 .predict-layer / .mode-layer  실험 화면 아래쪽 카드(x215, y420~790, 폭 900u), 어둡기 0.25·흐림 없음
+     오른쪽 칸   .sim-panel  x1310~1880 y140~900 (570×760)  .panel-note(실행 끝난 뒤) → 수치 → 상황 → 표시 → 더 많은 설정
+                 .rec-big    (같은 자리) 비교 단계의 기록 표 큰 판 · 머리 '해설 보기 ▾'
+                 .think-board(같은 자리) 정리 단계의 질문 카드 · 머리 '해설 보기 ▾'
+     하단 띠     .sim-band   x40~1050  y812~900  계기판 | 그래프 (5:4)
+     기록 칩     .rec-chip   x1060~1290 y812~900 저장한 실험 n/5 · (최대 5) [표 보기]
+     하단 막대   .sim-bar    x40~1880  y916~1036 실험 카드 5장 | [▶ 실행] [한 장면 뒤로][한 장면 앞으로][속도] / [기본값으로 되돌리기][그 밖의 기능 ▾]
+   T 로 접기  .sim.is-collapsed → 실험 화면 x40~1880 y140~900
    ===================================================================== */
 
 .sim { --x: calc(40 * var(--u)); }
-.sim > .sim-top, .sim > .sim-stage, .sim > .sim-panel, .sim > .sim-band, .sim > .sim-bar { position: absolute; }
+.sim > .sim-top, .sim > .sim-task, .sim > .sim-stage, .sim > .sim-panel, .sim > .rec-big, .sim > .think-board,
+.sim > .sim-band, .sim > .rec-chip, .sim > .sim-bar { position: absolute; }
+/* R2(A2): 예전 실험 화면 위 해설 자리 — 늘 숨김(예전 코드 호환용 빈 칸) */
+.sim-note-legacy, .sim-note { display: none !important; }
 
-/* ---------- 제목 줄 ---------------------------------------------------- */
+/* ---------- 제목 줄 (y0~72) ------------------------------------------- */
 .sim-top {
   left: var(--x); top: 0;
-  width: calc(1840 * var(--u)); height: calc(88 * var(--u));
-  gap: var(--space-5);
+  width: calc(1840 * var(--u)); height: calc(72 * var(--u));
+  display: flex; align-items: center; gap: var(--space-5);
+  border-bottom: 1px solid var(--color-line);
 }
-.sim-top__brand { padding-right: var(--space-2); }
-/* 제목 칸은 내용 너비를 기준으로, 상태 줄이 먼저 줄어든다 (칩이 상태 줄 위로 넘치던 문제 — 최종 통합 점검) */
-.sim-top__main { flex: 1 1 auto; min-width: 0; display: grid; align-content: center; gap: calc(4 * var(--u)); }
+.sim-top__hub {
+  flex: none; display: inline-flex; align-items: center; gap: var(--space-2);
+  min-height: calc(52 * var(--u)); padding: 0 var(--space-4) 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: calc(2 * var(--u)) solid var(--color-line-strong);
+  background: var(--color-paper-raised);
+  font: var(--font-weight-semibold) var(--fs-meta)/1 var(--font-sans);
+  color: var(--color-ink);
+}
+html:not(.cursor-hidden) .sim-top__hub:hover { border-color: var(--color-primary); color: var(--color-primary); }
 .sim-title {
-  font: var(--font-weight-bold) var(--fs-title)/1.1 var(--font-serif);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex: 0 1 auto; min-width: 0;
+  font: var(--font-weight-bold) calc(34 * var(--u))/1.2 var(--font-serif);
+  word-break: keep-all;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
   text-decoration: underline var(--sim) calc(4 * var(--u));
-  text-underline-offset: calc(8 * var(--u));
+  text-underline-offset: calc(7 * var(--u));
   text-decoration-skip-ink: none;
 }
-.sim-top__line2 { display: flex; align-items: center; gap: var(--space-2); min-width: 0; padding-top: calc(4 * var(--u)); overflow: hidden; }
-.sim-top__line2 .chip { height: calc(28 * var(--u)); flex: none; }
-.sim-today {
-  flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-sans);
+.sim-top__teacher { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); align-items: center; }
+html.is-teacher .sim-top__teacher { display: flex !important; }
+.sim-top__teacher .chip { height: auto; min-height: calc(28 * var(--u)); white-space: normal; }
+.sim-top__spacer { flex: 1 1 auto; }
+html.is-teacher .sim-top__spacer { display: none; }
+.sim-top__tools { flex: none; display: flex; align-items: center; gap: var(--space-2); position: relative; }
+/* G1: 오른쪽 버튼 3개 같은 윤곽선 · 같은 높이 */
+.sim-top__tools .btn { min-height: calc(52 * var(--u)); padding: 0 var(--space-4); font-size: var(--fs-meta); border-width: calc(2 * var(--u)); }
+
+/* 수업 정보 팝오버 */
+.info-pop {
+  position: absolute; right: 0; top: calc(100% + var(--space-2)); z-index: 48;
+  width: calc(640 * var(--u));
+  display: grid; gap: var(--space-3);
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--color-paper-raised);
+  border: 1px solid var(--color-line-strong);
+  box-shadow: var(--shadow-lg);
+  font: var(--font-weight-medium) var(--fs-meta)/1.5 var(--font-sans);
+  animation: rise-in var(--dur-base) var(--dur-ease) both;
+}
+.info-pop dl { display: grid; grid-template-columns: auto 1fr; gap: var(--space-2) var(--space-4); }
+.info-pop dt { color: var(--color-ink-muted); font-weight: var(--font-weight-semibold); }
+.info-pop dd { color: var(--color-ink); word-break: keep-all; }
+.info-pop__teacher { display: grid; gap: var(--space-2); justify-items: start; padding-top: var(--space-3); border-top: 1px solid var(--color-line); }
+.sim-today { font: var(--font-weight-medium) var(--fs-meta)/1.5 var(--font-sans); color: var(--color-ink); word-break: keep-all; }
+.sim-today b { display: block; color: var(--color-ink-muted); font-size: var(--fs-caption); font-weight: var(--font-weight-bold); }
+
+/* ---------- 지금 할 일 띠 (y72~132) ------------------------------------ */
+.sim-task {
+  left: var(--x); top: calc(72 * var(--u));
+  width: calc(1840 * var(--u)); height: calc(60 * var(--u));
+  display: flex; align-items: center; gap: var(--space-5);
+  border-bottom: 1px solid var(--color-line);
+}
+.task-steps { flex: none; display: flex; align-items: center; gap: var(--space-1); counter-reset: none; }
+.task-steps li { display: flex; align-items: center; }
+.task-steps li + li::before { content: ""; width: calc(20 * var(--u)); height: calc(2 * var(--u)); background: var(--color-line-strong); margin: 0 var(--space-1); }
+.task-step {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  min-height: calc(52 * var(--u)); padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  font: var(--font-weight-semibold) var(--fs-control)/1 var(--font-sans);
   color: var(--color-ink-muted);
 }
-.sim-today b { color: var(--color-ink); font-weight: var(--font-weight-bold); margin-right: var(--space-2); }
-.sim-status {
-  flex: 0 3 calc(440 * var(--u)); align-self: center;  /* 칩보다 먼저 줄어든다 */
-  width: calc(440 * var(--u)); min-width: calc(190 * var(--u));
-  font: var(--font-weight-medium) var(--fs-meta)/1.3 var(--font-sans);
-  color: var(--color-ink-muted);
-  text-align: right;
+.task-step__num {
+  display: inline-grid; place-items: center; flex: none;
+  width: calc(36 * var(--u)); height: calc(36 * var(--u));
+  border-radius: 50%;
+  border: calc(2 * var(--u)) solid var(--color-line-strong);
+  font: var(--font-weight-bold) calc(22 * var(--u))/1 var(--font-num);
+  color: var(--color-ink-muted); background: var(--color-paper-raised);
+}
+.task-step.is-done .task-step__num { border-color: var(--color-primary); background: var(--color-primary-tint); color: var(--color-primary); }
+.task-step[aria-current="step"] { color: var(--color-primary); font-weight: var(--font-weight-bold); background: var(--color-primary-tint); }
+.task-step[aria-current="step"] .task-step__num { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-paper); }
+html:not(.cursor-hidden) .task-step:hover .task-step__name { text-decoration: underline; text-underline-offset: calc(5 * var(--u)); }
+.task-now {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; align-items: center; gap: var(--space-4);
+  padding-left: var(--space-5);
+  border-left: calc(3 * var(--u)) solid var(--sim);
+}
+.task-now__words { flex: 1 1 auto; min-width: 0; display: grid; gap: calc(2 * var(--u)); }
+.task-now__sub { font: var(--font-weight-semibold) var(--fs-caption)/1.25 var(--font-sans); color: var(--color-ink-muted); word-break: keep-all; }
+.task-now__text {
+  font: var(--font-weight-bold) var(--fs-task)/1.25 var(--font-sans); color: var(--color-ink);
+  word-break: keep-all;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.sim-status b { color: var(--color-ink); font-weight: var(--font-weight-bold); }
-.sim-status .is-run  { color: var(--color-primary); font-weight: var(--font-weight-bold); }
-.sim-status .is-pend { color: var(--color-copper-text); font-weight: var(--font-weight-bold); }
+.task-now__words.has-sub .task-now__text { font-size: var(--fs-meta); -webkit-line-clamp: 1; }
+.task-now__text.is-alert { color: var(--color-warn-text); }
+.task-now__text.is-msg { color: var(--sim-text); }
+.task-now .btn { flex: none; min-height: calc(52 * var(--u)); padding: 0 var(--space-5); font-size: var(--fs-meta); }
+.task-now .task-now__next { color: var(--color-primary); font-weight: var(--font-weight-bold); }
 
-/* ---------- 실험 화면 ---------------------------------------------------- */
+/* ---------- 실험 화면 (y140~800) -------------------------------------- */
 .sim-stage {
-  left: var(--x); top: calc(100 * var(--u));
-  width: calc(1250 * var(--u)); height: calc(700 * var(--u));
+  left: var(--x); top: calc(140 * var(--u));
+  width: calc(1250 * var(--u)); height: calc(660 * var(--u));
   overflow: hidden;
   border-radius: var(--radius-lg);
   background: var(--color-paper-raised);
   border: 1px solid var(--color-line);
   box-shadow: var(--shadow-sm);
-  touch-action: none; /* 실험 화면 안 끌기(공 당기기 등)는 시뮬레이터가 처리 */
+  touch-action: none;
 }
 .sim-stage > canvas.stage-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-/* 실험 화면 위에 얹는 글자 판 (왼쪽 위 / 오른쪽 위) */
 .stage-corner { position: absolute; z-index: 5; display: grid; gap: var(--space-2); pointer-events: none; }
 .stage-corner > * { pointer-events: auto; }
-.stage-corner--tl { left: var(--space-4); top: var(--space-4); max-width: 70%; }
-.stage-corner--tr { right: var(--space-4); top: var(--space-4); justify-items: end; }
+.stage-corner--tl { left: var(--space-4); top: var(--space-4); max-width: 62%; justify-items: start; }
+.stage-corner--tr { right: var(--space-4); top: var(--space-4); justify-items: end; max-width: 46%; }
 .stage-corner--bl { left: var(--space-4); bottom: var(--space-4); }
 .stage-corner--br { right: var(--space-4); bottom: var(--space-4); justify-items: end; }
+.sim.is-modal .stage-corner { visibility: hidden; }
+/* 상태 칩 줄 (status() 결과 + 실행 상태) — R2: 글자 --color-ink-chip */
+.stage-status { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); pointer-events: none; }
+.stage-status .chip { height: calc(34 * var(--u)); background: var(--color-paper-glass); box-shadow: inset 0 0 0 1px var(--color-line); color: var(--color-ink-chip); font-weight: var(--font-weight-semibold); }
+.stage-status .chip.is-run { background: var(--color-primary); color: var(--color-paper); box-shadow: none; }
+.stage-status .chip.is-done { background: var(--color-ok-tint); color: var(--color-ok-text); box-shadow: inset 0 0 0 1px var(--color-ok); }
+.stage-status .chip.is-pend { background: var(--color-copper-tint); color: var(--color-copper-text); box-shadow: inset 0 0 0 calc(2 * var(--u)) var(--color-copper); }
 
-/* ---------- 조절 패널 ---------------------------------------------------- */
-.sim-panel {
-  left: calc(1310 * var(--u)); top: calc(100 * var(--u));
-  width: calc(570 * var(--u)); height: calc(860 * var(--u));
-  overflow-y: auto; overflow-x: hidden;
-  overscroll-behavior: contain;
+/* ---------- R2(A1) 토스트: 실험 화면 안 위 가운데 한 줄 (y148) ------------- */
+.notice-zone {
+  position: absolute; left: 50%; top: calc(8 * var(--u));
+  transform: translateX(-50%);
+  z-index: 70; display: grid; justify-items: center;
+  pointer-events: none; width: max-content; max-width: calc(760 * var(--u));
+}
+
+/* ---------- 오른쪽 칸 (x1310 y140~900, 570×760) ------------------------ */
+.sim-panel, .rec-big, .think-board {
+  left: calc(1310 * var(--u)); top: calc(140 * var(--u));
+  width: calc(570 * var(--u)); height: calc(760 * var(--u));
   border-radius: var(--radius-lg);
-  background: var(--color-paper-sunk);
-  padding: var(--space-4) var(--space-5) var(--space-5);
+  display: grid; grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: hidden;
+}
+.sim-panel { background: var(--color-paper-sunk); grid-template-rows: auto auto minmax(0, 1fr) auto; }
+.sim-panel[hidden], .rec-big[hidden], .think-board[hidden] { display: none !important; }
+/* 숨은 칸(해설 카드·팝오버)이 빠져도 줄이 밀리지 않게 자리를 못 박는다 */
+.sim-panel > .panel-head { grid-row: 1; }
+.sim-panel > .panel-note { grid-row: 2; }
+.sim-panel > .sim-panel__scroll { grid-row: 3; }
+.sim-panel > .panel-more { grid-row: 4; }
+.rec-big > .side-head, .think-board > .side-head { grid-row: 1; }
+.rec-big > .note-pop, .think-board > .note-pop { grid-row: 2; }
+.rec-big > .side-body, .think-board > .side-body { grid-row: 3; }
+.panel-head {
+  display: grid; gap: var(--space-2);
+  padding: var(--space-3) var(--space-5) var(--space-2);
+  border-bottom: 1px solid var(--color-line-strong);
+}
+.panel-legend { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); align-items: center; font: var(--font-weight-semibold) var(--fs-caption)/1.3 var(--font-sans); color: var(--color-ink-chip); }
+.panel-legend__words { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); word-break: keep-all; }
+.panel-legend__dot { margin: 0 var(--space-1); color: var(--color-line-strong); }
+.panel-legend .side-switch { margin-left: auto; }
+/* R2(A5): 범례 첫 방문 말풍선 (한 번만) */
+.legend-tip {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-ink); color: var(--color-paper);
+  font: var(--font-weight-medium) var(--fs-caption)/1.4 var(--font-sans); word-break: keep-all;
+  animation: rise-in var(--dur-base) var(--dur-ease) both;
+}
+.legend-tip .btn { flex: none; min-height: calc(48 * var(--u)); color: var(--color-paper); border-color: var(--color-paper); background: transparent; font-size: var(--fs-caption); }
+.legend-tip[hidden] { display: none; }
+.panel-mode { display: flex; align-items: center; gap: var(--space-3); font: var(--font-weight-semibold) var(--fs-meta)/1.3 var(--font-sans); }
+.panel-mode b { color: var(--color-primary); font-weight: var(--font-weight-bold); }
+.panel-mode__now { flex: 1; min-width: 0; word-break: keep-all; }
+.panel-mode .btn { margin-left: auto; min-height: calc(52 * var(--u)); }
+.sim-panel__scroll {
+  position: relative;
+  min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
+  padding: 0 var(--space-5) var(--space-5);
   display: flex; flex-direction: column; gap: var(--space-5);
   scrollbar-width: thin;
 }
-.panel-sec { display: grid; gap: var(--space-3); }
-.panel-sec__title {
-  display: flex; align-items: center; gap: var(--space-2);
-  font: var(--font-weight-bold) var(--fs-meta)/1.2 var(--font-serif);
-  color: var(--color-ink-muted);
-  padding-bottom: var(--space-2);
-  border-bottom: 1px solid var(--color-line-strong);
+/* R2(A5): 스크롤 끝 페이드 48u (아래에 더 있을 때만) */
+.sim-panel__scroll.has-more {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 48 * var(--u)), rgb(0 0 0 / 0.15));
+          mask-image: linear-gradient(to bottom, #000 calc(100% - 48 * var(--u)), rgb(0 0 0 / 0.15));
 }
+/* 아래에 더 있어요 ↓ — 누르면 다음 묶음 머리까지 (높이 --tap) */
+.panel-more {
+  position: relative; z-index: 2;
+  display: flex; justify-content: center; align-items: center; gap: var(--space-2);
+  min-height: var(--tap);
+  font: var(--font-weight-bold) var(--fs-meta)/1 var(--font-sans);
+  color: var(--color-primary);
+  background: var(--color-paper-sunk);
+  border-top: 1px solid var(--color-line-strong);
+}
+html:not(.cursor-hidden) .panel-more:hover { background: var(--color-primary-tint); }
+.panel-more[hidden] { display: none; }
+.panel-sec { display: grid; gap: var(--space-3); }
+/* R2(A5): 묶음 머리는 스크롤해도 위에 붙어 온전히 보인다 */
+.panel-sec__title {
+  position: sticky; top: 0; z-index: 4;
+  display: flex; align-items: center; gap: var(--space-2);
+  font: var(--font-weight-bold) calc(24 * var(--u))/1.2 var(--font-serif);
+  color: var(--color-ink);
+  padding: var(--space-3) 0 var(--space-2);
+  border-bottom: calc(2 * var(--u)) solid var(--color-ink);
+  background: var(--color-paper-sunk);
+}
+.panel-sec__title .btn { margin-left: auto; font-family: var(--font-sans); min-height: calc(48 * var(--u)); }
 .panel-sec__body { display: grid; gap: var(--space-4); }
-.panel-sec__body:empty, .panel-sec:has(> .panel-sec__body:empty) { display: none; }
-.panel-deep > summary { list-style: none; cursor: pointer; min-height: calc(56 * var(--u)); }
+.panel-sec:has(> .panel-sec__body:empty) { display: none; }
+.panel-sec__body:empty { display: none; }
+.panel-deep > summary { list-style: none; cursor: pointer; min-height: var(--tap); position: static; }
 .panel-deep > summary::-webkit-details-marker { display: none; }
-.panel-deep > summary::after { content: "▸"; margin-left: auto; transition: transform var(--dur-fast); }
-.panel-deep[open] > summary::after { transform: rotate(90deg); }
+.panel-deep > summary::after { content: "▾ 펼치기"; margin-left: auto; font: var(--font-weight-semibold) var(--fs-caption)/1 var(--font-sans); color: var(--color-primary); }
+.panel-deep[open] > summary::after { content: "▴ 접기"; }
 .panel-foot { margin-top: auto; display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.panel-foot:empty { display: none; }
 .panel-foot .btn { flex: 1; font-size: var(--fs-meta); }
 
-/* ---------- 하단 띠 ------------------------------------------------------ */
+/* R2(A2): 결과 해설 카드 — 패널 맨 위, 실행이 끝난 뒤에만 */
+.panel-note {
+  margin: var(--space-3) var(--space-4) var(--space-2);
+  max-height: calc(440 * var(--u)); overflow: auto;
+  display: grid; gap: var(--space-2);
+  padding: var(--space-2) var(--space-4) var(--space-4) var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--color-paper-raised);
+  border-left: calc(6 * var(--u)) solid var(--sim);
+  box-shadow: var(--shadow-sm);
+  animation: rise-in var(--dur-base) var(--dur-ease) both;
+}
+.panel-note[hidden] { display: none; }
+.panel-note.is-folded { padding-bottom: var(--space-2); }
+.panel-note__head { display: flex; align-items: center; gap: var(--space-2); }
+.panel-note__title { flex: 1; font: var(--font-weight-bold) var(--fs-caption)/1.2 var(--font-sans); color: var(--sim-text); letter-spacing: 0.02em; }
+.panel-note__fold { min-height: var(--tap); min-width: var(--tap); padding: 0 var(--space-3); font-size: var(--fs-caption); color: var(--color-primary); }
+.panel-note__body { display: grid; gap: var(--space-3); }
+.panel-note__body[hidden] { display: none; }
+
+/* 기록 표 큰 판 / 정리 질문 판 */
+.rec-big, .think-board { background: var(--color-paper-raised); border: 1px solid var(--color-line-strong); box-shadow: var(--shadow-sm); }
+.side-head {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-3) var(--space-3) var(--space-3) var(--space-5);
+  border-bottom: calc(2 * var(--u)) solid var(--color-ink);
+}
+.side-head h2 { flex: 1; font-size: calc(28 * var(--u)); white-space: nowrap; }
+.side-head .btn--sm { padding: 0 var(--space-3); font-size: var(--fs-caption); }
+.side-body { min-height: 0; overflow: auto; padding: var(--space-4) var(--space-5) var(--space-5); display: grid; gap: var(--space-4); align-content: start; }
+
+/* ---------- 하단 띠 (y812~900) ----------------------------------------- */
 .sim-band {
-  left: var(--x); top: calc(816 * var(--u));
-  width: calc(1250 * var(--u)); height: calc(144 * var(--u));
+  left: var(--x); top: calc(812 * var(--u));
+  width: calc(1010 * var(--u)); height: calc(88 * var(--u));
   display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 4fr) minmax(0, 4fr);
+  grid-template-columns: minmax(0, 5fr) minmax(0, 4fr);
   gap: var(--space-3);
 }
 .sim-band > * { min-width: 0; min-height: 0; }
 .band-cell { position: relative; min-width: 0; min-height: 0; display: grid; }
 .band-cell:empty { display: none; }
+/* 기록 칩: 저장한 실험 n/5 · (최대 5) [표 보기] */
+.rec-chip {
+  left: calc(1062 * var(--u)); top: calc(812 * var(--u));
+  width: calc(228 * var(--u)); height: calc(88 * var(--u));
+  display: grid; grid-template-rows: auto 1fr; gap: calc(2 * var(--u));
+  padding: var(--space-1) var(--space-3) var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--color-paper-raised);
+  border: 1px solid var(--color-line);
+}
+.rec-chip[hidden] { display: none; }
+.rec-chip__count { font: var(--font-weight-semibold) var(--fs-caption)/1.25 var(--font-sans); color: var(--color-ink-chip); white-space: nowrap; }
+.rec-chip__count b { color: var(--color-ink); font: var(--font-weight-bold) var(--fs-meta)/1 var(--font-num); }
+.rec-chip__row { display: flex; align-items: center; gap: var(--space-2); min-height: 0; }
+.rec-chip__max { flex: none; font: var(--font-weight-medium) var(--fs-caption)/1 var(--font-sans); color: var(--color-ink-muted); white-space: nowrap; }
+.rec-chip .btn { flex: 1; min-height: calc(48 * var(--u)); min-width: 0; padding: 0 var(--space-2); font-size: var(--fs-caption); }
 
-/* ---------- 하단 막대 ---------------------------------------------------- */
+/* ---------- 하단 막대 (y916~1036, 120u) -------------------------------- */
 .sim-bar {
-  left: var(--x); top: calc(976 * var(--u));
-  width: calc(1840 * var(--u)); height: calc(88 * var(--u));
-  display: flex; align-items: center; gap: var(--space-5);
-  border-top: 1px solid var(--color-line);
+  left: var(--x); top: calc(916 * var(--u));
+  width: calc(1840 * var(--u)); height: calc(120 * var(--u));
+  display: flex; align-items: stretch; gap: var(--space-4);
   padding-top: calc(8 * var(--u));
+  border-top: 1px solid var(--color-line);
 }
-.sim-bar__group { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
-.sim-bar__presets { flex: 1 1 auto; }
-.sim-bar__presets:empty::before { content: "프리셋 없음"; color: var(--color-ink-muted); font-size: var(--fs-caption); }
-.sim-bar__transport, .sim-bar__records { flex: none; }
-.sim-bar .btn { padding: 0 var(--space-4); font-size: var(--fs-meta); }
-.sim-bar .btn--run { min-width: calc(170 * var(--u)); }
-.sim-bar .btn--speed { min-width: calc(110 * var(--u)); }
+.sim-bar__presets { flex: 1 1 auto; min-width: 0; display: flex; gap: var(--space-2); align-items: stretch; }
+.sim-bar__presets:empty { display: none; }
+.sim-bar__ctl { flex: none; display: flex; gap: var(--space-3); align-items: stretch; }
+.sim-bar .btn--run { min-width: calc(200 * var(--u)); min-height: 0; font-size: calc(30 * var(--u)); padding: 0 var(--space-5); }
+.sim-bar .btn--run.is-long { font-size: calc(26 * var(--u)); padding: 0 var(--space-4); }
+/* [한 장면 뒤로][한 장면 앞으로][속도] / [기본값으로 되돌리기 ……][그 밖의 기능 ▾] */
+.bar-grid { display: grid; grid-template-columns: repeat(3, auto); grid-template-rows: 1fr 1fr; gap: var(--space-2); }
+.bar-grid .btn { min-height: 0; min-width: 0; padding: 0 var(--space-4); font-size: var(--fs-meta); gap: var(--space-2); border-width: calc(2 * var(--u)); }
+.bar-grid .bar-reset { grid-column: span 2; }
 
-/* ---------- T: 조작판 접기 ------------------------------------------------ */
-.sim.is-collapsed .sim-panel, .sim.is-collapsed .sim-band { display: none; }
-.sim.is-collapsed .sim-stage { width: calc(1840 * var(--u)); height: calc(860 * var(--u)); }
+/* ---------- T: 조작판 접기 ---------------------------------------------- */
+.sim.is-collapsed .sim-panel, .sim.is-collapsed .rec-big, .sim.is-collapsed .think-board,
+.sim.is-collapsed .sim-band, .sim.is-collapsed .rec-chip { display: none !important; }
+.sim.is-collapsed .sim-stage { width: calc(1840 * var(--u)); height: calc(760 * var(--u)); }
 
-/* ---------- 세로 태블릿 (설계 1330×2000) -------------------------------- */
-@media (orientation: portrait) {
-  .sim-top { width: calc(1250 * var(--u)); height: calc(128 * var(--u)); flex-wrap: wrap; row-gap: 0; }
-  .sim-top__brand { display: none; }
-  .sim-top__main { flex: 1 1 100%; }
-  .sim-status { width: auto; flex: 1; text-align: left; }
-  .sim-stage { top: calc(140 * var(--u)); }
-  .sim-band  { top: calc(856 * var(--u)); }
-  .sim-panel {
-    left: var(--x); top: calc(1016 * var(--u));
-    width: calc(1250 * var(--u)); height: calc(860 * var(--u));
-    display: grid; grid-template-columns: 1fr 1fr; align-content: start; column-gap: var(--space-6);
+/* ---------- R2(G5) 좁은 화면 · 세로 휴대전화 안내 ------------------------- */
+.narrow-warn { display: none; }
+@media (max-width: 600px), (orientation: portrait) and (max-width: 900px) {
+  .narrow-warn {
+    display: grid; gap: 4px; position: fixed; left: 0; right: 0; top: 0; z-index: 100;
+    padding: 14px 18px;
+    background: var(--color-ink); color: var(--color-paper);
+    font: 600 17px/1.45 var(--font-sans); text-align: center; word-break: keep-all;
   }
-  .sim-panel > .panel-deep, .sim-panel > .panel-foot { grid-column: 1 / -1; }
-  .sim-bar { top: calc(1896 * var(--u)); width: calc(1250 * var(--u)); gap: var(--space-2); }
-  .sim-bar .btn__key, .preset .chip { display: none; }
-  .sim-bar .btn--run { min-width: calc(120 * var(--u)); }
-  .sim.is-collapsed .sim-stage { width: calc(1250 * var(--u)); height: calc(1740 * var(--u)); }
+  .narrow-warn b { font-size: 20px; }
 }
+/* 예전 2줄 계기판처럼 띠(88u)보다 큰 내용은 막대를 덮지 않도록 칸 안에서 자른다 — 시뮬레이터가 1줄로 줄일 것 */
+.sim-band > .band-cell { overflow: hidden; }

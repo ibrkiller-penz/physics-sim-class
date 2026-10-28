@@ -1,59 +1,87 @@
 /* =====================================================================
-   convex-lens 전용 스타일 (공통 클래스는 덮어쓰지 않고 lens- 접두사만 추가)
+   convex-lens 전용 스타일 (lens- 접두사. 공통 부품은 이 실험에서만 필요한 만큼 범위를 좁혀 조정)
    색은 토큰 이름만, 크기는 u 단위, 움직임 0.3초 이하
    ===================================================================== */
 
-/* 광선 큰 토글 3개 (색·선 모양 아이콘) */
+/* 작도 광선 칩 3개 — 한 줄, 높이 60u 이하. 실험 화면의 선(색·모양·굵기) 아이콘 + 짧은 이름 + 켬/끔 글자 */
 .lens-rays { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
 .lens-rays > .ctl { min-width: 0; }
 .lens-rays .check {
-  flex-direction: column; justify-content: center; align-items: center;
-  gap: var(--space-2);
-  min-height: calc(156 * var(--u));
-  padding: var(--space-3) var(--space-2);
-  text-align: center;
+  position: relative;
+  display: grid; grid-template-columns: 1fr auto; align-items: center;
+  gap: 0 var(--space-1);
+  min-height: calc(60 * var(--u)); height: calc(60 * var(--u));
+  padding: calc(4 * var(--u)) var(--space-2);
 }
-.lens-rays .check__text { flex: none; font-size: var(--fs-meta); line-height: 1.25; }
-.lens-ray-icon { display: block; width: calc(100 * var(--u)); height: calc(18 * var(--u)); margin: 0 auto var(--space-1); }
+.lens-rays .check__box { display: none; }
+.lens-rays .check__text { display: grid; gap: calc(2 * var(--u)); font: var(--font-weight-bold) var(--fs-caption)/1.15 var(--font-sans); white-space: nowrap; }
+.lens-rays .check__state { font-size: var(--fs-caption); }
+.lens-rays .check[aria-pressed="false"] { background: var(--color-paper); border-style: dashed; }
+.lens-rays .check[aria-pressed="false"] .check__text { color: var(--color-ink-muted); }
+.lens-rays .check[aria-pressed="false"] .lens-ray-icon { opacity: 0.35; }
+.lens-ray-icon { display: block; width: calc(96 * var(--u)); height: calc(14 * var(--u)); }
 
-/* 물체 종류 카드 4장 한 줄 */
-.lens-types .seg--cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+/* 물체 종류: 가림판과 같은 세그먼트 한 줄 */
+.lens-types .seg__opt { padding-left: var(--space-1); padding-right: var(--space-1); }
 
-/* 하단 띠 가운데: 상의 모습 카드 */
+/* 하단 띠 오른쪽: 상의 모습 한 줄 요약 (잘림 없음) */
 .lens-kind {
-  min-width: 0; display: grid; align-content: center; gap: calc(4 * var(--u));
-  padding: var(--space-2) var(--space-4);
+  min-width: 0; height: 100%; display: grid; align-content: center; gap: calc(4 * var(--u));
+  padding: var(--space-1) var(--space-4);
   border-radius: var(--radius-md);
   background: var(--color-paper-raised);
   border: 1px solid var(--color-line);
   border-left: calc(6 * var(--u)) solid var(--sim);
 }
-.lens-kind__label { font: var(--font-weight-semibold) var(--fs-caption)/1.2 var(--font-sans); color: var(--color-ink-muted); }
-.lens-kind__main { font: var(--font-weight-bold) var(--fs-h3)/1.15 var(--font-serif); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lens-kind__easy { font: var(--font-weight-semibold) var(--fs-meta)/1.25 var(--font-sans); color: var(--sim-text); }
-.lens-kind__sub  { font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-sans); color: var(--color-ink-muted); }
+.lens-kind__label { font: var(--font-weight-semibold) var(--fs-caption)/1.1 var(--font-sans); color: var(--color-ink-muted); }
+.lens-kind__main { font: var(--font-weight-bold) calc(27 * var(--u))/1.2 var(--font-serif); word-break: keep-all; }
+.lens-kind__sub  { font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-sans); color: var(--sim-text); word-break: keep-all; }
 
-/* 기록 표: '같은 거리 찾기' */
+/* 기록 표: '같은 거리 찾기' · '규칙 카드' */
 .lens-eqbtn { margin-left: auto; }
-.lens-eqbtn + .btn { margin-left: 0; }
+.lens-eqbtn + .btn, .lens-rulebtn + .btn { margin-left: 0; }
 .rec-table tr.lens-eq td { background: var(--color-ok-tint); color: var(--color-ok); font-weight: var(--font-weight-black); }
 
-/* 규칙 카드 (H 로 답 공개) */
-.lens-rules { display: grid; gap: var(--space-4); padding-left: var(--space-6); list-style: decimal; font: var(--font-weight-medium) var(--fs-body-lg)/1.6 var(--font-sans); }
-.lens-blank { display: inline-block; min-width: calc(220 * var(--u)); border-bottom: calc(3 * var(--u)) solid var(--color-line-strong); margin: 0 var(--space-2); color: transparent; }
-.lens-ans { color: var(--sim-text); margin: 0 var(--space-1); }
-html.teacher .lens-blank { display: none; }
-.lens-hint { font: var(--font-weight-medium) var(--fs-meta)/1.4 var(--font-sans); color: var(--color-ink-muted); }
+/* 규칙 카드: 빈칸마다 보기 버튼 */
+.lens-rules { display: grid; gap: var(--space-5); padding-left: var(--space-6); list-style: decimal; font: var(--font-weight-medium) var(--fs-body)/1.6 var(--font-sans); }
+.lens-rules > li { display: grid; gap: var(--space-2); }
+.lens-rule__text { word-break: keep-all; line-height: 2.1; }
+.lens-blank { display: inline-flex; flex-wrap: wrap; gap: calc(6 * var(--u)); margin: 0 var(--space-1); vertical-align: middle; padding: calc(4 * var(--u)); border-radius: var(--radius-md); border: calc(2 * var(--u)) dashed var(--color-line-strong); }
+.lens-opt {
+  min-height: calc(48 * var(--u)); padding: 0 var(--space-3);
+  border-radius: var(--radius-sm); border: 1px solid var(--color-line-strong);
+  background: var(--color-paper-raised); color: var(--color-ink);
+  font: var(--font-weight-semibold) var(--fs-meta)/1 var(--font-sans); cursor: pointer;
+}
+.lens-opt:hover { border-color: var(--color-primary); }
+.lens-opt.is-right { background: var(--color-ok-tint); border-color: var(--color-ok); color: var(--color-ok); font-weight: var(--font-weight-bold); }
+.lens-opt.is-right::before { content: "✓ "; }
+.lens-opt.is-wrong { background: var(--color-warn-tint); border-color: var(--color-warn); color: var(--color-warn); }
+.lens-opt.is-wrong::before { content: "✗ "; }
+.lens-hint { font: var(--font-weight-medium) var(--fs-meta)/1.4 var(--font-sans); color: var(--color-ink-muted); word-break: keep-all; }
 
-/* '생각해 보기' 판 (실험 화면 위, 그 단계에서만) */
-.lens-think { position: absolute; z-index: 4; left: calc(470 * var(--u)); top: var(--space-4); width: calc(440 * var(--u)); }
-.lens-think[hidden] { display: none; }
-.lens-think ol { display: grid; gap: var(--space-2); padding-left: var(--space-5); list-style: decimal; font: var(--font-weight-semibold) var(--fs-meta)/1.4 var(--font-sans); }
+/* 도움말 개념 카드: 그림 · 표 · 오해 바로잡기 */
+.lens-plain { display: grid; gap: var(--space-2); font: var(--font-weight-medium) var(--fs-meta)/1.55 var(--font-sans); word-break: keep-all; }
+.lens-fig { margin: 0; display: grid; gap: var(--space-1); padding: var(--space-2); border-radius: var(--radius-md); background: var(--color-paper-raised); border: 1px solid var(--color-line); }
+.lens-fig svg { width: 100%; height: auto; display: block; }
+.lens-fig figcaption { font: var(--font-weight-semibold) var(--fs-caption)/1.3 var(--font-sans); color: var(--color-ink-muted); text-align: center; }
+.lens-cases { width: 100%; border-collapse: collapse; font-size: var(--fs-caption); line-height: 1.35; }
+.lens-cases th, .lens-cases td { padding: var(--space-1) var(--space-2); border-bottom: 1px solid var(--color-line); text-align: left; word-break: keep-all; }
+.lens-cases th { font-weight: var(--font-weight-bold); color: var(--color-ink-muted); background: var(--color-paper-raised); }
+.lens-cases td:first-child { font-weight: var(--font-weight-bold); }
+.lens-myths { display: grid; gap: var(--space-3); list-style: none; padding: 0; font: var(--font-weight-medium) var(--fs-meta)/1.5 var(--font-sans); }
+.lens-myths li { display: grid; gap: calc(2 * var(--u)); padding-left: var(--space-3); border-left: calc(4 * var(--u)) solid var(--color-warn); word-break: keep-all; }
+.lens-myths b { color: var(--color-warn); }
 
 /* 심화 */
 .lens-deep { display: grid; gap: var(--space-3); }
 .lens-deep p { font: var(--font-weight-medium) var(--fs-meta)/1.45 var(--font-sans); color: var(--color-ink-muted); }
 .lens-deep .btn { width: 100%; font-size: var(--fs-meta); }
 .lens-figure { position: relative; width: 100%; height: calc(400 * var(--u)); border-radius: var(--radius-md); border: 1px solid var(--color-line); overflow: hidden; }
-.lens-figure-note { font: var(--font-weight-medium) var(--fs-body)/1.5 var(--font-sans); }
-.lens-tool-btn { width: 100%; font-size: var(--fs-meta); }
+.lens-figure-note { font: var(--font-weight-medium) var(--fs-body)/1.5 var(--font-sans); word-break: keep-all; }
+
+/* 띠 높이 88u: '상의 모습' 머리글은 화면에서 숨기고(읽기 도구용으로 남김) 두 줄만 — 첫 줄이 곧 상의 모습 요약 */
+.lens-kind__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* 결과 해설(.sim-note)이 떠 있는 동안에는 실험 카드 설명 줄을 숨겨 렌즈·물체를 가리지 않게 (이 실험에서만) */
+body[data-sim="convex-lens"] .sim.has-note .preset-info { display: none; }

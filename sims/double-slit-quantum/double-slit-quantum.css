@@ -1,100 +1,122 @@
 /* =====================================================================
-   double-slit-quantum 전용 스타일 (접두사 dsq-) — 공통 클래스는 덮어쓰지 않고 새 클래스만 둔다.
-   색은 토큰만. 스펙트럼 그라디언트(--dsq-spectrum)는 파장→색 계산값을 JS 가 넣는다.
+   double-slit-quantum 전용 스타일 (접두사 dsq-) — R1 고도화 1차
+   공통 클래스는 덮어쓰지 않고 새 클래스만 둔다. 색은 토큰만.
+   스펙트럼 그라디언트(--dsq-spectrum)는 파장→색 계산값을 JS 가 넣는다.
    ===================================================================== */
 
-/* 보내는 것 카드: 2 × 2 */
-.dsq-cards2 .seg--cards { grid-template-columns: 1fr 1fr; }
+/* 보내는 것 카드: 3장(광자·전자·구슬) 한 줄 */
+.dsq-cards2 .seg--cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.dsq-sendnote { margin-top: var(--space-2); }
 
-/* 어느 슬릿 측정기: 큰 스위치 */
+/* 측정기: 큰 스위치 */
 .dsq-bigswitch .check {
-  min-height: calc(96 * var(--u));
-  font-size: var(--fs-body-lg);
-  border-width: calc(4 * var(--u));
+  min-height: calc(80 * var(--u));
+  font-size: var(--fs-control);
+  border-width: calc(3 * var(--u));
 }
 .dsq-bigswitch .check__state { font-size: var(--fs-meta); }
 .dsq-sub {
-  font: var(--font-weight-medium) var(--fs-caption)/1.35 var(--font-sans);
+  margin-top: var(--space-2);
+  font: var(--font-weight-medium) var(--fs-caption)/1.45 var(--font-sans);
   color: var(--color-ink-muted);
+  word-break: keep-all;
 }
 
 /* 파장 무지개 슬라이더 */
 .dsq-rainbow .range::-webkit-slider-runnable-track { height: calc(18 * var(--u)); background: var(--dsq-spectrum, var(--color-line)); }
-.dsq-rainbow .range::-webkit-slider-thumb { margin-top: calc(-15 * var(--u)); }
+.dsq-rainbow .range::-webkit-slider-thumb { margin-top: calc(-19 * var(--u)); }
 .dsq-rainbow .range::-moz-range-track { height: calc(18 * var(--u)); background: var(--dsq-spectrum, var(--color-line)); }
 .dsq-rainbow .range::-moz-range-progress { background: transparent; }
 
-/* 보내는 빠르기 3단 */
-.dsq-speed { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
+/* 입력칸 이름 앞 · 띠의 식 안 색 점 (λ 파랑 · d 구리 · L 초록) */
+.dsq-dot {
+  display: inline-block; flex: none;
+  width: calc(16 * var(--u)); height: calc(16 * var(--u));
+  margin-right: calc(8 * var(--u));
+  border-radius: 50%; vertical-align: calc(-1 * var(--u));
+  box-shadow: 0 0 0 calc(2 * var(--u)) var(--color-paper-raised);
+}
+.dsq-dot--lam { background: var(--color-primary); }
+.dsq-dot--d   { background: var(--color-copper); }
+.dsq-dot--L   { background: var(--color-ok); }
+
+/* 보내는 빠르기 3단 + 한꺼번에 보내기 */
+.dsq-speedwrap { display: grid; gap: var(--space-2); }
+.dsq-speed-label { font: var(--font-weight-semibold) var(--fs-control)/1.3 var(--font-sans); }
+.dsq-speed { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
 .dsq-speed .btn { flex-direction: column; gap: calc(2 * var(--u)); padding: var(--space-2); font-size: var(--fs-meta); }
+.dsq-speed .btn[aria-pressed="true"] { background: var(--color-primary); color: var(--color-paper); border-color: var(--color-primary); }
 .dsq-speed .btn__sub { font: var(--font-weight-medium) var(--fs-caption)/1 var(--font-num); }
 .dsq-skip { width: 100%; }
 
-/* 표시 도구 2 × 2 */
+/* 화면에 표시하기 2 × 2 */
 .dsq-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
 .dsq-grid2 .check { padding: 0 var(--space-3); gap: var(--space-2); font-size: var(--fs-meta); }
 
-/* 심화: 드브로이 파장 */
-.dsq-db {
-  font: var(--font-weight-medium) var(--fs-meta)/1.45 var(--font-sans);
-  color: var(--color-ink-muted);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  background: var(--color-paper-raised);
-}
-
-/* 하단 띠: 계기판 */
+/* 하단 띠 왼쪽: 계기판 1줄 3칸 */
 .dsq-meters {
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-2);
-  min-width: 0; min-height: 0;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2);
+  height: 100%; min-width: 0; min-height: 0;
 }
-.dsq-meter-main, .dsq-meter-list {
-  min-width: 0; border-radius: var(--radius-md);
-  background: var(--color-paper-raised); border: 1px solid var(--color-line);
+.dsq-meter {
+  min-width: 0; display: grid; align-content: center; gap: calc(4 * var(--u));
   padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-paper-raised); border: 1px solid var(--color-line);
 }
-.dsq-meter-main { display: grid; align-content: center; gap: calc(2 * var(--u)); }
-.dsq-meter-list { display: grid; align-content: center; gap: calc(2 * var(--u)); }
 .dsq-label { font: var(--font-weight-semibold) var(--fs-caption)/1.2 var(--font-sans); color: var(--color-ink-muted); white-space: nowrap; }
-.dsq-label i { font-family: var(--font-serif); font-weight: var(--font-weight-bold); }
-.dsq-big {
-  font: var(--font-weight-bold) calc(48 * var(--u))/1 var(--font-num);
-  font-variant-numeric: tabular-nums; letter-spacing: -0.03em; color: var(--sim-text);
-  white-space: nowrap;
+.dsq-mrow { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.dsq-mval {
+  font: var(--font-weight-bold) calc(26 * var(--u))/1.1 var(--font-num);
+  font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--color-ink); white-space: nowrap;
 }
-.dsq-big-unit { font: var(--font-weight-medium) var(--fs-caption)/1 var(--font-sans); color: var(--color-ink-muted); }
-.dsq-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); min-width: 0; }
-.dsq-row b {
-  font: var(--font-weight-bold) var(--fs-meta)/1.25 var(--font-num);
-  font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.dsq-gtoggle { margin-left: auto; min-height: calc(36 * var(--u)); font-size: var(--fs-caption); padding: 0 var(--space-2); }
+.dsq-mval.is-empty { font: var(--font-weight-semibold) var(--fs-caption)/1.2 var(--font-sans); color: var(--color-ink-muted); }
+.dsq-swatch { flex: none; width: calc(18 * var(--u)); height: calc(18 * var(--u)); border-radius: 50%; box-shadow: inset 0 0 0 1px var(--color-line-strong); }
+.dsq-swatch[hidden] { display: none; }
 
-/* 실험 화면 위 글 (왼쪽 아래) — 거리 L 표시 줄을 가리지 않게 조금 띄움 */
-.dsq-notes { bottom: calc(44 * var(--u)); max-width: calc(690 * var(--u)); justify-items: start; }
-.dsq-tl { max-width: calc(700 * var(--u)); }
-.dsq-note {
+/* 하단 띠 오른쪽: 식 칸 (2줄 고정, 단위 줄바꿈 금지) */
+.dsq-eq {
+  height: 100%; min-width: 0;
+  display: grid; align-content: center; gap: calc(6 * var(--u));
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-md);
-  background: var(--color-paper-scrim);
-  box-shadow: var(--shadow-sm);
-  font: var(--font-weight-semibold) var(--fs-meta)/1.35 var(--font-sans);
+  background: var(--sim-tint, var(--color-paper-raised));
+  border: 1px solid var(--color-line);
 }
-.dsq-note--hint  { border-left: calc(6 * var(--u)) solid var(--sim); }
-.dsq-note--model { color: var(--sim-text); background: var(--sim-tint); }
-.dsq-note--det   { color: var(--color-copper-text); background: var(--color-copper-tint); }
-.dsq-note--eq    { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
-.dsq-notes [hidden], .dsq-tl [hidden], .dsq-think[hidden] { display: none !important; }
-
-/* 생각해 보기 판 */
-.dsq-think {
-  position: absolute; z-index: 6;
-  left: var(--space-4); top: calc(80 * var(--u));
-  width: calc(680 * var(--u));
+.dsq-eq__l1, .dsq-eq__l2 {
+  display: flex; flex-wrap: wrap; align-items: center; column-gap: calc(6 * var(--u)); row-gap: 0;
+  font: var(--font-weight-medium) var(--fs-caption)/1.3 var(--font-num);
+  font-variant-numeric: tabular-nums; color: var(--color-ink);
 }
-.dsq-think-head { display: flex; align-items: center; justify-content: space-between; }
-.dsq-think-close { min-height: calc(56 * var(--u)); font-size: var(--fs-meta); }
+.dsq-eq__l1 > b { font-family: var(--font-serif); font-size: var(--fs-meta); color: var(--sim-text, var(--color-ink)); margin-right: var(--space-2); }
+.dsq-eq b { font-weight: var(--font-weight-bold); }
+.dsq-val { display: inline-flex; align-items: center; white-space: nowrap; margin-right: var(--space-2); font-size: var(--fs-caption); font-weight: var(--font-weight-semibold); }
+.dsq-val .dsq-dot { width: calc(14 * var(--u)); height: calc(14 * var(--u)); margin-right: calc(5 * var(--u)); }
+.dsq-nowrap { white-space: nowrap; }
+.dsq-muted { color: var(--color-ink-muted); font-family: var(--font-sans); font-size: var(--fs-caption); }
+.dsq-reveal { min-height: calc(40 * var(--u)); padding: 0 var(--space-3); font-size: var(--fs-caption); }
 
-/* [고도화] 프리셋 5 꼬리표 '기묘함'(교육과정 해설 용어)은 공통 꼬리표 목록에 없어 기본 칩으로 보였다.
-   공통 규칙을 덮어쓰지 않고 이 시뮬레이터 안에서만 식별색으로 칠한다. */
-.chip[data-tag="기묘함"] { background: var(--sim-tint); color: var(--sim-text); box-shadow: inset 0 0 0 1px var(--sim); }
+/* 비교 체크리스트 (기록 큰 판 맨 위) */
+.dsq-check {
+  display: grid; gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--sim-tint, var(--color-paper-raised));
+  border: 1px solid var(--color-line);
+}
+.dsq-check__t { font: var(--font-weight-bold) var(--fs-meta)/1.3 var(--font-sans); }
+.dsq-check__row { display: flex; align-items: flex-start; gap: var(--space-2); font: var(--font-weight-medium) var(--fs-caption)/1.45 var(--font-sans); word-break: keep-all; }
+.dsq-check__box {
+  flex: none; display: inline-grid; place-items: center;
+  width: calc(26 * var(--u)); height: calc(26 * var(--u));
+  border-radius: calc(5 * var(--u)); border: calc(2 * var(--u)) solid var(--color-line-strong);
+  font: var(--font-weight-bold) var(--fs-caption)/1 var(--font-sans); color: var(--color-paper);
+}
+.dsq-check__row.is-ok .dsq-check__box { background: var(--color-ok); border-color: var(--color-ok); }
+.dsq-check__row.is-ok { color: var(--color-ok); }
+
+/* 모드별로 숨기는 정리 질문 카드 */
+.think-card[hidden] { display: none !important; }
+
+/* 실험 카드 설명 상자(공통)가 스크린·확대창까지 덮지 않게 이 시뮬레이터에서만 폭을 줄인다 */
+body[data-sim="double-slit-quantum"] .stage-corner--tl .preset-info { max-width: calc(560 * var(--u)); }

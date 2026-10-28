@@ -1,17 +1,17 @@
-/* collision-momentum 전용 스타일 — 공통 클래스는 덮어쓰지 않고 새 클래스(cm-)만 쓴다.
+/* collision-momentum 전용 스타일 (R1) — 공통 클래스는 덮어쓰지 않고 새 클래스(cm-)만 쓴다.
    색은 토큰 이름만, 크기는 u. */
 
-/* 프리셋 꼬리표 두 가지 추가 (공통에 없는 이름) */
+/* 실험 카드 꼬리표 두 가지 (공통에 없는 이름) */
 [data-sim="collision-momentum"] .chip[data-tag="작용·반작용"] { background: var(--color-warn-tint); color: var(--color-warn); }
 [data-sim="collision-momentum"] .chip[data-tag="발사체"]      { background: var(--sim-tint); color: var(--sim-text); }
 
-/* 하단 띠: 계기판 2×2 (v₁ v₂ / p합 K합) */
+/* 하단 띠: 계기판 1줄 4개 (속도 2칸은 좁게, 합 2칸은 넓게) */
 .cm-band .band-cell--meters .meters {
-  display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+  display: grid; grid-template-columns: 0.8fr 0.8fr 1.2fr 1.2fr;
   gap: var(--space-2); height: 100%;
 }
-.cm-band .band-cell--meters .meter { padding: calc(4 * var(--u)) var(--space-3); gap: 0; }
-.cm-band .band-cell--meters .meter__value--md { font-size: calc(34 * var(--u)); }
+.cm-band .band-cell--meters .meter { padding: calc(4 * var(--u)) var(--space-3); gap: 0; min-width: 0; }
+.cm-band .band-cell--meters .meter__value--md { font-size: calc(32 * var(--u)); white-space: nowrap; }
 
 /* 속도 슬라이더: 가운데 0 굵은 눈금 + ← → */
 .cm-vel .var__track::before {
@@ -21,9 +21,8 @@
 }
 .cm-vel .var__ticks span { font-weight: var(--font-weight-semibold); color: var(--color-ink-muted); }
 .cm-vel .var__ticks .cm-zero { position: absolute; left: 50%; transform: translateX(-50%); font-weight: var(--font-weight-black); color: var(--color-ink); }
-.cm-vel-hint { font: var(--font-weight-medium) var(--fs-caption)/1.35 var(--font-sans); color: var(--color-ink-muted); }
 
-/* 실험 화면 오른쪽 위: 슬로 모션 배지 · 만나지 않음 안내 · 생각해 보기 */
+/* 실험 화면 오른쪽 위: 슬로 모션 배지 · 만나지 않음 안내 */
 .cm-badge {
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-pill);
@@ -37,26 +36,78 @@
   background: var(--color-warn-tint); color: var(--color-warn);
   box-shadow: inset 0 0 0 calc(2 * var(--u)) var(--color-warn);
   font: var(--font-weight-bold) var(--fs-meta)/1.3 var(--font-sans);
+  word-break: keep-all;
 }
-.cm-badge[hidden], .cm-warn[hidden], .cm-think[hidden] { display: none; }
-.cm-think { max-width: calc(600 * var(--u)); }
+.cm-badge[hidden], .cm-warn[hidden] { display: none; }
 
-/* 식 보기 (표시 도구 아래 접힘) */
-.cm-eq {
-  border-radius: var(--radius-md);
-  border: calc(3 * var(--u)) solid var(--color-line);
-  background: var(--color-paper-raised);
+/* 아래 그래프 판: 왼쪽 탭 3개 (그림은 캔버스) */
+.cm-lower { position: absolute; z-index: 2; pointer-events: none; }
+.cm-tabs__label {
+  position: absolute; left: calc(14 * var(--u)); top: calc(10 * var(--u));
+  font: var(--font-weight-semibold) var(--fs-caption)/1.2 var(--font-sans); color: var(--color-ink-muted);
 }
-.cm-eq__sum {
-  list-style: none; cursor: pointer;
-  display: flex; align-items: center; min-height: calc(66 * var(--u));
-  padding: 0 var(--space-4);
-  font: var(--font-weight-semibold) var(--fs-control)/1.25 var(--font-sans);
+.cm-tabs {
+  position: absolute; left: calc(10 * var(--u)); top: calc(42 * var(--u)); width: calc(150 * var(--u));
+  display: grid; gap: calc(12 * var(--u)); pointer-events: auto;
 }
-.cm-eq__sum::-webkit-details-marker { display: none; }
-.cm-eq__sum::after { content: "▸"; margin-left: auto; transition: transform var(--dur-fast); }
-.cm-eq[open] > .cm-eq__sum::after { transform: rotate(90deg); }
-.cm-eq__body { display: grid; gap: var(--space-2); padding: 0 var(--space-4) var(--space-4); font: var(--font-weight-medium) var(--fs-meta)/1.4 var(--font-num); font-variant-numeric: tabular-nums; }
-.cm-eq__f { font-family: var(--font-serif); font-weight: var(--font-weight-bold); }
-.cm-eq__r { font-weight: var(--font-weight-bold); color: var(--color-primary); }
-.cm-eq__note { color: var(--color-ink-muted); font-size: var(--fs-caption); }
+.cm-tab {
+  position: relative; display: flex; align-items: center;
+  height: calc(56 * var(--u)); padding: 0 var(--space-3);
+  border-radius: var(--radius-md); border: calc(2 * var(--u)) solid var(--color-line);
+  background: var(--color-paper-raised); color: var(--color-ink);
+  font: var(--font-weight-semibold) calc(22 * var(--u))/1.2 var(--font-sans); text-align: left; cursor: pointer;
+  word-break: keep-all;
+}
+.cm-tab:hover { border-color: var(--color-line-strong); }
+.cm-tab[aria-selected="true"] {
+  background: var(--sim-tint); color: var(--sim-text); border-color: var(--sim);
+  box-shadow: inset calc(6 * var(--u)) 0 0 var(--sim); font-weight: var(--font-weight-bold);
+}
+.cm-tab__new {
+  position: absolute; right: calc(-10 * var(--u)); top: calc(-12 * var(--u));
+  box-shadow: 0 0 0 calc(2 * var(--u)) var(--color-paper);
+  font: var(--font-weight-bold) var(--fs-caption)/1 var(--font-sans);
+  padding: calc(3 * var(--u)) var(--space-2); border-radius: var(--radius-pill);
+  background: var(--color-warn-tint); color: var(--color-warn);
+}
+.cm-tab__new::before { content: "● "; }
+.cm-tab__new[hidden] { display: none; }
+.cm-lower > .empty { z-index: 3; font-size: var(--fs-meta); border: 1px dashed var(--color-line-strong); }
+.cm-band .band-cell--meters > .empty { font-size: var(--fs-meta); }
+
+/* 비교 단계: 규칙 확인 카드 */
+.cm-rule { display: grid; gap: var(--space-2); padding: var(--space-4); border-radius: var(--radius-md); background: var(--color-paper); border-left: calc(6 * var(--u)) solid var(--sim); }
+.cm-rule__q { font: var(--font-weight-bold) calc(26 * var(--u))/1.4 var(--font-serif); word-break: keep-all; }
+.cm-rule__hint { font: var(--font-weight-medium) var(--fs-caption)/1.4 var(--font-sans); color: var(--color-ink-muted); word-break: keep-all; }
+.cm-ox { width: 100%; border-collapse: collapse; margin: var(--space-2) 0; font: var(--font-weight-medium) var(--fs-caption)/1.35 var(--font-sans); }
+.cm-ox th, .cm-ox td { padding: var(--space-2); border-bottom: 1px solid var(--color-line); text-align: left; vertical-align: top; word-break: keep-all; }
+.cm-ox thead th { color: var(--color-ink-muted); font-weight: var(--font-weight-semibold); }
+.cm-ox tbody th { font-weight: var(--font-weight-bold); white-space: nowrap; }
+.cm-ox b { font-family: var(--font-num); font-size: var(--fs-meta); }
+
+/* 도움말 › 개념: 그림·기호 뜻·예·왜 */
+.cm-concept { display: grid; gap: var(--space-3); }
+.cm-say { font: var(--font-weight-medium) var(--fs-meta)/1.55 var(--font-sans); word-break: keep-all; }
+.cm-fig { padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-paper-raised); border: 1px solid var(--color-line); }
+.cm-fig svg { display: block; width: 100%; max-width: calc(620 * var(--u)); height: auto; overflow: visible; }
+.cm-fig text { font: 600 18px var(--font-sans); fill: var(--color-ink); }
+.cm-fig .cm-fig__inv { fill: var(--color-ink-inverse); font-weight: 800; }
+.cm-fig .cm-fig__v { fill: var(--color-q-velocity); font-weight: 800; }
+.cm-fig .cm-fig__f { fill: var(--color-copper-text); font-weight: 800; }
+.cm-fig .cm-fig__b, .cm-fig tspan.cm-fig__b { font-weight: 800; }
+.cm-sub { font: var(--font-weight-bold) var(--fs-caption)/1.2 var(--font-sans); color: var(--color-ink-muted); }
+.cm-sym { display: grid; grid-template-columns: max-content 1fr; gap: var(--space-1) var(--space-4); font: var(--font-weight-medium) var(--fs-meta)/1.45 var(--font-sans); }
+.cm-sym dt { font: var(--font-weight-bold) var(--fs-meta)/1.45 var(--font-serif); font-style: italic; }
+.cm-sym dd { word-break: keep-all; }
+.cm-sym__u { color: var(--color-ink-muted); font-size: var(--fs-caption); white-space: nowrap; }
+.cm-ex, .cm-why { padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font: var(--font-weight-medium) var(--fs-meta)/1.55 var(--font-sans); word-break: keep-all; }
+.cm-ex { background: var(--color-paper-raised); border: 1px solid var(--color-line); }
+.cm-why { background: var(--sim-tint); color: var(--color-ink); }
+.cm-mis { list-style: none; display: grid; gap: var(--space-3); padding: 0; margin: 0; }
+.cm-mis li { display: grid; gap: var(--space-1); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--color-paper-raised); border: 1px solid var(--color-line); }
+.cm-mis__x, .cm-mis__o { font: var(--font-weight-medium) var(--fs-meta)/1.5 var(--font-sans); word-break: keep-all; }
+.cm-mis__x b { color: var(--color-warn); }
+.cm-mis__o b { color: var(--color-ok, var(--color-primary)); }
+
+/* 결과 해설(sim-note)이 떠 있으면 고른 카드 안내는 숨겨 장면(트랙)을 가리지 않게 */
+[data-sim="collision-momentum"] .sim.has-note .preset-info { display: none; }

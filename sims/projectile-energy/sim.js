@@ -1,7 +1,7 @@
 /* =====================================================================
-   포물선 운동과 역학적 에너지 (projectile-energy) — 화면·조작
+   포물선 운동과 역학적 에너지 (projectile-energy) — 화면·조작 (R1 고도화 1차)
    공통 틀 SimKit(../../shared/sim.js) + 물리 계산 PEPhys(pe-physics.js) 위에서 동작.
-   근거: docs/04_팀장결정서.md §4-1 (변수 대응표·프리셋·수용 기준)
+   근거: docs/04_팀장결정서.md §4-1, docs/개선/R1_계획.md §1-2 P1~P6, docs/SIMKIT.md §0-2
    ===================================================================== */
 (function () {
   'use strict';
@@ -11,61 +11,85 @@
   var h = SK.h, fmt = SK.fmt;
   var DT = PH.DT;
 
-  /* 실험 화면 배치 (논리 좌표 1250×700, 1 = 1u) */
-  var L = { AX: 64, X0: 150, GY: 636, RIGHT: 1225, TOP: 130 };
+  /* 실험 화면 배치 (논리 좌표 1250×700, stageFit 으로 660 높이에 맞춰 줄어듦) */
+  var L = { AX: 64, X0: 150, GY: 636, RIGHT: 1225, TOP: 150 };   // TOP: 최소값. 실제로는 topFree() 가 위쪽 칩·범례 아래로 내림
   var VS = 5;          // 속도 화살표: 1 m/s = 5u
   var ACC_LEN = 72;    // 가속도 화살표 길이(일정)
   var BALL_R = 14;     // 공 지름 28u
 
   var run = null, st = null;
-  var autoBox = { x: 44, y: 12 }, fixedBox = null, manualLock = null;
+  var autoBox = { x: 44, y: 12 }, fixedBox = null;
   var map = { S: 10 };
   var drag = null;
   var holdUntil = 0;
-  var curPreset = -1, predBase = null;
+  var curPreset = -1;
   var pick = -1;       // 눌러서 고른 섬광 점 번호 (동영상 분석처럼 그 순간 값 보기)
 
   function fontSans() { return getComputedStyle(document.documentElement).getPropertyValue('--font-sans').trim() || 'sans-serif'; }
   function fontNum() { return getComputedStyle(document.documentElement).getPropertyValue('--font-num').trim() || 'sans-serif'; }
   var FS = '', FN = '';
 
-  function gText(g) { return g === 10 ? '10' : (Math.round(g * 100) / 100).toString(); }
+  function gText(g) { return (Math.round(g * 100) / 100).toString(); }
   function mText(p) {
     if (p.air === 'off') return SK.valueText('m', p.m);
     return p.air === 'steel' ? '0.50' : '0.0027';
   }
   function eDec(E0) { return E0 < 10 ? 2 : 1; }
+  function gNow(p) { return PH.gOf(p || SK.params); }
 
   /* ------------------------------------------------------------------
-     축척: 자동(해석해·미리 적분으로 궤적 상자 + 10% 여유) / 고정
-     기록이 1개라도 있으면 자동 고정. 자물쇠(L)로 수동 고정·해제.
+     눈금: '눈금 자동 맞춤' 켬 = 지금 궤적 + 저장한 기록이 모두 보이게(같은 눈금으로 비교)
+                          끔 = 지금 눈금 그대로 고정
      ------------------------------------------------------------------ */
-  function boxFor(r) { return { x: Math.max(r.R * 1.1, 10), y: Math.max(r.H * 1.1, 5) }; }
-  function isLocked() { return manualLock !== null ? manualLock : SK.records.length > 0; }
+  function boxFor(R, H) { return { x: Math.max((R || 0) * 1.1, 10), y: Math.max((H || 0) * 1.1, 5) }; }
   function currentBox() {
-    if (isLocked()) { if (!fixedBox) fixedBox = autoBox; return fixedBox; }
-    fixedBox = null; return autoBox;
+    if (!SK.params.autoScale) { if (!fixedBox) fixedBox = autoBox; return fixedBox; }
+    fixedBox = null;
+    var b = { x: autoBox.x, y: autoBox.y };
+    SK.records.forEach(function (r) {
+      var v = r.values || {};
+      var rb = boxFor(v.R, v.H);
+      if (rb.x > b.x) b.x = rb.x;
+      if (rb.y > b.y) b.y = rb.y;
+    });
+    return b;
   }
-  function toggleLock() {
-    var on = !isLocked();
-    if (on && !fixedBox) fixedBox = autoBox;
-    manualLock = on;
-    if (!on) fixedBox = null;
-    SK.notice(on ? '축척 고정 — 여러 실행을 같은 눈금으로 비교해요 (L)' : '축척 자동 — 궤적에 맞춰 화면을 맞춰요 (L)', 'info');
-    SK.update(); SK.requestRender();
-  }
-  function lockBox(b) { manualLock = true; fixedBox = b; SK.update(); SK.requestRender(); }
 
   /* ------------------------------------------------------------------
-     1. 화면 뼈대
+     1. 화면 뼈대 · 지금 할 일
      ------------------------------------------------------------------ */
+  function predPending() { return !!(SK.prediction && SK.prediction.pending); }
+  function predWords() {
+    var p = SK.prediction; if (!p) return '';
+    if (p.number !== null && p.number !== undefined) return SK.fmt(p.number, 1) + ' m';
+    return p.answer || '';
+  }
   SK.init({
     slug: 'projectile-energy',
     title: '포물선 운동과 역학적 에너지',
     subject: '역학과 에너지 (진로 선택)',
     unit: '(1) 시공간과 운동',
     standards: ['12역학01-02', '12물리01-04'],
-    today: '수평으로 던진 공과 그냥 떨어뜨린 공, 무엇이 먼저 땅에 닿을까?',
+    today: '비스듬히 던진 공은 어디에 떨어질까? 날아가는 동안 에너지는 어떻게 될까?',
+    stepTasks: [
+      {
+        get text() {
+          return predPending()
+            ? '내 예측은 ' + predWords() + '. 이제 ▶ 실행으로 확인해요.'
+            : '공이 몇 m 앞에 떨어질지 먼저 예측해 보세요.';
+        },
+        get action() {
+          return predPending() ? undefined : { label: '예측 입력', onClick: openRangePredict };
+        }
+      },
+      { text: function () { return SK.started ? '' : '▶ 실행으로 공을 던져 보세요. 공에서 나온 점선이 던지는 방향이에요.'; } },
+      { text: function () {
+          return SK.records.length >= 2
+            ? '오른쪽 표에서 두 기록을 나란히 놓고, 바꾼 값 하나 때문에 무엇이 달라졌는지 찾아요.'
+            : '처음 속력이나 각도 하나만 바꿔 다시 실행하고 [기록하기]로 저장해 비교하세요 (지금 기록 ' + SK.records.length + '개).';
+        } },
+      { text: '오른쪽 질문에 답해 보세요. 고르면 바로 정답과 이유가 나와요.' }
+    ],
     dt: DT,
     stageFit: true,
     reset: onReset,
@@ -77,21 +101,26 @@
     status: onStatus,
     predictOnPreset: true
   });
-  SK.el.band.style.gridTemplateColumns = 'minmax(0, 5fr) minmax(0, 3fr) minmax(0, 5fr)';
+  SK.el.band.style.gridTemplateColumns = 'minmax(0, 5fr) minmax(0, 3fr)';
 
   /* ------------------------------------------------------------------
-     2. 조절 패널 — 맨 위 g 전환(고정) → 상황 → 수치 → 표시 도구 → 심화
+     2. 조절 패널 — 수치(v₀·θ·h + 어디에서 던질까) → 상황 → 화면에 표시하기 → 더 많은 설정
      ------------------------------------------------------------------ */
-  var gbar = h('div', { class: 'pe-gbar' });
-  SK.el.panel.insertBefore(gbar, SK.el.panel.firstChild);
-  SK.addChoice(gbar, {
-    key: 'gEarth', label: '지구 중력 가속도 g (G 키)', apply: 'restart',
-    options: [{ value: 9.8, label: '9.8', sub: '실제 값' }, { value: 10, label: '10', sub: '계산 쉽게' }],
-    value: 9.8, onChange: syncUI
+  SK.addVar('values', {
+    key: 'v0', label: '처음 속력', symbol: 'v₀', unit: 'm/s',
+    min: 0, max: 30, step: 1, value: 20, decimals: 0, precision: 1, ticks: [0, 10, 20, 30], apply: 'restart'
   });
-
-  // 상황 바꾸기 (요구 B)
-  SK.addChoice('situation', {
+  SK.addVar('values', {
+    key: 'theta', label: '던지는 각도', symbol: 'θ', unit: '°',
+    min: 0, max: 90, step: 5, value: 45, decimals: 0, precision: 1, ticks: [0, 45, 90], apply: 'restart',
+    hint: '0° 는 옆으로(수평), 90° 는 똑바로 위로 던져요.'
+  });
+  SK.addVar('values', {
+    key: 'h', label: '던지는 높이', symbol: 'h', unit: 'm',
+    min: 0, max: 45, step: 5, value: 0, decimals: 0, precision: 1, ticks: [0, 20, 45], apply: 'restart',
+    hint: '0 이면 땅에서, 0 보다 크면 절벽 위에서 던져요.'
+  });
+  SK.addChoice('values', {
     key: 'planet', label: '어디에서 던질까?', style: 'cards', apply: 'restart',
     options: [
       { value: 'earth', label: '지구', sub: 'g = 9.8' },
@@ -99,112 +128,69 @@
       { value: 'mars', label: '화성', sub: 'g = 3.71' }
     ],
     value: 'earth',
+    hint: '{{중력 가속도}} g 가 작은 곳일수록 천천히 떨어져요.',
     onChange: function (v) {
       if (v === 'moon' && SK.get('air') !== 'off') SK.notice('달에는 공기가 없어서 공기 저항이 생기지 않아요', 'info', 4000);
       syncUI();
     }
   });
-  SK.addChoice('situation', {
-    key: 'air', label: '공기 저항', apply: 'restart',
+  SK.addChoice('values', {
+    key: 'gEarth', label: '지구의 g 값', apply: 'restart',
+    options: [{ value: 9.8, label: '9.8', sub: '실제 값' }, { value: 10, label: '10', sub: '계산 쉽게' }],
+    value: 9.8, onChange: syncUI
+  });
+
+  // 상황 바꾸기 (요구 B)
+  SK.addToggle('situation', {
+    key: 'cmp', label: '옆에 떨어뜨린 공(회색) 함께 보기', value: false, apply: 'live', record: false,
+    hint: '같은 높이에서 옆으로 움직이지 않는 공이에요. 두 공의 높이를 비교해 봐요.'
+  });
+
+  // 화면에 표시하기 (바로 반영)
+  SK.addToggle('tools', { key: 'flash', label: '섬광 사진 (0.1 s 마다 찍은 공)', value: true });
+  SK.addToggle('tools', { key: 'showV', label: '속도 화살표', value: true });
+  SK.addToggle('tools', { key: 'showA', label: '가속도 화살표', value: false });
+  SK.addToggle('tools', { key: 'shadow', label: '바닥·벽에 비친 그림자', value: false, hint: '그림자는 수평 운동과 수직 운동을 따로 보여 줘요.' });
+  SK.addToggle('tools', { key: 'energy', label: '에너지 막대', value: true });
+  SK.addToggle('tools', { key: 'topStop', label: '최고점에서 잠깐 멈추기', value: false });
+  SK.addToggle('tools', { key: 'autoScale', label: '눈금 자동 맞춤', value: true, hint: '켜면 지금 궤적과 저장한 기록이 모두 보이게 눈금을 맞춰요. 끄면 지금 눈금 그대로예요.' });
+
+  // 더 많은 설정 (성취기준 밖·심화)
+  SK.addChoice('deep', {
+    key: 'air', label: '{{공기 저항}}', apply: 'restart',
     options: [
-      { value: 'off', label: '끔', sub: '이상적 조건' },
+      { value: 'off', label: '없음', sub: '이상적 조건' },
       { value: 'steel', label: '쇠공', sub: '0.50 kg' },
       { value: 'pingpong', label: '탁구공', sub: '0.0027 kg' }
     ],
-    value: 'off', onChange: syncUI
+    value: 'off', onChange: syncUI,
+    hint: '교과서 문제는 보통 공기 저항이 없다고 봐요.'
   });
-  SK.addToggle('situation', { key: 'cmp', label: '비교 공 (떨어뜨린 공, B 키)', value: false, apply: 'live', record: false });
-  SK.addChoice('situation', {
-    key: 'pad', label: '던지는 곳', apply: 'restart', record: false,
-    options: [{ value: 'ground', label: '지면', sub: 'h = 0' }, { value: 'cliff', label: '절벽 위', sub: 'h 바꾸기' }],
-    value: 'ground',
-    onChange: function (v) {
-      if (v === 'ground' && SK.get('h') !== 0) SK.set('h', 0);
-      else if (v === 'cliff' && SK.get('h') === 0) SK.set('h', 20);
-      syncUI();
-    }
-  });
-
-  // 수치 바꾸기 (요구 A) — 첫 화면 4개
-  SK.addVar('values', {
-    key: 'v0', label: '처음 속력', symbol: 'v₀', unit: 'm/s',
-    min: 0, max: 30, step: 1, value: 20, decimals: 0, precision: 1, ticks: [0, 10, 20, 30], apply: 'restart'
-  });
-  SK.addVar('values', {
-    key: 'theta', label: '던지는 각도', symbol: 'θ', unit: '°',
-    min: 0, max: 90, step: 5, value: 45, decimals: 0, precision: 1, ticks: [0, 30, 45, 60, 90], apply: 'restart'
-  });
-  SK.addVar('values', {
-    key: 'h', label: '던지는 높이', symbol: 'h', unit: 'm',
-    min: 0, max: 45, step: 5, value: 0, decimals: 0, precision: 1, ticks: [0, 20, 45], apply: 'restart'
-  });
-  SK.addVar('values', {
+  SK.addVar('deep', {
     key: 'm', label: '공의 질량', symbol: 'm', unit: 'kg',
-    min: 0.1, max: 5, step: 0.1, value: 1, decimals: 1, precision: 2, ticks: [0.1, 1, 5], apply: 'restart'
+    min: 0.1, max: 5, step: 0.1, value: 1, decimals: 1, precision: 2, ticks: [0.1, 1, 5], apply: 'restart',
+    hint: '공기 저항이 없으면 궤적은 그대로, 에너지 값만 질량에 비례해요.'
   });
-  var hHint = h('p', { class: 'pe-hint', text: '' });
-  SK.controls.h.el.appendChild(hHint);
   var mHint = h('p', { class: 'pe-hint', text: '' });
   SK.controls.m.el.appendChild(mHint);
-
-  // 표시 도구 (즉시)
-  SK.addToggle('tools', { key: 'flash', label: '섬광 사진 (0.1 s마다)', value: true });
-  SK.addToggle('tools', { key: 'showV', label: '속도 화살표 (A 키)', value: true });
-  SK.addToggle('tools', { key: 'showA', label: '가속도 화살표 (A 키)', value: false });
-  SK.addToggle('tools', { key: 'shadow', label: '그림자 (x축·y축)', value: false });
-  SK.addToggle('tools', { key: 'energy', label: '에너지 막대', value: true });
-  SK.addToggle('tools', { key: 'topStop', label: '최고점에서 멈추기', value: false });
-
-  // 심화 ▸ (성취기준 밖: 공기 저항 계수 직접 입력, 식 보기)
   SK.addToggle('deep', { key: 'kCustom', label: '공기 저항 계수 직접 넣기', value: false, apply: 'restart', record: true, onChange: syncUI });
   SK.addVar('deep', {
     key: 'k4', label: '공기 저항 계수', symbol: 'k', unit: '×10⁻⁴ kg/m',
-    min: 0.5, max: 50, step: 0.5, value: 5.5, decimals: 1, precision: 2, ticks: [0.5, 3.5, 5.5, 50], apply: 'restart',
+    min: 0.5, max: 50, step: 0.5, value: 5.5, decimals: 1, precision: 2, ticks: [0.5, 5.5, 50], apply: 'restart',
     hint: '쇠공 5.5, 탁구공 3.5 (k = ½ρC_dA). 공기 저항을 켰을 때만 쓰여요.'
   });
   var formulaBox = h('div', { class: 'pe-formula', 'aria-live': 'polite' });
-  SK.panel('deep').appendChild(h('div', { class: 'pe-formula-wrap' }, [h('p', { class: 'pe-formula__title', text: '식 보기 — 지금 값을 넣으면' }), formulaBox]));
+  SK.panel('deep').appendChild(h('div', { class: 'pe-formula-wrap' }, [h('p', { class: 'pe-formula__title', text: '식으로 계산해 보기 — 지금 값을 넣으면' }), formulaBox]));
 
   /* ------------------------------------------------------------------
-     3. 실험 화면 위 글자 판: 범례(왼쪽 위) · 축척·자물쇠(오른쪽 위) · 결과 · 생각해 보기
+     3. 실험 화면 오른쪽 위: 눈금 · 범례 (짧은 라벨만)
      ------------------------------------------------------------------ */
   var legend = h('div', { class: 'pe-legend', 'aria-label': '화살표 범례' });
   var legendKey = '';
-
-  var scaleText = h('span', { class: 'pe-scale__text num', text: '1칸 = 10 m' });
-  var lockLabel = h('span', { text: '자동' });
-  var lockBtn = h('button', { class: 'btn pe-lock', type: 'button', title: '축척 고정/자동 (L)', 'aria-pressed': 'false' }, [lockSVG(), lockLabel, h('span', { class: 'btn__key', text: 'L' })]);
-  lockBtn.addEventListener('click', function (e) { if (e.detail > 0) lockBtn.blur(); toggleLock(); });
-  SK.el.cornerTR.appendChild(h('div', { class: 'pe-scale' }, [scaleText, lockBtn]));
+  var scaleText = h('span', { class: 'pe-scale__text num', text: '모눈 1칸 = 10 m' });
+  SK.el.cornerTR.appendChild(h('div', { class: 'pe-scale' }, [scaleText]));
   SK.el.cornerTR.appendChild(legend);
-  var resultChip = h('div', { class: 'pe-result', hidden: true, 'aria-live': 'polite' });
-  SK.el.cornerTR.appendChild(resultChip);
 
-  var think = h('div', { class: 'think pe-think', 'data-step-only': '정리' }, [
-    h('span', { class: 'think__label', text: '생각해 보기' }),
-    h('p', { class: 'think__q', text: '수평으로 던지면, 땅에 닿을 때까지 걸리는 시간은 ( ______ )로만 정해진다.' }),
-    h('p', { class: 'think__hint teacher-only pe-answer', text: '정답: 던지는 높이 h (와 중력 가속도 g). v₀·질량과는 상관없어요. t = √(2h/g) → 20 m 에서 2 s, 45 m 에서 3 s (g = 10)' }),
-    h('p', { class: 'think__hint', text: '더 생각하기: 공기 저항을 켜면 가장 멀리 가는 각도는 45°보다 클까, 작을까? (탁구공으로 35°·40°·45° 를 하나씩 S)' }),
-    h('p', { class: 'think__hint teacher-only pe-answer', text: '정답: 작아져요. 탁구공(20 m/s)은 35° 쯤에서 가장 멀리(약 10.3 m), 45° 는 9.9 m. 쇠공은 거의 45° 그대로(38.7 m).' }),
-    h('p', { class: 'think__hint', text: '정답은 H 키로 보여 줘요.' })
-  ]);
-  think.hidden = SK.stepName !== '정리';
-  SK.el.cornerBR.appendChild(think);
-
-  function lockSVG() {
-    var ns = 'http://www.w3.org/2000/svg';
-    var svg = document.createElementNS(ns, 'svg');
-    svg.setAttribute('viewBox', '0 0 24 24'); svg.setAttribute('aria-hidden', 'true'); svg.setAttribute('class', 'pe-lock__icon');
-    var body = document.createElementNS(ns, 'rect');
-    body.setAttribute('x', '4'); body.setAttribute('y', '11'); body.setAttribute('width', '16'); body.setAttribute('height', '10'); body.setAttribute('rx', '2');
-    body.setAttribute('style', 'fill:currentColor');
-    var shackle = document.createElementNS(ns, 'path');
-    shackle.setAttribute('class', 'pe-lock__shackle');
-    shackle.setAttribute('d', 'M8 11V7a4 4 0 0 1 8 0v4');
-    shackle.setAttribute('style', 'fill:none;stroke:currentColor;stroke-width:2.4');
-    svg.appendChild(shackle); svg.appendChild(body);
-    return svg;
-  }
   function legendSVG(kind) {
     var ns = 'http://www.w3.org/2000/svg';
     var svg = document.createElementNS(ns, 'svg');
@@ -229,25 +215,25 @@
     legendKey = key;
     legend.innerHTML = '';
     function row(kind, text) { legend.appendChild(h('span', { class: 'pe-legend__row' }, [legendSVG(kind), text])); }
-    if (p.showV) { row('v', '속도 v'); row('vc', '성분 vₓ·v_y'); }
-    if (p.showA) row('a', run && !run.analytic ? '가속도 a' : '가속도 a = g');
-    if (p.flash) row('flash', '0.1 s 간격 · 점을 누르면 값');
-    if (p.cmp) row('cmp', run && run.theta > 0 ? '비교 공 (옆으로 안 감)' : '비교 공 (떨어뜨린 공)');
+    if (p.showV) { row('v', '전체 속도'); row('vc', '수평·수직으로 나눈 속도'); }
+    if (p.showA) row('a', run && !run.analytic ? '가속도' : '가속도 (= g, 아래로)');
+    if (p.flash) row('flash', '0.1 s 마다 찍은 공 (점을 누르면 그때 값)');
+    if (p.cmp) row('cmp', run && run.theta > 0 ? '옆으로 안 가는 공' : '떨어뜨린 공');
     legend.hidden = !legend.children.length;
   }
 
   /* ------------------------------------------------------------------
-     4. 하단 띠: 계기판 | 에너지 막대 | 기록 표 (요구 C)
+     4. 하단 띠: 계기판 1줄 4개 | 에너지 막대
      ------------------------------------------------------------------ */
   var meters = SK.meters(null, [
     { key: 't', label: '시간', symbol: 't', unit: 's', decimals: 2 },
     { key: 'x', label: '수평 거리', symbol: 'x', unit: 'm', decimals: 1 },
-    { key: 'y', label: '높이', symbol: 'y', unit: 'm', decimals: 1 },
-    { key: 'vx', label: '수평 속도', symbol: 'vₓ', unit: 'm/s', decimals: 1, q: 'velocity' },
-    { key: 'vy', label: '연직 속도', symbol: 'v_y', unit: 'm/s', decimals: 1, q: 'velocity' },
-    { key: 'sp', label: '속력', symbol: 'v', unit: 'm/s', decimals: 1, q: 'velocity' }
+    { key: 'vx', label: '{{수평 속도}}', symbol: 'vₓ', unit: 'm/s', decimals: 1, q: 'velocity' },
+    { key: 'vy', label: '{{수직 속도}}', symbol: 'v_y', unit: 'm/s', decimals: 1, q: 'velocity' }
   ]);
   meters.el.classList.add('pe-meters');
+  var vyCell = meters.el.querySelector('[data-key="vy"] .meter__label');
+  if (vyCell) vyCell.appendChild(h('span', { class: 'pe-meter-note', text: '(− 는 아래)' }));
 
   var energyBox = h('div', { class: 'pe-energy', 'aria-label': '에너지 막대' });
   SK.el.graph.appendChild(energyBox);
@@ -256,94 +242,111 @@
 
   SK.recordTable(null, {
     columns: [
-      { key: 'v0', from: 'param' },
-      { key: 'theta', from: 'param' },
-      { key: 'h', from: 'param' },
-      { key: 'gtxt', label: 'g', unit: 'm/s²', from: 'value', changed: function (r) { return r.changed.indexOf('planet') >= 0 || r.changed.indexOf('gEarth') >= 0; } },
-      { key: 'mtxt', label: 'm', unit: 'kg', from: 'value', changed: function (r) { return r.changed.indexOf('m') >= 0 || r.changed.indexOf('air') >= 0; } },
-      { key: 'air', from: 'param' },
-      { key: 'T', label: '비행 시간', unit: 's', decimals: 2, from: 'value' },
-      { key: 'R', label: '수평 거리', unit: 'm', decimals: 1, from: 'value' },
-      { key: 'H', label: '최고 높이', unit: 'm', decimals: 1, from: 'value' },
-      { key: 'vL', label: '착지 속력', unit: 'm/s', decimals: 1, from: 'value' },
-      { key: 'E0t', label: 'E 처음', unit: 'J', from: 'value' },
-      { key: 'E1t', label: 'E 착지', unit: 'J', from: 'value' }   // 탁구공(1 J 미만)도 보이게 소수 자리를 에너지 크기에 맞춤
+      { key: 'v0', from: 'param', priority: 1 },
+      { key: 'theta', from: 'param', priority: 1 },
+      { key: 'h', from: 'param', priority: 1 },
+      { key: 'gtxt', label: 'g', unit: 'm/s²', from: 'value', priority: 1, changed: function (r) { return r.changed.indexOf('planet') >= 0 || r.changed.indexOf('gEarth') >= 0; } },
+      { key: 'mtxt', label: '질량 m', unit: 'kg', from: 'value', priority: 2, changed: function (r) { return r.changed.indexOf('m') >= 0 || r.changed.indexOf('air') >= 0; } },
+      { key: 'air', from: 'param', priority: 2 },
+      { key: 'T', label: '비행 시간', unit: 's', decimals: 2, from: 'value', priority: 1 },
+      { key: 'R', label: '수평 거리', unit: 'm', decimals: 1, from: 'value', priority: 1 },
+      { key: 'H', label: '최고 높이', unit: 'm', decimals: 1, from: 'value', priority: 2 },
+      { key: 'vL', label: '착지 속력', unit: 'm/s', decimals: 1, from: 'value', priority: 2 },
+      { key: 'E0t', label: '처음 에너지', unit: 'J', from: 'value', priority: 2 },
+      { key: 'E1t', label: '착지 에너지', unit: 'J', from: 'value', priority: 2 }
     ]
   });
-  // g·m 열의 '바뀜' 굵게는 공통 표의 changed 옵션이 맡는다 (크게 보기 창에서도 같이 굵게 — 최종 통합 점검)
-  SK.onRecords(function (records) {
-    if (!records.length && manualLock === false) manualLock = null;
-    SK.update();
-  });
+  SK.onRecords(function () { SK.update(); SK.requestRender(); });
 
   /* ------------------------------------------------------------------
-     5. 프리셋 (교과서 탐구·대표 문항 그대로) — 키 1~5
+     5. 예측 — 첫 진입: 사거리 숫자 예측 / 실험 카드 5장 (교과서 탐구·문제·흔한 오해)
      ------------------------------------------------------------------ */
+  function openRangePredict() {
+    var u = SK.ui;
+    var where = u.planet === 'earth' ? '' : PH.PLANETS[u.planet].name + '에서 ';
+    var q = where + '처음 속력 ' + u.v0 + ' m/s, 각도 ' + u.theta + '°' + (u.h > 0 ? ', 높이 ' + u.h + ' m 절벽 위' : '') + '에서 던지면 공은 몇 m 앞에 떨어질까요?';
+    curPreset = -1;
+    SK.predict({
+      question: q,
+      info: '바닥 눈금(m)을 보고 어림해서 숫자만 적어요. 틀려도 괜찮아요 — 실행해서 확인해요.',
+      numeric: { label: '사거리', unit: 'm', min: 0, max: 120, key: 'R', decimals: 1 },
+      why: '사거리 = 수평 속도 vₓ × 비행 시간 T 예요. 땅에서 던지면 45° 일 때 가장 멀리 가요.'
+    }).then(function () { SK.update(); });
+  }
+
   var TOOLS_OFF = { flash: false, showV: false, showA: false, shadow: false, energy: true, topStop: false, cmp: false };
   function vals(o) { var r = {}; var k; for (k in TOOLS_OFF) r[k] = TOOLS_OFF[k]; for (k in o) r[k] = o[k]; r.kCustom = false; return r; }
   var PRESETS = [
     {
-      name: '수평으로 던진 공, 떨어뜨린 공보다 늦을까?', tag: '대표 문항',
-      change: 'v₀ 10 → 15 → 20 m/s (하나씩 바꿔 S)', fixed: 'h 20 m · θ 0° · g 10 · m 1 kg · 공기 저항 끔',
-      values: vals({ planet: 'earth', gEarth: 10, air: 'off', pad: 'cliff', h: 20, v0: 10, theta: 0, m: 1, cmp: true, flash: true, shadow: true }),
-      box: { x: 44, y: 30 },
-      predict: { question: '절벽(20 m)에서 수평으로 10 m/s로 던진 공과 그냥 떨어뜨린 공(회색), 무엇이 먼저 땅에 닿을까?', choices: ['던진 공이 먼저', '떨어뜨린 공이 먼저', '동시에'] },
-      judge: function (p, phase) {
-        if (phase !== 'finish' || st.cLand === null) return null;
-        var d = st.tLand - st.cLand;
-        return { index: Math.abs(d) < 0.005 ? 2 : (d > 0 ? 1 : 0), text: '던진 공 ' + fmt(st.tLand, 2) + ' s · 떨어뜨린 공 ' + fmt(st.cLand, 2) + ' s' };
+      name: '수평으로 던지기', tag: '대표 문항',
+      change: 'v₀ 10 → 15 → 20 m/s', fixed: 'h 20 m · 각도 0°',
+      values: vals({ planet: 'earth', air: 'off', h: 20, v0: 10, theta: 0, m: 1, cmp: true, flash: true, shadow: true }),
+      predict: {
+        question: '20 m 절벽에서 옆으로 10 m/s 로 던진 공과, 그냥 떨어뜨린 공(회색). 무엇이 먼저 땅에 닿을까요?',
+        choices: ['던진 공이 먼저', '떨어뜨린 공이 먼저', '동시에'], answer: 3,
+        why: '옆으로 던져도 아래로 떨어지는 운동은 그냥 떨어뜨린 공과 똑같아요. 떨어지는 시간은 높이(와 g)로만 정해져요.',
+        judge: function () {
+          if (!st || st.cLand === null) return 3;
+          var d = st.tLand - st.cLand;
+          return Math.abs(d) < 0.005 ? 3 : (d < 0 ? 1 : 2);
+        }
       }
     },
     {
-      name: '날아가는 동안 에너지 합은 변할까?', tag: '탐구 재현',
-      change: 'θ 30° → 45° → 60° (착지 속력 비교)', fixed: 'v₀ 10 m/s · h 20 m · g 10 · m 1 kg · 공기 저항 끔',
-      values: vals({ planet: 'earth', gEarth: 10, air: 'off', pad: 'cliff', h: 20, v0: 10, theta: 30, m: 1, flash: true, energy: true }),
-      box: { x: 30, y: 34 },
-      predict: { question: '날아가는 동안 운동 에너지 + 위치 에너지의 합은 어떻게 될까?', choices: ['점점 줄어든다', '점점 늘어난다', '내내 같다'], info: '처음: 운동 에너지 50 J + 위치 에너지 200 J' },
-      judge: function (p, phase) {
-        if (phase !== 'finish') return null;
-        var E1 = st.result.E1, E0 = run.E0, d = E1 - E0;
-        return { index: Math.abs(d) <= 0.001 * E0 + 1e-9 ? 2 : (d < 0 ? 0 : 1), text: 'E 처음 ' + fmt(E0, 1) + ' J → 착지 ' + fmt(E1, 1) + ' J, 착지 속력 ' + fmt(st.result.vL, 1) + ' m/s' };
+      name: '날아가는 동안 에너지', tag: '탐구 재현',
+      change: 'θ 30° → 45° → 60°', fixed: 'v₀ 10 m/s · h 20 m · 1 kg',
+      values: vals({ planet: 'earth', air: 'off', h: 20, v0: 10, theta: 30, m: 1, flash: true, energy: true }),
+      predict: {
+        question: '날아가는 동안 운동 에너지 + 위치 에너지의 합(역학적 에너지)은 어떻게 될까요?',
+        choices: ['점점 줄어든다', '점점 늘어난다', '내내 같다'], answer: 3,
+        info: '아래 에너지 막대에서 운동·위치 에너지를 지켜봐요.',
+        why: '공기 저항이 없으면 중력만 일을 해요. 높이가 낮아진 만큼 위치 에너지가 운동 에너지로 바뀔 뿐, 합은 그대로예요.',
+        judge: function () {
+          if (!st || !st.result) return 3;
+          var d = st.result.E1 - run.E0;
+          return Math.abs(d) <= 0.001 * run.E0 + 1e-9 ? 3 : (d < 0 ? 1 : 2);
+        }
       }
     },
     {
-      name: '30°와 60°, 어느 쪽이 멀리 갈까?', tag: '탐구 재현',
-      change: 'θ 30° → 60° (실행 → S → 60° → 실행)', fixed: 'v₀ 20 m/s · h 0 (지면) · g 10 · 공기 저항 끔',
-      values: vals({ planet: 'earth', gEarth: 10, air: 'off', pad: 'ground', h: 0, v0: 20, theta: 30, m: 1, flash: true }),
-      box: { x: 44, y: 17 },
-      predict: { question: '같은 속력 20 m/s로 30°와 60°로 던지면 어느 쪽이 더 멀리 갈까?', choices: ['30°', '60°', '같다'] },
-      judge: function (p, phase) {
-        if (phase !== 'finish' || (p.theta !== 30 && p.theta !== 60)) return null;
-        var r30 = PH.rangeFor(p, { theta: 30 }), r60 = PH.rangeFor(p, { theta: 60 });
-        var d = r30 - r60;
-        return { index: Math.abs(d) < 0.05 ? 2 : (d > 0 ? 0 : 1), text: '30° ' + fmt(r30, 1) + ' m · 60° ' + fmt(r60, 1) + ' m (45°는 ' + fmt(PH.rangeFor(p, { theta: 45 }), 1) + ' m)' };
+      name: '30° 와 60°', tag: '탐구 재현',
+      change: 'θ 30° → 60°', fixed: 'v₀ 20 m/s · 땅에서',
+      values: vals({ planet: 'earth', air: 'off', h: 0, v0: 20, theta: 30, m: 1, flash: true }),
+      predict: {
+        question: '같은 속력 20 m/s 로 30° 와 60° 로 던지면 어느 쪽이 더 멀리 갈까요?',
+        choices: ['30°', '60°', '같다'], answer: 3,
+        why: '30° 는 옆으로 빠르지만 일찍 떨어지고, 60° 는 오래 날지만 옆으로 느려요. 곱(vₓ × T)이 같아져요. 더해서 90° 인 두 각도는 사거리가 같아요.',
+        judge: function (p) {
+          var r30 = PH.rangeFor(p, { theta: 30 }), r60 = PH.rangeFor(p, { theta: 60 }), d = r30 - r60;
+          return Math.abs(d) < 0.05 ? 3 : (d > 0 ? 1 : 2);
+        }
       }
     },
     {
-      name: '달에서 던지면 얼마나 멀리 갈까?', tag: '대표 문항',
-      change: '지구(g 10) 실행 → S → 달(1.62) 실행', fixed: 'v₀ 10 m/s · θ 45° · h 0 · 공기 저항 끔',
-      values: vals({ planet: 'earth', gEarth: 10, air: 'off', pad: 'ground', h: 0, v0: 10, theta: 45, m: 1, flash: true }),
-      box: { x: 68, y: 17 },
-      predict: { question: '달(g = 1.62)에서 똑같이 던지면 지구(g = 10)보다 몇 배 멀리 갈까?', choices: ['약 2배', '약 6배', '같다'] },
-      judge: function (p, phase) {
-        if (phase !== 'finish') return null;
-        if (p.planet !== 'moon') return { pending: true, text: '지구 ' + fmt(st.result.R, 1) + ' m — 이제 S → 달 카드 → 실행' };
-        var re = PH.rangeFor(p, { planet: 'earth', gEarth: 10 }), ratio = st.result.R / re;
-        var opts = [2, 6, 1], best = 0;
-        for (var i = 1; i < 3; i++) if (Math.abs(ratio - opts[i]) < Math.abs(ratio - opts[best])) best = i;
-        return { index: best, text: '지구 ' + fmt(re, 1) + ' m → 달 ' + fmt(st.result.R, 1) + ' m (' + fmt(ratio, 1) + '배)' };
+      name: '달에서 던지기', tag: '대표 문항',
+      change: '지구 → 달', fixed: 'v₀ 10 m/s · 45° · 땅에서',
+      values: vals({ planet: 'moon', air: 'off', h: 0, v0: 10, theta: 45, m: 1, flash: true }),
+      predict: {
+        question: '달(g = 1.62)에서 똑같이 던지면, 지구(g = 9.8)보다 몇 배 멀리 갈까요?',
+        choices: ['약 2배', '약 6배', '같다'], answer: 2,
+        info: '지구에서는 같은 조건으로 약 10 m 날아가요.',
+        why: '사거리는 g 에 반비례해요(R = v₀² sin2θ ÷ g). 달의 g 는 지구의 약 1/6 이라 약 6배 멀리 가요.',
+        judge: function (p) {
+          var re = PH.rangeFor(p, { planet: 'earth' }), ratio = (st && st.result ? st.result.R : PH.rangeFor(p, {})) / re;
+          var opts = [2, 6, 1], best = 0;
+          for (var i = 1; i < 3; i++) if (Math.abs(ratio - opts[i]) < Math.abs(ratio - opts[best])) best = i;
+          return best + 1;
+        }
       }
     },
     {
-      name: '최고점에서 공은 멈출까?', tag: '오개념',
-      change: '최고점에서 저절로 멈춤 → 화살표 보기', fixed: 'v₀ 20 m/s · θ 45° · h 0 · g 10',
-      values: vals({ planet: 'earth', gEarth: 10, air: 'off', pad: 'ground', h: 0, v0: 20, theta: 45, m: 1, topStop: true, showV: true, showA: true }),
-      box: null,
-      predict: { question: '가장 높은 곳(최고점)에서 공의 속도와 가속도는?', choices: ['속도 0, 가속도 0', '속도 0, 가속도 g', '속도 0 아님, 가속도 g'] },
-      judge: function (p, phase) {
-        if (phase !== 'top') return null;
-        var sp = Math.sqrt(st.vx * st.vx + st.vy * st.vy);
-        return { index: sp > 0.05 ? 2 : 1, text: 'vₓ = ' + fmt(st.vx, 1) + ' m/s, v_y = ' + fmt(st.vy, 1) + ' m/s, a = ' + gText(run.g) + ' m/s² 아래' };
+      name: '최고점에서 속도는?', tag: '오개념',
+      change: '최고점에서 멈춰 화살표 보기', fixed: 'v₀ 20 m/s · 45°',
+      values: vals({ planet: 'earth', air: 'off', h: 0, v0: 20, theta: 45, m: 1, topStop: true, showV: true, showA: true }),
+      predict: {
+        question: '가장 높은 곳(최고점)에서 공의 속도와 가속도는 어떨까요?',
+        choices: ['속도 0, 가속도 0', '속도 0, 가속도 g', '속도 0 아님, 가속도 g'], answer: 3,
+        why: '최고점에서는 수직 속도만 0 이에요. 수평 속도 vₓ 는 그대로 남아 있고, 중력 때문에 가속도는 내내 g(아래 방향)예요.'
       }
     }
   ];
@@ -351,72 +354,188 @@
     return {
       name: pr.name, tag: pr.tag, change: pr.change, fixed: pr.fixed, values: pr.values, predict: pr.predict,
       onApply: function () {
-        curPreset = i; predBase = SK.prediction;
-        if (pr.box) lockBox(pr.box);
-        else { manualLock = null; fixedBox = null; }
-        showResult(null);
+        curPreset = i; fixedBox = null;
+        if (!SK.get('autoScale')) SK.set('autoScale', true);
         SK.update(); SK.requestRender();
       }
     };
   }));
 
-  function judge(phase) {
-    if (curPreset < 0) return false;
-    var pr = PRESETS[curPreset], j = pr.judge(SK.params, phase);
-    if (!j) return false;
-    if (j.pending) { showResult({ text: j.text, plain: true }); return true; }
-    var pred = SK.prediction;
-    var valid = pred && pred !== predBase && pred.question === pr.predict.question;
-    var ans = pr.predict.choices[j.index];
-    var txt = (valid ? '예측: ' + pred.answer + ' / ' : '') + '결과: ' + ans + (valid ? (pred.index === j.index ? ' ✓' : ' ✗') : '');
-    showResult({ text: txt, sub: j.text, wrong: valid && pred.index !== j.index });
-    SK.notice(txt, valid && pred.index !== j.index ? 'warn' : 'ok', 5000);
-    return true;
+  /* ------------------------------------------------------------------
+     6. 설명 콘텐츠 — 도움말(이렇게 해요·개념·용어) · 결과 해설 · 정리 질문
+     ------------------------------------------------------------------ */
+  SK.help({
+    how: [
+      '[예측 입력]을 눌러 공이 몇 m 앞에 떨어질지 먼저 적어요. 아래 실험 카드를 눌러도 예측 질문이 나와요.',
+      '▶ 실행을 누르고 공이 날아가는 모습, 계기판의 수평 속도·수직 속도, 에너지 막대를 지켜봐요.',
+      '끝나면 [기록하기]로 저장해요. 그다음 오른쪽 [수치 바꾸기]에서 처음 속력이나 각도 하나만 바꿔 다시 실행하고 기록해요.',
+      '비교 단계에서 두 기록을 나란히 놓고 무엇이 달라졌는지 찾고, 정리 단계 질문에 답해요. 공을 뒤로 끌어당겨 속력·각도를 정할 수도 있어요.'
+    ],
+    concepts: [
+      {
+        title: '수평 속도는 변하지 않아요',
+        formula: 'x = v₀cosθ · t   (vₓ = v₀cosθ, 일정)',
+        plain: '공을 던진 뒤에는 옆으로 미는 힘이 없으니 옆 속도는 그대로예요. 그래서 섬광 사진의 점들이 옆으로는 똑같은 간격으로 찍혀요. 예) vₓ = 10 m/s 면 1 s 에 10 m, 2 s 에 20 m. ' +
+               '기호: x 수평 거리(m), v₀ 처음 속력(m/s), θ 던지는 각도(°), t 시간(s).',
+        live: function (p) {
+          var r = run || PH.buildRun(p);
+          return '지금: vₓ = ' + fmt(r.v0, 0) + ' × cos' + p.theta + '° = ' + fmt(r.vx0, 1) + ' m/s → 비행 시간 ' + fmt(r.T, 2) + ' s 동안 ' + fmt(r.vx0 * r.T, 1) + ' m' + (r.analytic ? '' : ' (공기 저항이 있으면 식보다 짧아요)');
+        }
+      },
+      {
+        title: '수직으로는 떨어뜨린 공과 똑같아요',
+        formula: 'v_y = v₀sinθ − g·t,   y = h + v₀sinθ·t − ½g·t²',
+        plain: '아래로는 중력 때문에 1 s 마다 g 만큼씩 속도가 바뀌어요(지구 9.8 m/s). 그래서 섬광 점의 위아래 간격은 점점 벌어져요. 올라갈 때는 느려지고, 최고점에서 v_y = 0, 내려올 때는 빨라져요. ' +
+               '수직 속도는 위쪽을 + 로 정해서, 내려올 때는 − 로 나와요. 옆으로 던진 공과 떨어뜨린 공이 동시에 닿는 까닭이에요. 기호: y 높이(m), h 던지는 높이(m), g 중력 가속도(m/s²).',
+        live: function (p) {
+          var r = run || PH.buildRun(p);
+          if (r.h > 0 && r.vy0 === 0) return '지금: 높이 ' + fmt(r.h, 0) + ' m 에서 수평으로 던지면 t = √(2h ÷ g) = √(2 × ' + fmt(r.h, 0) + ' ÷ ' + gText(r.g) + ') = ' + fmt(Math.sqrt(2 * r.h / r.g), 2) + ' s';
+          return '지금: 처음 v_y = ' + fmt(r.vy0, 1) + ' m/s, 최고점까지 ' + (r.vy0 > 0 ? fmt(r.vy0 / r.g, 2) : '0.00') + ' s, 최고 높이 ' + fmt(r.H, 1) + ' m';
+        }
+      },
+      {
+        title: '역학적 에너지 보존',
+        formula: '½mv² + mgh = 일정',
+        plain: '운동 에너지(½mv²)가 줄면 위치 에너지(mgh)가 그만큼 늘어요. 공이 올라가면 느려지고, 내려오면 빨라지는 까닭이에요. 공기 저항이 없으면 합은 처음부터 끝까지 같아요. ' +
+               '예) 1 kg 공이 20 m 높이에서 10 m/s 로 출발: 운동 50 J + 위치 196 J = 246 J (g = 9.8). 기호: m 질량(kg), v 속력(m/s), h 높이(m), J(줄) 에너지 단위.',
+        live: function (p) {
+          var r = run || PH.buildRun(p), d = eDec(r.E0);
+          return '지금: 처음 운동 ' + fmt(0.5 * r.m * r.v0 * r.v0, d) + ' J + 위치 ' + fmt(r.m * r.g * r.h, d) + ' J = ' + fmt(r.E0, d) + ' J → 착지 속력 √(v₀² + 2gh) = ' + fmt(Math.sqrt(r.v0 * r.v0 + 2 * r.g * r.h), 1) + ' m/s';
+        }
+      },
+      {
+        title: '사거리와 던지는 각도',
+        formula: 'R = v₀² × sin2θ ÷ g   (땅에서 던질 때)',
+        plain: '각도가 작으면 옆으로 빠르지만 금방 떨어지고, 각도가 크면 오래 날지만 옆으로 느려요. 그 사이 45° 에서 가장 멀리 가요. 30° 와 60° 처럼 더해서 90° 인 두 각도는 같은 거리를 가요. ' +
+               '높은 곳에서 던지거나 공기 저항이 있으면 가장 멀리 가는 각도는 45° 보다 작아져요.',
+        live: function (p) {
+          var g = gNow(p);
+          return '지금 g = ' + gText(g) + ', v₀ = ' + p.v0 + ' m/s 이면 30°·60°: ' + fmt(p.v0 * p.v0 * Math.sin(Math.PI / 3) / g, 1) + ' m, 45°: ' + fmt(p.v0 * p.v0 / g, 1) + ' m';
+        }
+      },
+      {
+        title: '흔한 오해 바로잡기',
+        plain: '✗ 세게 던질수록 늦게 떨어진다 → ✓ 수평으로 던지면 떨어지는 시간은 높이로만 정해져요. ' +
+               '✗ 최고점에서 공이 멈춘다 → ✓ 수직 속도만 0, 수평 속도는 그대로예요. ' +
+               '✗ 무거운 공이 더 빨리 떨어진다 → ✓ 공기 저항이 없으면 질량과 상관없어요. ' +
+               '✗ 날아가는 공을 앞으로 미는 힘이 있다 → ✓ 던진 뒤에는 중력(아래)만 작용해요. 그래서 가속도는 내내 g, 아래 방향이에요.'
+      }
+    ],
+    terms: {
+      '성분': '화살표 하나를 수평(옆)과 수직(위아래) 두 방향으로 나눈 것. 속도 v 를 vₓ 와 v_y 로 나눠 따로 봐요.',
+      '수평 속도': '옆으로 가는 빠르기 vₓ (m/s). 공기 저항이 없으면 날아가는 내내 같아요.',
+      '수직 속도': '위아래로 가는 빠르기 v_y (m/s). 위로 가면 +, 아래로 가면 − 로 적어요. 최고점에서 0.',
+      '연직': '실에 추를 매달았을 때 실의 방향, 곧 똑바로 위아래 방향. 수직과 같은 뜻으로 써요.',
+      '사거리': '던진 곳에서 땅에 떨어진 곳까지의 수평 거리(m).',
+      '비행 시간': '던진 순간부터 땅에 닿을 때까지 걸린 시간(s).',
+      '중력 가속도': '1 s 마다 떨어지는 속도가 얼마나 빨라지는지(m/s²). 지구 9.8, 달 1.62, 화성 3.71.',
+      '역학적 에너지': '운동 에너지와 위치 에너지를 더한 것(J). 공기 저항이 없으면 일정해요.',
+      '운동 에너지': '움직이는 물체가 가진 에너지 ½mv² (J). 빠를수록, 무거울수록 커요.',
+      '위치 에너지': '높은 곳에 있어서 가진 에너지 mgh (J). 땅(높이 0)을 기준으로 재요.',
+      '공기 저항': '공이 공기를 밀고 지나갈 때 받는, 움직임을 방해하는 힘. 가볍고 큰 공(탁구공)일수록 크게 영향을 받아요.',
+      '포물선': '비스듬히 던진 공이 그리는 곡선. 수평으로는 일정하게, 수직으로는 점점 빨라지며 움직여서 생겨요.',
+      '최고점': '공이 가장 높이 올라간 곳. 수직 속도가 0 이 되는 순간이에요.'
+    },
+    keys: [['G', '지구 g 9.8 ↔ 10'], ['L', '눈금 자동 맞춤 켜기/끄기'], ['B', '떨어뜨린 공 함께 보기'], ['A', '속도·가속도 화살표 켜기/끄기']]
+  });
+
+  SK.takeaway(function (p) { return takeawayText(p); });
+  function takeawayText(p) {
+    if (!st || !st.result || !(st.tLand > 1e-9)) return null;
+    var r = st.result, d = eDec(run.E0);
+    if (!run.analytic) {
+      return '{{공기 저항}} 때문에 역학적 에너지가 ' + fmt(run.E0, d) + ' J → ' + fmt(r.E1, d) + ' J 로 줄었어요. 줄어든 만큼은 공기와 비비며 열로 바뀌었어요.';
+    }
+    if (p.cmp && st.cLand !== null && run.vy0 === 0) {
+      return '옆으로 던진 공과 떨어뜨린 공이 ' + fmt(st.tLand, 2) + ' s 에 동시에 닿았어요. 옆으로 던져도 떨어지는 시간은 같아요 — 수직 운동은 수평 속도와 상관없어요.';
+    }
+    if (curPreset === 1) {
+      return '운동 에너지 + 위치 에너지 = ' + fmt(run.E0, d) + ' J 로 내내 같았어요. 높이가 낮아진 만큼 빨라져서 착지 속력은 ' + fmt(r.vL, 1) + ' m/s — 던지는 각도를 바꿔도 착지 속력은 같아요.';
+    }
+    if (p.planet !== 'earth') {
+      var re = PH.rangeFor(p, { planet: 'earth' });
+      return PH.PLANETS[p.planet].name + '에서는 g 가 작아 천천히 떨어져서 ' + fmt(r.R, 1) + ' m — 지구(' + fmt(re, 1) + ' m)의 약 ' + fmt(r.R / re, 1) + '배 멀리 갔어요.';
+    }
+    if (curPreset === 4 || p.topStop) {
+      return '최고점에서도 수평 속도 ' + fmt(run.vx0, 1) + ' m/s 는 그대로였어요. 멈춘 게 아니라 수직 속도만 0 이 된 거예요.';
+    }
+    if (run.h === 0 && run.theta > 0 && run.theta < 90 && run.theta !== 45) {
+      return '각도 ' + run.theta + '° → ' + fmt(r.R, 1) + ' m. 짝이 되는 ' + (90 - run.theta) + '° 로 던져도 같은 거리예요. 가장 멀리 가는 각도는 45° 예요.';
+    }
+    return '옆으로는 ' + fmt(run.vx0, 1) + ' m/s 그대로 ' + fmt(r.T, 2) + ' s 동안 날아가 ' + fmt(r.R, 1) + ' m 앞에 떨어졌어요. 수평 거리 = 수평 속도 × 비행 시간.';
   }
-  function showResult(r) {
-    if (!r) { resultChip.hidden = true; resultChip.innerHTML = ''; return; }
-    resultChip.innerHTML = '';
-    resultChip.appendChild(h('b', { text: r.text }));
-    if (r.sub) resultChip.appendChild(h('span', { text: r.sub }));
-    resultChip.classList.toggle('is-wrong', !!r.wrong);
-    resultChip.classList.toggle('is-plain', !!r.plain);
-    resultChip.hidden = false;
+
+  // 정리 질문 (정리 단계 오른쪽 판). 정답 수치는 지금 g 로 계산해 [답 확인하기] 안에 넣는다
+  var think1 = SK.think({
+    q: '수평으로 던진 공이 땅에 닿을 때까지 걸리는 시간을 정하는 것은?',
+    choices: ['던지는 높이 h', '처음 속력 v₀', '공의 질량 m'], answer: 1,
+    why: '떨어지는 시간 t = √(2h ÷ g) 에는 v₀ 도 m 도 없어요. 세게 던지면 더 멀리 갈 뿐, 떨어지는 시간은 같아요.',
+    reveal: ' '
+  });
+  SK.think({
+    q: '공기 저항이 없을 때, 같은 속력으로 30° 와 60° 로 던지면?',
+    choices: ['30° 가 더 멀리', '60° 가 더 멀리', '같은 거리'], answer: 3,
+    why: 'sin(2×30°) = sin(2×60°) 라서 사거리가 같아요. 60° 는 더 높이, 더 오래 날지만 옆으로 느려요.'
+  });
+  SK.think({
+    q: '최고점에서 공의 속도는?',
+    choices: ['0 이에요', '수평 속도 vₓ 만 남아요', '처음 속력과 같아요'], answer: 2,
+    why: '최고점에서는 수직 속도 v_y 만 0 이에요. 수평 속도는 처음부터 끝까지 v₀cosθ 그대로예요.'
+  });
+  SK.think({
+    q: '공기 저항이 없을 때 날아가는 동안 역학적 에너지(운동 + 위치)는?',
+    choices: ['점점 줄어요', '점점 늘어요', '일정해요'], answer: 3,
+    why: '중력만 일을 하면 위치 에너지가 준 만큼 운동 에너지가 늘어요. 그래서 합은 일정해요(역학적 에너지 보존).'
+  });
+  SK.think({
+    q: '더 생각하기: 공기 저항이 있으면 가장 멀리 가는 각도는 45° 보다 클까, 작을까?',
+    hint: '[더 많은 설정] › 공기 저항 › 탁구공을 고르고 35°·40°·45° 를 차례로 기록해 비교해 봐요.',
+    reveal: '작아져요. 탁구공(20 m/s, g = 9.8)은 35° 쯤에서 가장 멀리(약 10.4 m) 가고, 45° 는 10.0 m 예요. 공기 저항이 날아가는 내내 속도를 줄이니, 오래 나는 큰 각도가 더 손해를 봐요. 무거운 쇠공은 영향이 작아 거의 45° 그대로예요.'
+  });
+  var think1Body = think1 && think1.querySelector('.reveal__body');
+  if (run) setTimeout(function () { updateThinkAnswer(run.g); }, 0);
+  function updateThinkAnswer(g) {
+    if (!think1Body) return;
+    function t(hh) { return fmt(Math.sqrt(2 * hh / g), 2); }
+    think1Body.textContent = '정답 ① 던지는 높이 h (와 g). 지금 g = ' + gText(g) + ' m/s² 이면 5 m → ' + t(5) + ' s, 20 m → ' + t(20) + ' s, 45 m → ' + t(45) + ' s. 높이가 4배가 되면 시간은 2배예요(√4 = 2).';
   }
 
   /* ------------------------------------------------------------------
-     6. 수업 안내 서랍 — 변수 대응표 (결정서 §4-1-4 와 같은 내용)
+     7. 수업 안내(교사) — 교사 모드에서만, 카드형
      ------------------------------------------------------------------ */
   SK.guide({
     rows: [
-      { target: '처음 속력 v₀ — 0~30 m/s, 1, 기본 20 (다시 시작)', standard: '[12역학01-02] 정량 설명. 교과서 문제의 10·20 m/s (교과서 쪽수 확인 필요)', discover: '수평 던지기에서 v₀를 바꿔도 비행 시간은 같고 수평 거리만 v₀에 비례', misconception: '세게 던지면 늦게 떨어진다' },
-      { target: '던지는 각도 θ — 0~90°, 5°, 기본 45 (다시 시작)', standard: '[12역학01-02]', discover: '30°와 60°는 같은 거리, 45° 최대(지면 발사)', misconception: '각도가 클수록 멀리 간다' },
-      { target: '던지는 높이 h — 0~45 m, 5, 기본 0 (다시 시작)', standard: '탐구 활동(포물선 운동 동영상 분석), 수평 던지기 대표 문항', discover: '낙하 시간 = √(2h/g): 20 m → 2 s, 45 m → 3 s (g = 10)', misconception: '—' },
-      { target: '공의 질량 m — 0.1~5 kg, 0.1, 기본 1 (다시 시작)', standard: '변인 통제 연습', discover: '궤적·시간은 그대로, 에너지 값만 질량에 비례', misconception: '무거운 공이 빨리 떨어진다' },
-      { target: '중력 g (상황) — 지구 9.8/10, 달 1.62, 화성 3.71 (다시 시작)', standard: '[12역학01-02] g가 식에 어떻게 들어가는지', discover: 'g가 작으면 비행 시간·거리·높이가 커진다', misconception: '—' },
-      { target: '공기 저항 (상황) — 끔 / 쇠공 / 탁구공 (다시 시작)', standard: '[12역학01-02] \'이상적 조건\'의 뜻, 심화 발문', discover: '공기 저항이 있으면 질량이 작은 공이 덜 날아가고 최적 각도가 45°보다 작다', misconception: '공기 저항은 늘 무시해도 된다' },
-      { target: '비교 공 (상황) — 켬 / 끔 (즉시)', standard: '대표 문항(수평 던지기 vs 자유 낙하)', discover: '두 공의 높이가 항상 같다', misconception: '던진 공이 늦게 떨어진다' }
+      { target: '처음 속력 v₀ — 0~30 m/s, 1 단위, 기본 20 (↻)', standard: '[12역학01-02] 정량 설명', discover: '수평 던지기에서 v₀ 를 바꿔도 비행 시간은 같고 수평 거리만 v₀ 에 비례', misconception: '세게 던지면 늦게 떨어진다' },
+      { target: '던지는 각도 θ — 0~90°, 5° 단위, 기본 45 (↻)', standard: '[12역학01-02]', discover: '30° 와 60° 는 같은 거리, 45° 최대(지면 발사)', misconception: '각도가 클수록 멀리 간다' },
+      { target: '던지는 높이 h — 0~45 m, 5 단위, 기본 0 (↻)', standard: '탐구 활동(포물선 운동 동영상 분석), 수평 던지기 대표 문항', discover: '낙하 시간 = √(2h/g). 높이 4배 → 시간 2배', misconception: '—' },
+      { target: '어디에서 던질까 — 지구(9.8/10) · 달 1.62 · 화성 3.71 (↻)', standard: '[12역학01-02] g 가 식에 들어가는 방식', discover: 'g 가 작으면 비행 시간·거리·높이가 커진다(사거리 ∝ 1/g)', misconception: '—' },
+      { target: '떨어뜨린 공 함께 보기 (⚡)', standard: '대표 문항(수평 던지기 vs 자유 낙하)', discover: '두 공의 높이가 항상 같다', misconception: '던진 공이 늦게 떨어진다' },
+      { target: '더 많은 설정: 공기 저항 · 질량 (↻)', standard: '\'이상적 조건\'의 뜻, 변인 통제, 심화 발문', discover: '공기 저항이 있으면 가벼운 공이 덜 날아가고 최적 각도가 45° 보다 작다. 저항이 없으면 질량은 궤적과 무관', misconception: '무거운 공이 빨리 떨어진다' }
     ],
     sections: [
       { title: '성취기준', items: ['[12역학01-02] 뉴턴 운동 법칙으로 포물선 운동을 정량적으로 설명하고 역학적 에너지를 구한다.', '연계 [12물리01-04] 역학적 에너지 보존.', '탐구 활동: 포물선 운동을 하는 물체의 동영상을 분석하여 역학적 에너지 보존 확인하기. (교과서 활동 이름·쪽수는 확인 필요)'] },
-      { title: '수업 흐름 (→ 키)', items: ['① 예측: 프리셋을 누르면 발문 카드가 떠요(1~3 으로 고르기).', '② 실행: Space. 끝나면 오른쪽 위에 "예측 / 결과 ✓" 가 떠요. , . 로 한 프레임씩.', '③ 비교: 한 가지만 바꿔 S 를 3~5번. 표에서 같은 열(비행 시간 등)을 찾아요. 기록이 생기면 축척이 저절로 고정돼요.', '④ 정리: 빈칸 문장 "비행 시간은 ___로만 정해진다", H 로 정답.'] },
-      { title: '발문', items: ['각도를 바꿔도 착지 속력이 같을까? (프리셋 2, 모둠 활동) → 같은 v₀·h 면 √(v₀² + 2gh) 로 같아요.', '공기 저항을 켜면 가장 멀리 가는 각도는 45°보다 클까 작을까? → 탁구공 20 m/s 에서 약 35°.', '최고점에서 공은 멈출까? → 수평 속도는 그대로, 가속도는 g 아래.'] },
-      { title: '조작 메모', items: ['섬광 점(0.1 s 간격)을 누르면 그 순간의 t·x·y·속도와 운동·위치 에너지가 떠요. 동영상 분석 활동처럼 점 몇 개를 골라 합이 같은지 표에 적게 해요. 빈 곳을 누르면 닫혀요.', '공을 손가락으로 당겼다 놓으면 v₀·θ 가 들어가요(당긴 길이 10u = 1 m/s, 1 m/s·5° 눈금). 놓아도 실행하지 않아요.', '공기 저항 끔은 해석해(식)로 계산해서 에너지 합이 출렁이지 않아요. 켬은 RK4 (dt = 1/240 s).', '공기 저항을 켜면 질량은 공 종류로 정해져요(쇠공 0.50 kg, 탁구공 0.0027 kg). 달에는 공기가 없어 저항이 0, 화성은 공기 밀도 0.020 kg/m³ 로 계산해요.', '비교 공은 같은 높이에서 같은 연직 속도로 출발하고 옆으로는 움직이지 않는 공이에요. θ = 0° 이면 그냥 떨어뜨린 공.'] }
+      { title: '수업 흐름', items: ['① 예측: 처음 들어오면 사거리 숫자 예측 카드가 떠요. 실험 카드를 누르면 카드별 예측 질문이 떠요.', '② 실행: 끝나면 실험 화면 위에 예측 판정(예측 40 m · 실제 40.8 m)과 결과 해설이 떠요.', '③ 비교: 한 가지만 바꿔 3~5번 [기록하기]. 오른쪽 기록 표에서 두 기록을 나란히 비교해요. 눈금 자동 맞춤이 기록 궤적까지 모두 보이게 맞춰요.', '④ 정리: 보기 3개 질문 4개(바로 판정) + 더 생각하기 1개. [답 확인하기] 잠금은 아래 교사 설정에서.'] },
+      { title: '발문', items: ['각도를 바꿔도 착지 속력이 같을까? (카드 ②, 모둠 활동) → 같은 v₀·h 면 √(v₀² + 2gh) 로 같아요.', '공기 저항을 켜면 가장 멀리 가는 각도는 45° 보다 클까 작을까? → 탁구공 20 m/s 에서 약 35°.', '최고점에서 공은 멈출까? → 수평 속도는 그대로, 가속도는 g 아래.'] },
+      { title: '조작 메모', items: ['섬광 점(0.1 s 간격)을 누르면 그 순간의 t·x·y·속도와 운동·위치 에너지가 떠요. 동영상 분석 활동처럼 점 몇 개를 골라 합이 같은지 표에 적게 해요. 빈 곳을 누르면 닫혀요.', '실행 전 공을 끌어당겼다 놓으면 v₀·θ 가 들어가요(당긴 길이 10u = 1 m/s). 놓아도 실행하지 않아요.', '공기 저항 없음은 해석해(식)로 계산해서 에너지 합이 출렁이지 않아요. 저항 있음은 RK4 (dt = 1/240 s).', '공기 저항을 켜면 질량은 공 종류로 정해져요(쇠공 0.50 kg, 탁구공 0.0027 kg). 달에는 공기가 없어 저항 0, 화성은 공기 밀도 0.020 kg/m³.', '떨어뜨린 공은 같은 높이·같은 연직 속도로 출발하고 옆으로만 움직이지 않는 공이에요. θ = 0° 이면 그냥 떨어뜨린 공.'] }
     ],
-    keys: 'G 지구 g 9.8/10 · L 축척 고정/자동 · B 비교 공 · A 속도·가속도 화살표'
+    keys: 'G 지구 g 9.8/10 · L 눈금 자동 맞춤 · B 떨어뜨린 공 · A 속도·가속도 화살표'
   });
 
   /* ------------------------------------------------------------------
-     7. 전용 키 (공통 키와 겹치지 않음)
+     8. 전용 키 (공통 키와 겹치지 않음, 화면에는 쓰지 않음)
      ------------------------------------------------------------------ */
   SK.onKey(function (e) {
     if (e.repeat) return false;
     switch (e.code) {
       case 'KeyG':
-        if (SK.get('planet') !== 'earth') { SK.notice('9.8 / 10 전환은 지구에서만 써요', 'info'); return true; }
+        if (SK.get('planet') !== 'earth') { SK.notice('9.8 / 10 바꾸기는 지구에서만 써요', 'info'); return true; }
         SK.set('gEarth', SK.get('gEarth') === 10 ? 9.8 : 10);
         SK.notice('지구 g = ' + gText(SK.get('gEarth')) + ' m/s²', 'info');
         return true;
-      case 'KeyL': toggleLock(); return true;
+      case 'KeyL':
+        SK.set('autoScale', !SK.get('autoScale'));
+        SK.notice(SK.get('autoScale') ? '눈금 자동 맞춤 켬' : '눈금 자동 맞춤 끔 — 지금 눈금 그대로', 'info');
+        return true;
       case 'KeyB': SK.set('cmp', !SK.get('cmp')); return true;
       case 'KeyA':
         var on = !(SK.get('showV') || SK.get('showA'));
@@ -427,7 +546,7 @@
   });
 
   /* ------------------------------------------------------------------
-     8. 공을 당겨서 v₀·θ 넣기 (pointer events: 마우스·펜·터치)
+     9. 공을 당겨서 v₀·θ 넣기 (pointer events: 마우스·펜·터치)
      ------------------------------------------------------------------ */
   var cv = SK.view.canvas;
   function startPx() { return { x: L.X0, y: L.GY - (run ? run.h : 0) * map.S }; }
@@ -436,10 +555,9 @@
     var q = SK.view.toLogical(e), b = startPx();
     var nearBall = Math.hypot(q.x - b.x, q.y - b.y) <= 52;
     if (!nearBall || SK.started) {
-      // 섬광 점 누르기 → 그 순간의 t·x·y·v·에너지 (탐구 활동: 동영상 분석으로 역학적 에너지 보존 확인)
       var hit = SK.params.flash ? flashAt(q) : -1;
       if (hit >= 0 || pick >= 0) { pick = hit; SK.requestRender(); return; }
-      if (nearBall) SK.notice('R 로 처음으로 돌린 뒤 공을 당겨 보세요', 'info');
+      if (nearBall) SK.notice('[처음 설정으로]를 누른 뒤 공을 끌어당겨 보세요', 'info');
       return;
     }
     drag = { x: q.x, y: q.y, v: null };
@@ -468,7 +586,7 @@
     var v = drag.v; drag = null;
     if (apply && v && v.len >= 12) {
       SK.set('theta', v.theta); SK.set('v0', v.v0);
-      SK.notice('v₀ = ' + v.v0 + ' m/s, θ = ' + v.theta + '° — Space 로 실행', 'info');
+      SK.notice('처음 속력 ' + v.v0 + ' m/s, 각도 ' + v.theta + '° — ▶ 실행으로 던져요', 'info');
     }
     SK.requestRender();
   }
@@ -476,31 +594,27 @@
   cv.addEventListener('pointercancel', function () { endDrag(false); });
 
   /* ------------------------------------------------------------------
-     9. 상태 연결
+     10. 상태 연결
      ------------------------------------------------------------------ */
   function syncUI() {
     var u = SK.ui;
     var airOn = u.air !== 'off';
     SK.controls.m.enable(!airOn);
-    mHint.textContent = airOn ? PH.BALLS[u.air].name + '을 골라서 질량은 ' + (u.air === 'steel' ? '0.50' : '0.0027') + ' kg 으로 정해져요 (잠김)' : '';
+    mHint.textContent = airOn ? PH.BALLS[u.air].name + '을 골라서 질량은 ' + (u.air === 'steel' ? '0.50' : '0.0027') + ' kg 으로 정해져요' : '';
     mHint.hidden = !airOn;
-    SK.controls.h.enable(u.pad === 'cliff');
-    hHint.textContent = u.pad === 'cliff' ? '' : '지면에서 던져요 (h = 0 고정). \'절벽 위\'를 고르면 바꿀 수 있어요.';
-    hHint.hidden = u.pad === 'cliff';
-    SK.controls.gEarth.enable(u.planet === 'earth');
+    SK.controls.gEarth.el.hidden = u.planet !== 'earth';
     SK.controls.k4.enable(!!u.kCustom);
     var earthSub = SK.controls.planet.el.querySelector('.seg__opt .btn__sub');
     if (earthSub) earthSub.textContent = 'g = ' + gText(u.gEarth);
   }
 
   function onReset(p) {
-    if (p.pad === 'ground' && p.h !== 0) { p.h = 0; SK.set('h', 0, { silent: true }); }
     run = PH.buildRun(p);
     st = PH.newState(run);
-    autoBox = boxFor(run);
+    autoBox = boxFor(run.R, run.H);
     holdUntil = 0; pick = -1;
-    showResult(null);
     updateFormula(p);
+    updateThinkAnswer(run.g);
     syncUI();
   }
 
@@ -514,8 +628,7 @@
     if (e.top) {
       st.hold = true; holdUntil = performance.now() + 30;
       SK.pause();
-      // 프리셋 판정 안내가 뜨면 같은 내용의 안내를 겹쳐 띄우지 않는다
-      if (!judge('top')) SK.notice('최고점! vₓ = ' + fmt(st.vx, 1) + ' m/s, v_y = ' + fmt(st.vy, 1) + ' m/s — Space 로 계속', 'ok', 4000);
+      SK.notice('최고점! 수평 속도 ' + fmt(st.vx, 1) + ' m/s 는 그대로, 수직 속도는 0 — ▶ 이어서 를 누르면 계속', 'ok', 4500);
       return;
     }
     if (st.landed && (st.cLanded || !p.cmp)) finishRun(p);
@@ -529,10 +642,9 @@
       vL: Math.sqrt(st.vx * st.vx + st.vy * st.vy), E0: run.E0, E1: E.E
     };
     var msg = st.tLand < 1e-9
-      ? (run.v0 > 0 ? '지면에서 수평(θ = 0°)으로 던지면 바로 땅에 닿아요 — θ 를 키우거나 「절벽 위」를 골라 보세요' : '공이 움직이지 않아요 — v₀ 나 h 를 키워 보세요')
-      : '착지! 비행 시간 ' + fmt(st.tLand, 2) + ' s · 수평 거리 ' + fmt(st.x, 1) + ' m — S 로 기록';
+      ? (run.v0 > 0 ? '땅에서 수평(0°)으로 던지면 바로 땅에 닿아요 — 각도나 높이를 키워 보세요' : '공이 움직이지 않아요 — 처음 속력이나 높이를 키워 보세요')
+      : '착지! 비행 시간 ' + fmt(st.tLand, 2) + ' s · 수평 거리 ' + fmt(st.x, 1) + ' m — [기록하기]로 저장해요';
     SK.finish(msg);
-    judge('finish');
   }
 
   function thin(pts, max) {
@@ -568,28 +680,25 @@
     for (var k in s) if (k !== 'trailN' && k !== 'flashN') st[k] = s[k];
     st.trail.length = s.trailN; st.flash.length = s.flashN; st.hold = false;
     if (pick >= st.flash.length) pick = -1;
-    if (!st.landed) showResult(null);
   }
 
   function onStatus(p) {
-    if (!p || !p.planet) return '';
+    if (!p || !p.planet) return [];
     var g = PH.gOf(p);
-    var s = 'g = ' + gText(g) + ' m/s²';
-    if (p.planet === 'earth') s += p.gEarth === 10 ? ' (계산 쉽게)' : '';
-    else s += ' (' + PH.PLANETS[p.planet].name + ')';
-    s += ' · 공기 저항 ' + (p.air === 'off' ? '끔' : PH.BALLS[p.air].name + (PH.kOf(p) === 0 ? ' (공기 없음)' : ''));
-    s += ' · ' + (isLocked() ? (manualLock === null ? '비교 중: 축척 고정' : '축척 고정') : '축척 자동');
-    return s;
+    var out = [PH.PLANETS[p.planet].name + ' · g = ' + gText(g) + ' m/s²'];
+    out.push(p.air === 'off' ? '공기 저항 없음' : '공기 저항: ' + PH.BALLS[p.air].name + (PH.kOf(p) === 0 ? ' (공기 없음)' : ''));
+    if (!p.autoScale) out.push('눈금 고정');
+    return out;
   }
 
-  /* 식 보기 (말 → 식 → 지금 값) */
+  /* 식으로 계산해 보기 (말 → 식 → 지금 값) */
   function updateFormula(p) {
     var r = run, g = gText(r.g), vs = fmt(r.vy0, 1), vc = fmt(r.vx0, 2), hh = fmt(r.h, 0);
-    var A = PH.buildRun({ planet: p.planet, gEarth: p.gEarth, air: 'off', pad: p.pad, h: p.h, v0: p.v0, theta: p.theta, m: p.m, kCustom: false, k4: p.k4 });
+    var A = PH.buildRun({ planet: p.planet, gEarth: p.gEarth, air: 'off', h: p.h, v0: p.v0, theta: p.theta, m: p.m, kCustom: false, k4: p.k4 });
     var items = [
       ['비행 시간 — 땅에 닿을 때까지', 'T = (v₀sinθ + √((v₀sinθ)² + 2gh)) ÷ g', '= (' + vs + ' + √(' + vs + '² + 2×' + g + '×' + hh + ')) ÷ ' + g + ' = ' + fmt(A.T, 2) + ' s'],
       ['수평 거리 — 옆으로는 같은 빠르기', 'R = v₀cosθ × T', '= ' + vc + ' × ' + fmt(A.T, 2) + ' = ' + fmt(A.R, 1) + ' m'],
-      ['최고 높이 — 연직 속도가 0 이 될 때', 'H = h + (v₀sinθ)² ÷ 2g', '= ' + hh + ' + ' + vs + '² ÷ (2×' + g + ') = ' + fmt(A.H, 1) + ' m'],
+      ['최고 높이 — 수직 속도가 0 이 될 때', 'H = h + (v₀sinθ)² ÷ 2g', '= ' + hh + ' + ' + vs + '² ÷ (2×' + g + ') = ' + fmt(A.H, 1) + ' m'],
       ['착지 속력 — 역학적 에너지 보존', 'v = √(v₀² + 2gh)', '= √(' + fmt(r.v0, 0) + '² + 2×' + g + '×' + hh + ') = ' + fmt(A.vL, 1) + ' m/s']
     ];
     formulaBox.innerHTML = '';
@@ -602,7 +711,7 @@
   }
 
   /* ------------------------------------------------------------------
-     10. 그리기
+     11. 그리기
      ------------------------------------------------------------------ */
   function niceCell(S) {
     var c = [0.5, 1, 2, 5, 10, 20, 50, 100, 200];
@@ -616,7 +725,8 @@
     if (!FS) { FS = fontSans(); FN = fontNum(); }
     var ctx = view.ctx, W = view.w, H = view.h;
     var B = currentBox();
-    var S = Math.min((L.RIGHT - L.X0) / B.x, (L.GY - L.TOP) / B.y);
+    var TOPY = topFree(view); lastTop = TOPY;
+    var S = Math.min((L.RIGHT - L.X0) / B.x, (L.GY - TOPY) / B.y);
     map.S = S;
     function sx(x) { return L.X0 + x * S; }
     function sy(y) { return L.GY - y * S; }
@@ -654,28 +764,41 @@
     ctx.font = '600 20px ' + FN; ctx.fillStyle = C.muted;
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     var ky = Math.max(1, Math.ceil(30 / (cell * S)));
-    for (var iy = 1; sy(iy * cell) >= 20; iy++) {
+    for (var iy = 1; sy(iy * cell) >= TOPY - 30; iy++) {
       if (iy % ky) continue;
       var yy = sy(iy * cell);
       ctx.fillRect(L.AX - 8, yy - 1, 8, 2);
       ctx.fillText(numTxt(iy * cell), L.AX - 12, yy);
     }
-    // x 눈금 (지면 아래)
+    // x 눈금 (지면 아래) — 오른쪽 끝은 축 이름 자리
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     var kx = Math.max(1, Math.ceil(64 / (cell * S)));
-    for (var ix = 0; sx(ix * cell) <= W - 20; ix++) {
+    for (var ix = 0; sx(ix * cell) <= W - 110; ix++) {
       if (ix % kx) continue;
       var xx = sx(ix * cell);
       ctx.fillRect(xx - 1, L.GY, 2, 8);
       ctx.fillText(numTxt(ix * cell), xx, L.GY + 12);
     }
-    ctx.textAlign = 'left'; ctx.fillStyle = C.ink; ctx.font = '700 20px ' + FS;
-    ctx.fillText('x (m)', W - 70, L.GY + 36);
-    ctx.save(); ctx.translate(14, (L.TOP + L.GY) / 2); ctx.rotate(-Math.PI / 2);
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('y (m)', 0, 0); ctx.restore();
+    // 축 이름: 그래프 바깥 가장자리 (x: 오른쪽 아래 끝, y: 왼쪽 위 끝)
+    ctx.fillStyle = C.ink; ctx.font = '700 20px ' + FS;
+    ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+    ctx.fillText('수평 거리 x (m)', W - 12, L.GY + 34);
+    ctx.save(); ctx.translate(16, (L.TOP + L.GY) / 2); ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('높이 y (m)', 0, 0); ctx.restore();
+
+    // 달·화성: 같은 조건으로 지구에서 던졌다면 (회색 점선)
+    if (p.planet !== 'earth' && run.analytic) {
+      var gE = p.gEarth, vx0 = run.vx0, vy0 = run.vy0, TE = (vy0 + Math.sqrt(vy0 * vy0 + 2 * gE * run.h)) / gE;
+      var ep = [];
+      for (var k = 0; k <= 40; k++) { var tk = TE * k / 40; ep.push([vx0 * tk, Math.max(0, run.h + vy0 * tk - 0.5 * gE * tk * tk)]); }
+      SK.drawPath(ctx, ep, { color: C.muted, dash: [6, 6], width: 2.5 }, mp);
+      var eEnd = ep[ep.length - 1];
+      SK.placeLabel(ctx, [{ x: sx(eEnd[0]) + 8, y: L.GY - 24, text: '지구에서라면', anchor: 'left', color: '--color-ink-muted', size: 20 }]);
+    }
 
     // 기록·직전 실행 궤적 (색 + 선 모양) + 섬광 점
-    function drawRun(series, style, label) {
+    var recLabels = [];
+    function drawRun(series, style, lab) {
       if (!series || !series.path) return;
       SK.drawPath(ctx, series.path, style, mp);
       if (series.flash && p.flash) {
@@ -685,14 +808,14 @@
           ctx.beginPath(); ctx.arc(sx(f[0]), sy(f[1]), 5, 0, Math.PI * 2); ctx.fill();
         }
       }
-      if (label) {
-        var e = series.path[series.path.length - 1], ex = sx(e[0]), ey = sy(e[1]);
-        ctx.font = '700 22px ' + FN; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-        ctx.fillStyle = style.color; ctx.fillText(label, Math.min(ex, W - 16), Math.max(ey - 10, 24));
+      if (lab) {
+        var e = series.path[series.path.length - 1];
+        recLabels.push({ x: Math.min(sx(e[0]), W - 30), y: Math.max(sy(e[1]) - 22, 24), text: lab, color: style.color, size: 20 });
       }
     }
-    SK.records.forEach(function (r) { drawRun(r.series, SK.recStyle(r.slot), String(r.n)); });
+    SK.records.forEach(function (r) { drawRun(r.series, SK.recStyle(r.slot), '기록 ' + r.n); });
     if (SK.ghost) drawRun(SK.ghost.series, SK.ghostStyle(), null);
+    if (recLabels.length) SK.placeLabel(ctx, recLabels);
 
     // 지금 실행
     SK.drawPath(ctx, st.trail.concat([[st.x, st.y]]), { color: C.sim, dash: [], width: 4 }, mp);
@@ -712,7 +835,23 @@
     }
 
     var bx = sx(st.x), by = sy(st.y);
-    // 그림자 (x축: 지면, y축: 왼쪽 벽)
+    // 실행 전: 출발 방향 미리보기(앞부분만 점선 — 떨어지는 곳은 숨김) + 빈 상태 안내
+    if (!SK.started && !drag && run.v0 > 0) {
+      var Tp = Math.min(run.T * 0.3, run.tTop > 0 ? run.tTop * 0.7 : run.T * 0.3), pv = [];
+      for (var j = 0; j <= 16; j++) {
+        var tj = Tp * j / 16;
+        pv.push([run.vx0 * tj, run.h + run.vy0 * tj - 0.5 * run.g * tj * tj]);
+      }
+      if (Tp > 0) SK.drawPath(ctx, pv, { color: C.sim, dash: [3, 7], width: 3 }, mp);
+    }
+    if (!SK.started && !drag) {
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '700 30px ' + FS; ctx.fillStyle = C.ink;
+      ctx.fillText('▶ 실행을 눌러 던져 보세요', (L.X0 + L.RIGHT) / 2 + 60, 300);
+      ctx.font = '500 22px ' + FS; ctx.fillStyle = C.muted;
+      ctx.fillText('공을 뒤로 끌어당겨 속력과 각도를 정할 수도 있어요', (L.X0 + L.RIGHT) / 2 + 60, 344);
+    }
+    // 그림자 (바닥: 수평 운동, 왼쪽 벽: 수직 운동)
     if (p.shadow) {
       ctx.strokeStyle = C.muted; ctx.lineWidth = 1.5; ctx.setLineDash([6, 6]);
       ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx, L.GY); ctx.moveTo(bx, by); ctx.lineTo(L.AX, by); ctx.stroke();
@@ -721,7 +860,7 @@
       ctx.beginPath(); ctx.arc(bx, L.GY, 9, 0, Math.PI * 2); ctx.fill();
       ctx.beginPath(); ctx.arc(L.AX, by, 9, 0, Math.PI * 2); ctx.fill();
     }
-    // 비교 공 (회색)
+    // 떨어뜨린 공 (회색)
     if (p.cmp) {
       var cyy = sy(st.yc);
       ctx.fillStyle = C.line; ctx.strokeStyle = C.muted; ctx.lineWidth = 2;
@@ -735,39 +874,47 @@
     ctx.fillStyle = C.sim; ctx.strokeStyle = C.ink; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(bx, by, BALL_R, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
 
-    // 화살표
-    var moving = !st.landed;
+    // 화살표 (라벨은 겹치지 않게 placeLabel)
+    var moving = !st.landed && SK.started, labs = [];
     if (p.showV && moving) {
       var tx = bx + st.vx * VS, ty = by - st.vy * VS;
-      SK.arrow(ctx, bx, by, tx, by, { color: '--color-q-velocity', width: 3, dash: [8, 6], label: Math.abs(st.vx) > 1 ? 'vₓ' : '' });
-      SK.arrow(ctx, bx, by, bx, ty, { color: '--color-q-velocity', width: 3, dash: [8, 6], label: Math.abs(st.vy) > 1 ? 'v_y' : '' });
-      SK.arrow(ctx, bx, by, tx, ty, { color: '--color-q-velocity', width: 5, label: 'v' });
+      SK.arrow(ctx, bx, by, tx, by, { color: '--color-q-velocity', width: 3, dash: [8, 6] });
+      SK.arrow(ctx, bx, by, bx, ty, { color: '--color-q-velocity', width: 3, dash: [8, 6] });
+      SK.arrow(ctx, bx, by, tx, ty, { color: '--color-q-velocity', width: 5 });
+      if (Math.abs(st.vx) > 1) labs.push({ x: tx + 10, y: by + 18, text: '수평 vₓ', anchor: 'left', color: '--color-q-velocity', size: 20 });
+      if (Math.abs(st.vy) > 1) labs.push({ x: bx + 12, y: ty + (st.vy > 0 ? -4 : 4), text: '수직 v_y', anchor: 'left', color: '--color-q-velocity', size: 20 });
+      labs.push({ x: tx + 10, y: ty, text: '속도 v', anchor: 'left', color: '--color-q-velocity', size: 22 });
+    } else if (p.showV && !SK.started && run.v0 > 0) {
+      // 실행 전: 던지는 방향 화살표
+      var th0 = run.theta * Math.PI / 180, ln0 = Math.max(40, run.v0 * VS);
+      SK.arrow(ctx, bx, by, bx + Math.cos(th0) * ln0, by - Math.sin(th0) * ln0, { color: '--color-q-velocity', width: 5 });
+      labs.push({ x: bx + Math.cos(th0) * ln0 + 10, y: by - Math.sin(th0) * ln0, text: 'v₀ ' + run.v0 + ' m/s · ' + run.theta + '°', anchor: 'left', color: '--color-q-velocity', size: 22 });
     }
     if (p.showA && moving) {
-      if (run.analytic) SK.arrow(ctx, bx, by, bx, by + ACC_LEN, { color: '--color-q-force', width: 5, label: 'a = g' });
-      else {
+      if (run.analytic) {
+        SK.arrow(ctx, bx, by, bx, by + ACC_LEN, { color: '--color-q-force', width: 5 });
+        labs.push({ x: bx - 12, y: by + ACC_LEN, text: '가속도 g', anchor: 'right', color: '--color-q-force', size: 20 });
+      } else {
         var a = PH.accel(st.vx, st.vy, run.g, run.km), am = Math.hypot(a[0], a[1]);
-        if (am > 0) SK.arrow(ctx, bx, by, bx + a[0] / am * ACC_LEN * am / run.g, by - a[1] / am * ACC_LEN * am / run.g, { color: '--color-q-force', width: 5, label: 'a' });
+        if (am > 0) {
+          var axe = bx + a[0] / am * ACC_LEN * am / run.g, aye = by - a[1] / am * ACC_LEN * am / run.g;
+          SK.arrow(ctx, bx, by, axe, aye, { color: '--color-q-force', width: 5 });
+          labs.push({ x: axe - 12, y: aye, text: '가속도', anchor: 'right', color: '--color-q-force', size: 20 });
+        }
       }
     }
+    if (labs.length) SK.placeLabel(ctx, labs, { avoid: [{ x: bx - BALL_R, y: by - BALL_R, w: BALL_R * 2, h: BALL_R * 2 }] });
 
-    // 최고점 정보
+    // 최고점에서 멈췄을 때: 짧은 라벨
     if (st.hold || (st.topDone && SK.started && !SK.running && !SK.finished && Math.abs(st.vy) < 1e-6)) {
       label(ctx, [
-        '최고점 (t = ' + fmt(st.t, 2) + ' s)',
-        'vₓ = ' + fmt(st.vx, 1) + ' m/s  (그대로)',
-        'v_y = ' + fmt(st.vy, 1) + ' m/s',
-        'a = ' + gText(run.g) + ' m/s²  (아래)'
-      ], bx, by + 60, W, C, 'side');   // 공 옆에 (오른쪽 위 결과 판과 겹치지 않게)
-    }
-    // 착지 결과
-    if (SK.finished && st.result && st.tLand > 0) {
-      var lines = ['착지 ' + fmt(st.tLand, 2) + ' s · ' + fmt(st.x, 1) + ' m'];
-      if (p.cmp && st.cLand !== null) lines.push('비교 공 ' + fmt(st.cLand, 2) + ' s');
-      label(ctx, lines, bx, L.GY - 40, W, C);
+        '최고점',
+        '수평 vₓ = ' + fmt(st.vx, 1) + ' m/s (그대로)',
+        '수직 v_y = ' + fmt(st.vy, 1) + ' m/s'
+      ], bx, by + 60, W, C, 'side');
     }
 
-    // 고정 축척에서 화면 밖: 가장자리 화살표 + 좌표
+    // 눈금 고정에서 화면 밖: 가장자리 화살표 + 좌표
     if (bx > W - 6 || by < 6) {
       var ex = Math.min(bx, W - 30), ey = Math.max(by, 30);
       var dx = bx - ex, dy = by - ey, dl = Math.hypot(dx, dy) || 1;
@@ -783,7 +930,7 @@
       ctx.beginPath(); ctx.moveTo(b0.x, b0.y); ctx.lineTo(drag.x, drag.y); ctx.stroke(); ctx.setLineDash([]);
       var th = drag.v.theta * Math.PI / 180, len = drag.v.v0 * VS * 2;
       SK.arrow(ctx, b0.x, b0.y, b0.x + Math.cos(th) * len, b0.y - Math.sin(th) * len, { color: '--color-q-velocity', width: 6 });
-      label(ctx, ['v₀ ' + drag.v.v0 + ' m/s · θ ' + drag.v.theta + '°'], drag.x, drag.y - 40, W, C);
+      label(ctx, ['처음 속력 ' + drag.v.v0 + ' m/s · 각도 ' + drag.v.theta + '°'], drag.x, drag.y - 40, W, C);
     } else if (!SK.started && !drag) {
       ctx.strokeStyle = C.sim; ctx.lineWidth = 2; ctx.setLineDash([3, 5]);
       ctx.beginPath(); ctx.arc(L.X0, sy(run.h), BALL_R + 12, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
@@ -803,25 +950,37 @@
       ], px, py - 22, W, C);
     }
 
-    // 축척 판
-    var sTxt = '1칸 = ' + numTxt(cell) + ' m';
+    var sTxt = '모눈 1칸 = ' + numTxt(cell) + ' m';
     if (scaleText.textContent !== sTxt) scaleText.textContent = sTxt;
-    var lk = isLocked();
-    lockBtn.setAttribute('aria-pressed', String(lk));
-    lockLabel.textContent = lk ? '고정' : '자동';
 
     updateLegend(p);
-    var sp = Math.sqrt(st.vx * st.vx + st.vy * st.vy);
-    meters.update({ t: st.t, x: st.x, y: st.y, vx: st.vx, vy: st.vy, sp: sp });
+    meters.update({ t: st.t, x: st.x, vx: st.vx, vy: st.vy });
     drawEnergy(p);
   }
 
-  /** 실험 화면 위 말풍선 */
+  // 결과 해설이 뜨거나 닫혀 위쪽 칩이 움직이면 다시 그림 (공통 틀은 그 순간 다시 그리지 않음)
+  var lastTop = 0;
+  setInterval(function () { if (SK.view && run && topFree(SK.view) !== lastTop) SK.requestRender(); }, 250);
+
+  /** 궤적을 그릴 수 있는 맨 위(논리 좌표): 위쪽 상태 칩·실험 카드 안내·범례·결과 해설 아래로 (20u 단위로 맞춤) */
+  function topFree(view) {
+    var cr = view.canvas.getBoundingClientRect(), bottom = 0;
+    [SK.el.cornerTL, SK.el.cornerTR].forEach(function (c) {
+      if (!c || c.hidden) return;
+      var r = c.getBoundingClientRect();
+      if (r.height > 0) bottom = Math.max(bottom, r.bottom);
+    });
+    var t = bottom ? (bottom - cr.top - view.oy) / view.scale + 24 : L.TOP;
+    t = Math.ceil(t / 20) * 20;
+    return Math.max(L.TOP, Math.min(t, 340));
+  }
+
+  /** 실험 화면 위 작은 말풍선 (최고점·섬광 점·당기기) */
   function label(ctx, lines, x, y, W, C, side) {
-    ctx.font = '700 24px ' + FS;
+    ctx.font = '700 22px ' + FS;
     var w = 0;
     lines.forEach(function (t) { w = Math.max(w, ctx.measureText(t).width); });
-    var pw = w + 28, ph = lines.length * 32 + 16;
+    var pw = w + 28, ph = lines.length * 30 + 16;
     var lx = Math.max(8, Math.min(x - pw / 2, W - pw - 8)), ly = Math.max(8, y - ph);
     if (side) {   // 공 왼쪽에 두고, 자리가 없으면 오른쪽
       lx = x - BALL_R - 40 - pw;
@@ -830,7 +989,7 @@
     ctx.fillStyle = C.scrim; ctx.strokeStyle = C.line; ctx.lineWidth = 1.5;
     roundRect(ctx, lx, ly, pw, ph, 10); ctx.fill(); ctx.stroke();
     ctx.fillStyle = C.ink; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    lines.forEach(function (t, i) { ctx.fillText(t, lx + 14, ly + 10 + i * 32); });
+    lines.forEach(function (t, i) { ctx.fillText(t, lx + 14, ly + 10 + i * 30); });
   }
   function roundRect(ctx, x, y, w, hh, r) {
     ctx.beginPath();
@@ -840,56 +999,58 @@
     ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
   }
 
-  /** 에너지 막대: 운동 · 위치 · 합(먹색 테두리) · 열(공기 저항 켬) */
+  /** 에너지 막대 (가로 한 줄): [운동 | 위치 | 열] 이어 붙인 막대 + 처음 에너지 눈금 + 아래 글자 */
   function drawEnergy(p) {
     if (!FS) { FS = fontSans(); FN = fontNum(); }
     var ctx = ev.ctx, W = ev.w, H = ev.h;
     ev.clear();
-    if (W < 40 || H < 40) return;
+    if (W < 60 || H < 40) return;
     var ink = SK.color('--color-ink'), muted = SK.color('--color-ink-muted');
-    ctx.font = '700 20px ' + FS; ctx.fillStyle = muted; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     var d = eDec(run.E0);
-    ctx.fillText('역학적 에너지 (J)', 10, 6);
+    var E = PH.energy(run, st);
+    var K = Math.max(0, E.K), U = Math.max(0, E.U), heat = Math.max(0, E.heat);
+    ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+    ctx.font = '700 20px ' + FS; ctx.fillStyle = ink;
+    ctx.fillText('역학적 에너지', 12, 6);
     if (!p.energy) {
-      ctx.font = '500 20px ' + FS; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('표시 도구에서 켜요', W / 2, H / 2 + 10);
+      ctx.font = '500 20px ' + FS; ctx.fillStyle = muted;
+      ctx.fillText('[화면에 표시하기]에서 켜요', 12, 34);
       return;
     }
-    var E = PH.energy(run, st);
-    var K = E.K, U = Math.max(0, E.U), heat = Math.max(0, E.heat);
-    var bars = [
-      { lab: '운동', val: K, col: '--color-q-energy-k', txt: '--color-q-energy-k' },
-      { lab: '위치', val: U, col: '--color-q-energy-p', txt: '--color-q-energy-p-text' },
-      { lab: '합', sum: true }
-    ];
-    if (!run.analytic) bars.push({ lab: '열', val: heat, col: '--color-q-energy-heat', txt: '--color-q-energy-heat' });
-    var top = 54, bottom = H - 26, bh = bottom - top;
+    ctx.textAlign = 'right'; ctx.font = '800 20px ' + FN;
+    ctx.fillText('합 ' + fmt(K + U, d) + ' J' + (run.analytic ? '' : ' (처음 ' + fmt(run.E0, d) + ')'), W - 12, 6);
+    var x0 = 12, x1 = W - 12, bw = x1 - x0, top = 32, bh = Math.max(14, Math.min(24, H - 62));
     var max = run.E0 > 0 ? run.E0 : 1;
-    var slot = (W - 12) / bars.length, bw = Math.min(46, slot * 0.55);
-    // 처음 에너지 높이 점선
-    ctx.strokeStyle = muted; ctx.lineWidth = 1; ctx.setLineDash([4, 4]);
-    ctx.beginPath(); ctx.moveTo(6, top); ctx.lineTo(W - 6, top); ctx.stroke(); ctx.setLineDash([]);
-    bars.forEach(function (b, i) {
-      var cx = 6 + slot * i + slot / 2, x = cx - bw / 2;
-      var val, hgt;
-      if (b.sum) {
-        var hk = K / max * bh, hu = U / max * bh;
-        ctx.fillStyle = SK.color('--color-q-energy-k'); ctx.fillRect(x, bottom - hk, bw, hk);
-        ctx.fillStyle = SK.color('--color-q-energy-p'); ctx.fillRect(x, bottom - hk - hu, bw, hu);
-        ctx.strokeStyle = ink; ctx.lineWidth = 2.5; ctx.strokeRect(x, bottom - hk - hu, bw, hk + hu);
-        val = K + U; hgt = hk + hu;
-        ctx.fillStyle = ink;
-      } else {
-        val = b.val; hgt = Math.min(bh, b.val / max * bh);
-        ctx.fillStyle = SK.color(b.col); ctx.fillRect(x, bottom - hgt, bw, hgt);
-        ctx.fillStyle = SK.color(b.txt);
-      }
-      ctx.font = (b.sum ? '800 ' : '700 ') + '20px ' + FN; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-      ctx.fillText(fmt(val, d), cx, bottom - hgt - 2);
-      ctx.fillStyle = ink; ctx.font = '600 20px ' + FS; ctx.textBaseline = 'top';
-      ctx.fillText(b.lab, cx, bottom + 3);
-    });
-    ctx.strokeStyle = SK.color('--color-line-strong'); ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(6, bottom); ctx.lineTo(W - 6, bottom); ctx.stroke();
+    ctx.fillStyle = SK.color('--color-paper-sunk'); ctx.fillRect(x0, top, bw, bh);
+    var wk = K / max * bw, wu = U / max * bw, wh = Math.min(heat / max * bw, bw - wk - wu);
+    ctx.fillStyle = SK.color('--color-q-energy-k'); ctx.fillRect(x0, top, wk, bh);
+    ctx.fillStyle = SK.color('--color-q-energy-p'); ctx.fillRect(x0 + wk, top, wu, bh);
+    if (!run.analytic && wh > 0) {
+      ctx.save(); ctx.beginPath(); ctx.rect(x0 + wk + wu, top, wh, bh); ctx.clip();
+      ctx.strokeStyle = SK.color('--color-q-energy-heat'); ctx.lineWidth = 2;
+      for (var hx = x0 + wk + wu - bh; hx < x0 + wk + wu + wh; hx += 8) { ctx.beginPath(); ctx.moveTo(hx, top + bh); ctx.lineTo(hx + bh, top); ctx.stroke(); }
+      ctx.restore();
+    }
+    ctx.strokeStyle = ink; ctx.lineWidth = 2; ctx.strokeRect(x0 + 1, top, wk + wu - 1, bh);
+    ctx.strokeStyle = muted; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(x1, top - 4); ctx.lineTo(x1, top + bh + 4); ctx.stroke(); ctx.setLineDash([]);
+    // 아래 글자: ■ 운동 50.0 J  ■ 위치 150.0 J  (■ 열)
+    var ty = top + bh + 5, tx = x0;
+    function item(col, txtCol, text, hatch) {
+      ctx.fillStyle = SK.color(col);
+      if (hatch) { ctx.strokeStyle = SK.color(col); ctx.lineWidth = 2; ctx.strokeRect(tx + 1, ty + 4, 12, 12); }
+      else ctx.fillRect(tx, ty + 3, 14, 14);
+      ctx.font = '700 20px ' + FS; ctx.fillStyle = SK.color(txtCol); ctx.textAlign = 'left';
+      ctx.fillText(text, tx + 20, ty);
+      tx += 20 + ctx.measureText(text).width + 22;
+    }
+    if (ty + 20 <= H + 2) {
+      item('--color-q-energy-k', '--color-q-energy-k', '운동 ' + fmt(K, d) + ' J');
+      item('--color-q-energy-p', '--color-q-energy-p-text', '위치 ' + fmt(U, d) + ' J');
+      if (!run.analytic) item('--color-q-energy-heat', '--color-q-energy-heat', '열 ' + fmt(heat, d) + ' J', true);
+    }
   }
+
+  // 처음 들어왔을 때: 사거리 숫자 예측을 먼저 (예측 단계)
+  setTimeout(function () { if (SK.stepIndex === 0 && !SK.prediction) openRangePredict(); }, 350);
 })();

@@ -3,15 +3,6 @@
    색은 토큰 이름만, 크기는 u 단위.
    ===================================================================== */
 
-/* 조절 패널 맨 위에 고정되는 g 전환 (9.8 / 10) */
-.pe-gbar {
-  position: sticky; top: calc(-16 * var(--u)); z-index: 4;
-  margin: calc(-16 * var(--u)) calc(-24 * var(--u)) 0;
-  padding: var(--space-3) var(--space-5) var(--space-3);
-  background: var(--color-paper-sunk);
-  border-bottom: 1px solid var(--color-line-strong);
-}
-
 /* 변수 아래 안내 줄 (잠김 이유) */
 .pe-hint {
   font: var(--font-weight-medium) var(--fs-caption)/1.4 var(--font-sans);
@@ -26,62 +17,35 @@
   border-radius: var(--radius-md);
   background: var(--color-paper-scrim);
   box-shadow: var(--shadow-sm);
-  font: var(--font-weight-semibold) calc(28 * var(--u))/1.25 var(--font-sans);
+  font: var(--font-weight-semibold) calc(22 * var(--u))/1.3 var(--font-sans);
   color: var(--color-ink);
   pointer-events: none !important;
 }
 .pe-legend[hidden] { display: none; }
 .pe-legend__row { display: inline-flex; align-items: center; gap: var(--space-2); white-space: nowrap; }
-.pe-legend__row svg { width: calc(52 * var(--u)); height: calc(20 * var(--u)); flex: none; }
+.pe-legend__row svg { width: calc(44 * var(--u)); height: calc(16 * var(--u)); flex: none; }
 
-/* 오른쪽 위 축척 판 + 자물쇠 */
+/* 오른쪽 위 눈금 판 */
 .pe-scale {
-  display: flex; align-items: center; gap: var(--space-3);
-  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-4);
+  justify-self: end;
+  padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-md);
   background: var(--color-paper-scrim);
   box-shadow: var(--shadow-sm);
 }
-.pe-scale__text { font: var(--font-weight-bold) var(--fs-meta)/1 var(--font-num); color: var(--color-ink); white-space: nowrap; }
-.pe-lock { gap: var(--space-2); padding: 0 var(--space-4); font-size: var(--fs-meta); }
-.pe-lock__icon { width: calc(26 * var(--u)); height: calc(26 * var(--u)); flex: none; }
-.pe-lock[aria-pressed="false"] .pe-lock__shackle { transform: translate(5px, -2px); }
+.pe-scale__text { font: var(--font-weight-bold) var(--fs-caption)/1.2 var(--font-num); color: var(--color-ink); white-space: nowrap; }
 
-/* 예측 / 결과 판 */
-.pe-result {
-  max-width: calc(560 * var(--u));
-  display: grid; gap: calc(2 * var(--u));
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-md);
-  background: var(--color-ok-tint);
-  border-left: calc(6 * var(--u)) solid var(--color-ok);
-  box-shadow: var(--shadow-sm);
-  font: var(--font-weight-medium) var(--fs-caption)/1.35 var(--font-sans);
-  color: var(--color-ink);
-  text-align: left;
-}
-.pe-result b { font: var(--font-weight-bold) var(--fs-meta)/1.3 var(--font-sans); color: var(--color-ok); }
-.pe-result.is-wrong { background: var(--color-warn-tint); border-left-color: var(--color-warn); }
-.pe-result.is-wrong b { color: var(--color-warn); }
-.pe-result.is-plain { background: var(--color-paper-scrim); border-left-color: var(--color-line-strong); }
-.pe-result.is-plain b { color: var(--color-ink); }
-.pe-result[hidden] { display: none; }
-
-/* '생각해 보기' (정리 단계, 오른쪽 아래) */
-.pe-think { width: calc(640 * var(--u)); }
-.pe-think[hidden] { display: none; }
-.pe-answer { color: var(--sim-text); font-weight: var(--font-weight-semibold); }
-
-/* 하단 띠: 계기판 3×2 (6개 값) */
+/* 하단 띠: 계기판 1줄 4개 */
 .pe-meters {
   display: grid; height: 100%;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.7fr);
   gap: var(--space-1);
 }
-.pe-meters .meter { padding: calc(2 * var(--u)) var(--space-2); gap: 0; }
-.pe-meters .meter__value { font-size: calc(34 * var(--u)); }
+.pe-meters .meter { padding: calc(2 * var(--u)) var(--space-2); gap: 0; align-content: center; }
+.pe-meters .meter__label { white-space: nowrap; line-height: 1.15; }
+.pe-meters .meter__value { font-size: calc(36 * var(--u)); }
 .pe-meters .meter__unit { font-size: var(--fs-caption); }
+.pe-meter-note { margin-left: calc(6 * var(--u)); font-size: var(--fs-caption); font-weight: var(--font-weight-medium); color: var(--color-ink-muted); }
 
 /* 하단 띠: 에너지 막대 */
 .pe-energy {
@@ -106,7 +70,3 @@
 .pe-formula__item b { font: var(--font-weight-semibold) var(--fs-caption)/1.3 var(--font-sans); color: var(--color-ink-muted); }
 .pe-formula__item code { font: var(--font-weight-medium) var(--fs-meta)/1.4 var(--font-num); color: var(--color-ink); white-space: normal; overflow-wrap: anywhere; }
 
-/* 세로 태블릿: 패널이 2열 격자가 되므로 g 전환 줄은 두 칸을 다 쓴다 */
-@media (orientation: portrait) {
-  .pe-gbar { grid-column: 1 / -1; }
-}

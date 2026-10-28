@@ -1,12 +1,12 @@
 /* =====================================================================
-   collision-momentum — 일차원 충돌과 운동량 보존 (2026-10-28)
+   collision-momentum — 일차원 충돌과 운동량 보존 (2026-10-28, R1 고도화 1차: 에듀테크3)
    공통 틀: ../../shared/sim.js (SimKit) · 명세: docs/04_팀장결정서.md §4-3
    성취기준 [12물리01-03] 작용·반작용, 운동량 보존(고려 사항: 운동량·충격량) · 연계 [12물리01-05]
 
    1부  CM  — 물리 엔진 (DOM 없음, node 로도 검산 가능: module.exports)
    2부  화면 — SimKit 위에서 그리기·조절·기록
 
-   화면 축척: 트랙 x −2 ~ +2 m, 1 m = 280u (실험 화면 논리 좌표 1250×700)
+   화면 축척: 트랙 x −2 ~ +2 m, 1 m = 240u (실험 화면 논리 좌표 1250×660, 양끝 여유 → 수레가 잘리지 않음)
    물리 모형
      - 마찰 없음(에어트랙). 반발 계수 e: 튕기기 1 · 중간 0.5 · 달라붙기 0 (심화에서 0~1)
      - 충돌 힘 F(t) = Fmax·sin(πt/τ), 0 ≤ t ≤ τ  (사인 모양으로 단순화한 모형)
@@ -225,7 +225,7 @@
       return Math.abs(p - P.pb) < 1e-9 * Math.max(1, Math.abs(P.pb)) ? P.pb : p;   // 보존량: 계산 오차만 지움
     }
     function kNow(s) { var P = s.P; return 0.5 * P.m1 * s.vA * s.vA + (P.mode === 'wall' ? 0 : 0.5 * P.m2 * s.vB * s.vB); }
-    function cartH(m) { return 60 + (Math.min(3, Math.max(0.5, m)) - 0.5) / 2.5 * 80; }
+    function cartH(m) { return 56 + (Math.min(3, Math.max(0.5, m)) - 0.5) / 2.5 * 54; }   // 56~110u (실험 화면 660u)
 
     return {
       HW: HW, BUMP: BUMP, D0: D0, XA0: XA0, XB0: XB0, XW: XW, G0: G0, L0: L0, T_PUSH: T_PUSH,
@@ -237,32 +237,38 @@
   if (typeof module !== 'undefined' && module.exports) module.exports = CM;
   if (!root || !root.SimKit) return;
 
+
   /* =================================================================
-     2부. 화면 (SimKit)
+     2부. 화면 (SimKit R1)
+     실험 화면 1250×660: 위 55% 트랙 장면 · 아래 그래프 판(탭 3개: 운동량 | 힘-시간 | 운동 에너지)
+     하단 띠 88u: 계기판 1줄 4개 · 설명은 help/takeaway/think/reveal 로
      ================================================================= */
   var SK = root.SimKit;
   var DT = 1 / 600;                        // 고정 화면 시간 간격 (s)
-  var SX = 280, X0 = 625, RAIL = 360;      // 1 m = 280u, x=0 → 625u, 레일 y
-  var LOW_Y0 = 424, LOW_Y1 = 690;          // 아래쪽 막대·그래프 영역
+  var SX = 240, X0 = 625, RAIL = 334;      // 1 m = 240u, x=0 → 625u, 레일 y
+  var LOW = { x: 16, y: 414, w: 1218, h: 236 };   // 아래 그래프 판
+  var GX = 192;                            // 그래프 그리는 곳 왼쪽 (탭 칸 오른쪽)
   var KIND_E = { elastic: 1, mid: 0.5, stick: 0 };
   var KIND_ORDER = ['elastic', 'stick', 'mid'];
+  var KIND_NAME = { elastic: '튕기기', stick: '달라붙기', mid: '중간' };
   var TAU_ORDER = [0.01, 0.05, 0.2];
   var TAU_NAME = { 0.01: '딱딱', 0.05: '보통', 0.2: '푹신' };
-  var MODE_NAME = { collide: '충돌', separate: '분리(반동)', wall: '벽' };
+  var TABS = [{ id: 'p', label: '운동량' }, { id: 'f', label: '힘-시간' }, { id: 'k', label: '운동 에너지' }];
 
   var st = null;              // 엔진 상태
   var noMeetWarned = false;
   var drag = null;            // 수레 끌기
   var syncing = false;        // kind ↔ e 동기화 중
-  var lastEqHTML = '';
+  var tab = 'p', seen = { p: true };
 
   function sx(x) { return X0 + x * SX; }
   function col(n) { return SK.color(n); }
   function fmt(v, d) { return SK.fmt(v, d); }
+  function fmtF(v) { return fmt(v, v >= 100 ? 0 : 1); }
   function sgn(v, d) { var t = fmt(v, d); return (v > 0 && Number(Math.abs(v).toFixed(d)) !== 0) ? '+' + t : t; }
   function kindOfE(e) { return e >= 0.995 ? 'elastic' : e <= 0.005 ? 'stick' : 'mid'; }
   function kindLabel(e) {
-    var k = kindOfE(e), name = { elastic: '튕기기', stick: '달라붙기', mid: '중간' }[k];
+    var k = kindOfE(e), name = KIND_NAME[k];
     return (k === 'mid' && Math.abs(e - 0.5) > 0.004) ? name + '(e ' + fmt(e, 2) + ')' : name;
   }
   function font(w, size, fam) { return w + ' ' + size + 'px ' + (fam === 'serif' ? '"Noto Serif KR", serif' : 'Pretendard, "Malgun Gothic", sans-serif'); }
@@ -275,48 +281,66 @@
     unit: '(1) 힘과 에너지',
     standards: ['12물리01-03'],
     today: '트럭과 승용차가 부딪치면 누가 더 큰 힘을 받을까?',
+    stepTasks: [
+      { text: '먼저 예측해요 — 질문의 답을 고르거나, 아래 실험 카드에서 다른 상황을 골라요.' },
+      { text: function () {
+        if (SK.running) return '지켜보는 중이에요. 부딪치는 순간에는 저절로 느려져요(슬로 모션).';
+        if (SK.finished && SK.canRecord()) return '끝났어요! 아래 그래프 탭 3개를 차례로 보고 [기록하기]로 저장해요.';
+        if (SK.finished) return '저장했어요. 충돌 종류나 질량 하나만 바꾸고 다시 실행해 비교해요.';
+        return '▶ 실행을 누르고 두 수레가 부딪치는 순간을 지켜봐요.';
+      } },
+      { text: function () {
+        if (SK.records.length < 2) return '기록이 2개 있어야 비교할 수 있어요(지금 ' + SK.records.length + '개). 충돌 종류나 범퍼 하나만 바꿔 실행하고 [기록하기].';
+        return '표의 ‘p 보존?’ ‘K 보존?’ 열을 비교해요. 무엇이 그대로인가요?';
+      } },
+      { text: '오른쪽 질문에 답하며 오늘 알게 된 것을 정리해요. 점선 밑줄 낱말은 눌러서 뜻을 볼 수 있어요.' }
+    ],
     dt: DT,
     stageFit: true,
+    stageH: 660,
     reset: function (p) {
       st = CM.init(p);
       noMeetWarned = false;
       drag = null;
+      seen = {}; seen[tab] = true; markBadges(false);
       syncPanel();
     },
     step: function (dt, p) {
       if (st.end) return;
       if (st.t === 0 && !st.P.meet && !noMeetWarned) {
         noMeetWarned = true;
-        SK.notice(st.P.mode === 'wall' ? '수레가 벽 쪽(+)으로 움직여야 부딪쳐요' : '두 수레가 만나지 않아요 (v₁ > v₂ 로 바꿔 보세요)', 'warn', 4000);
+        SK.notice(st.P.mode === 'wall' ? '수레가 벽 쪽(오른쪽, +)으로 움직여야 부딪쳐요' : '두 수레가 만나지 않아요 — A 속도를 B 속도보다 크게 바꿔 보세요', 'warn', 4000);
       }
       CM.step(st, dt, !!p.autoSlow);
       SK.time = st.t - dt;    // SimKit 이 곧 +dt 하므로 → SimKit.time = 물리 시간
-      if (st.end === 'done') SK.finish(finishText());
-      else if (st.end === 'nomeet') SK.finish('두 수레가 만나지 않았어요 — v₁ > v₂ 로 바꿔 R');
-      else if (st.end === 'offscreen') SK.finish('부딪치기 전에 화면 밖으로 나갔어요 — 속도를 바꿔 보세요');
+      if (st.end === 'done') { markBadges(true); SK.finish('끝났어요 — 그래프 탭을 차례로 보고 [기록하기]로 저장해요'); }
+      else if (st.end === 'nomeet') SK.finish(st.P.mode === 'wall' ? '수레가 벽에 닿지 않았어요 — 처음 속도를 + 로 바꿔 보세요' : '두 수레가 만나지 않았어요 — A 속도를 B 보다 크게 바꿔 보세요');
+      else if (st.end === 'offscreen') SK.finish('부딪치기 전에 트랙 밖으로 나갔어요 — 속도를 바꿔 보세요');
     },
     render: render,
     capture: capture,
     save: function () { return CM.copy(st); },
     load: function (s) { st = CM.copy(s); },
     status: function (p) {
-      var a = [MODE_NAME[p.mode]];
-      if (p.mode !== 'separate') a.push(kindLabel(p.e));
-      a.push('범퍼 ' + TAU_NAME[p.tau] + ' ' + p.tau + ' s');
-      return a.join(' · ');
-    },
-    onStep: function (i, name) { thinkEl.hidden = name !== '정리'; }
+      if (p.mode === 'separate') return ['분리(반동)', '눌린 용수철'];
+      var a = [];
+      if (p.mode === 'wall') a.push('벽에 부딪치기');
+      a.push(kindLabel(p.e));
+      a.push('범퍼 ' + TAU_NAME[p.tau]);
+      return a;
+    }
   });
-  SK.el.band.style.gridTemplateColumns = 'minmax(0, 7fr) minmax(0, 6fr)';
+  SK.el.band.style.gridTemplateColumns = 'minmax(0, 1fr)';
   SK.el.band.classList.add('cm-band');
 
-  function finishText() {
-    var P = st.P;
-    if (P.mode === 'wall') return '끝 — 충격량 ' + fmt(P.J, 2) + ' N·s, 최대 힘 ' + fmt(P.Fmax, 1) + ' N · S 로 기록';
-    return '끝 — 운동량 합 ' + fmt(P.pb, 2) + ' → ' + fmt(P.pa, 2) + ' kg·m/s · S 로 기록';
-  }
+  /* ---------- 2. 수치 바꾸기 — 핵심 3개만 (질량 A·B, A 속도 / 분리: 포탄 속력) ---------- */
+  SK.addVar('values', { key: 'm1', label: '수레 A 질량', symbol: 'm₁', unit: 'kg', min: 0.5, max: 3, step: 0.5, value: 1, decimals: 1, precision: 2, ticks: [0.5, 1, 2, 3] });
+  SK.addVar('values', { key: 'm2', label: '수레 B 질량', symbol: 'm₂', unit: 'kg', min: 0.5, max: 3, step: 0.5, value: 1, decimals: 1, precision: 2, ticks: [0.5, 1, 2, 3] });
+  SK.addVar('values', { key: 'v1', label: 'A 처음 속도', symbol: 'v₁', unit: 'm/s', min: -3, max: 3, step: 0.5, value: 2, decimals: 1, precision: 2, ticks: [-3, 0, 3],
+    hint: '+ 는 오른쪽(→), − 는 왼쪽(←)이에요. 실험 화면에서 수레를 끌었다 놓아도 정할 수 있어요.' });
+  SK.addVar('values', { key: 'u', label: '포탄(B) 나가는 속력', symbol: 'u', unit: 'm/s', min: 0, max: 6, step: 0.5, value: 4, decimals: 1, precision: 2, ticks: [0, 2, 4, 6] });
 
-  /* ---------- 2. 상황 바꾸기 (요구 B) ---------- */
+  /* ---------- 3. 상황 바꾸기 ---------- */
   SK.addChoice('situation', {
     key: 'mode', label: '실험 장면', style: 'cards', apply: 'restart',
     options: [
@@ -330,9 +354,9 @@
   SK.addChoice('situation', {
     key: 'kind', label: '충돌 종류', apply: 'restart',
     options: [
-      { value: 'elastic', label: '튕기기' },
-      { value: 'stick', label: '달라붙기' },
-      { value: 'mid', label: '중간' }
+      { value: 'elastic', label: '튕기기', sub: '탄성 충돌' },
+      { value: 'stick', label: '달라붙기', sub: '완전 비탄성' },
+      { value: 'mid', label: '중간', sub: '비탄성' }
     ],
     value: 'elastic',
     onChange: function (v) {
@@ -341,7 +365,8 @@
     }
   });
   SK.addChoice('situation', {
-    key: 'tau', label: '범퍼 (부딪치는 시간 τ)', apply: 'restart',
+    key: 'tau', label: '범퍼 (부딪쳐 있는 시간)', apply: 'restart',
+    hint: '푹신할수록 두 물체가 맞닿아 있는 시간이 길어요.',
     options: [
       { value: 0.01, label: '딱딱', sub: '0.01 s' },
       { value: 0.05, label: '보통', sub: '0.05 s' },
@@ -350,46 +375,33 @@
     value: 0.05
   });
 
-  /* ---------- 3. 수치 바꾸기 (요구 A) — 결정서 §4 값 그대로 ---------- */
-  SK.addVar('values', { key: 'm1', label: '수레 A 질량', symbol: 'm₁', unit: 'kg', min: 0.5, max: 3, step: 0.5, value: 1, decimals: 1, precision: 2, ticks: [0.5, 1, 2, 3] });
-  SK.addVar('values', { key: 'm2', label: '수레 B 질량', symbol: 'm₂', unit: 'kg', min: 0.5, max: 3, step: 0.5, value: 1, decimals: 1, precision: 2, ticks: [0.5, 1, 2, 3] });
-  SK.addVar('values', { key: 'v1', label: 'A 처음 속도', symbol: 'v₁', unit: 'm/s', min: -3, max: 3, step: 0.5, value: 2, decimals: 1, precision: 2, ticks: [-3, 0, 3] });
-  SK.addVar('values', { key: 'v2', label: 'B 처음 속도', symbol: 'v₂', unit: 'm/s', min: -3, max: 3, step: 0.5, value: 0, decimals: 1, precision: 2, ticks: [-3, 0, 3] });
-  SK.addVar('values', { key: 'u', label: '포탄(B) 속력', symbol: 'u', unit: 'm/s', min: 0, max: 6, step: 0.5, value: 4, decimals: 1, precision: 2, ticks: [0, 2, 4, 6] });
-  // 속도 슬라이더: 가운데 0 굵은 눈금 + ← / → 그림
-  ['v1', 'v2'].forEach(function (k) {
-    var c = SK.controls[k];
-    c.el.classList.add('cm-vel');
-    var tk = c.el.querySelectorAll('.var__ticks span');
-    if (tk.length === 3) { tk[0].textContent = '← −3'; tk[1].textContent = '0'; tk[1].className = 'cm-zero'; tk[2].textContent = '+3 →'; }
-    var hint = SK.h('p', { class: 'cm-vel-hint', text: '+ 는 오른쪽(→), − 는 왼쪽(←). 실험 화면에서 수레를 끌었다 놓아도 정할 수 있어요.' });
-    if (k === 'v2') c.el.appendChild(hint);
-  });
+  /* ---------- 4. 화면에 표시하기 ---------- */
+  SK.addToggle('tools', { key: 'autoSlow', label: '부딪칠 때 자동 슬로 모션', value: true });
 
-  /* ---------- 4. 표시 도구 · 식 보기 ---------- */
-  SK.addToggle('tools', { key: 'showP', label: '운동량 막대', value: true });
-  SK.addToggle('tools', { key: 'showF', label: '힘-시간 그래프', value: true });
-  SK.addToggle('tools', { key: 'showK', label: '운동 에너지 막대', value: true });
-  SK.addToggle('tools', { key: 'autoSlow', label: '자동 슬로 모션 (X)', value: true });
-  var eqBody = SK.h('div', { class: 'cm-eq__body' });
-  var eqBox = SK.h('details', { class: 'cm-eq' }, [SK.h('summary', { class: 'cm-eq__sum', text: '식 보기' }), eqBody]);
-  SK.panel('tools').appendChild(eqBox);
-  eqBox.addEventListener('toggle', function () { lastEqHTML = ''; SK.requestRender(); });
-
-  /* ---------- 5. 심화 (성취기준 밖) ---------- */
+  /* ---------- 5. 더 많은 설정 ---------- */
+  SK.addVar('deep', { key: 'v2', label: 'B 처음 속도', symbol: 'v₂', unit: 'm/s', min: -3, max: 3, step: 0.5, value: 0, decimals: 1, precision: 2, ticks: [-3, 0, 3],
+    hint: '마주 보고 부딪치게 하려면 − 로 바꿔요(트럭 vs 승용차 카드).' });
   SK.addVar('deep', {
     key: 'e', label: '반발 계수', symbol: 'e', unit: '', min: 0, max: 1, step: 0.1, value: 1, decimals: 1, precision: 2,
     ticks: [0, 0.5, 1], record: false,
-    hint: '심화: 1 = 튕기기, 0 = 달라붙기. 교육과정 밖이라 접어 두었어요.',
+    hint: '심화(교육과정 밖): 1 = 튕기기, 0 = 달라붙기.',
     onChange: function (v) {
       if (syncing) return;
       var k = kindOfE(v);
       if (k !== SK.get('kind')) { syncing = true; SK.set('kind', k); syncing = false; }
     }
   });
-  SK.addToggle('deep', { key: 'showCM', label: '질량 중심 함께 보기', value: false, record: false });
+  SK.addToggle('deep', { key: 'showCM', label: '질량 중심 함께 보기 (심화)', value: false, record: false });
 
-  /** 모드에 따라 보이는 변수 바꾸기 (패널에 보이는 값 기준) */
+  // 속도 슬라이더: 가운데 0 굵은 눈금 + ← / →
+  ['v1', 'v2'].forEach(function (k) {
+    var c = SK.controls[k];
+    c.el.classList.add('cm-vel');
+    var tk = c.el.querySelectorAll('.var__ticks span');
+    if (tk.length === 3) { tk[0].textContent = '← −3'; tk[1].textContent = '0'; tk[1].className = 'cm-zero'; tk[2].textContent = '+3 →'; }
+  });
+
+  /** 장면에 따라 보이는 변수 바꾸기 (패널에 보이는 값 기준) */
   function syncPanel() {
     var m = SK.get('mode');
     function show(k, on) { SK.controls[k].el.style.display = on ? '' : 'none'; }
@@ -400,99 +412,147 @@
     SK.controls.kind.enable(m !== 'separate');
     SK.controls.m1.el.querySelector('.var__label').firstChild.textContent = m === 'separate' ? '대포(A) 질량' : '수레 A 질량';
     SK.controls.m2.el.querySelector('.var__label').firstChild.textContent = m === 'separate' ? '포탄(B) 질량' : '수레 B 질량';
+    var la = meters.el.querySelector('[data-key="v1"] .meter__label'), lb = meters.el.querySelector('[data-key="v2"] .meter__label');
+    if (la && la.firstChild) la.firstChild.textContent = m === 'separate' ? '대포 속도' : 'A 속도';
+    if (lb && lb.firstChild) lb.firstChild.textContent = m === 'separate' ? '포탄 속도' : m === 'wall' ? '벽 (고정)' : 'B 속도';
+    var lp = meters.el.querySelector('[data-key="p"] .meter__label'), lk = meters.el.querySelector('[data-key="k"] .meter__label');
+    if (lp && lp.lastChild) lp.lastChild.textContent = m === 'wall' ? ' (수레) · 처음 → 지금' : ' 합 · 처음 → 지금';
+    if (lk && lk.lastChild) lk.lastChild.textContent = m === 'wall' ? ' (수레) · 처음 → 지금' : ' 합 · 처음 → 지금';
     SK.requestRender();
   }
 
-  /* ---------- 6. 하단 띠: 계기판 · 기록 표 (요구 C) ---------- */
+  /* ---------- 6. 하단 띠: 계기판 1줄 4개 (실행 전에는 빈 상태 한 줄) ---------- */
   var meters = SK.meters(null, [
-    { key: 'v1', label: 'A 속도 (지금)', symbol: 'v₁', unit: 'm/s', q: 'velocity', size: 'md' },
-    { key: 'v2', label: 'B 속도 (지금)', symbol: 'v₂', unit: 'm/s', q: 'velocity', size: 'md' },
-    { key: 'p', label: '운동량 합 전 → 후', symbol: 'p', unit: 'kg·m/s', size: 'md' },
-    { key: 'k', label: '운동 에너지 합 전 → 후', symbol: 'K', unit: 'J', q: 'energy-k', size: 'md' }
+    { key: 'v1', label: 'A 속도', symbol: 'v₁', unit: 'm/s', q: 'velocity', size: 'md' },
+    { key: 'v2', label: 'B 속도', symbol: 'v₂', unit: 'm/s', q: 'velocity', size: 'md' },
+    { key: 'p', label: '{{운동량}} 합 · 처음 → 지금', unit: 'kg·m/s', size: 'md' },
+    { key: 'k', label: '{{운동 에너지}} 합 · 처음 → 지금', unit: 'J', q: 'energy-k', size: 'md' }
   ]);
+  var meterEmpty = SK.empty(SK.el.meters, '속도·운동량 값');
+
+  /* ---------- 7. 기록 표 (비교 단계 큰 판) ---------- */
   SK.recordTable(null, {
     columns: [
-      { key: 'mode', label: '모드', unit: '', from: 'param' },
-      { key: 'kind', label: '종류', unit: '', from: 'param' },
-      { key: 'tau', label: '범퍼', unit: '', from: 'param' },
-      { key: 'm1', from: 'param' },
-      { key: 'm2', from: 'param', text: function (r) { return r.params.mode === 'wall' ? '–' : SK.valueText('m2', r.params.m2); } },
-      { key: 'v1', from: 'param', text: function (r) { return r.params.mode === 'separate' ? '0' : SK.valueText('v1', r.params.v1); } },
-      { key: 'v2u', label: 'v₂(u)', unit: 'm/s', from: 'value' },
-      { key: 'v1f', label: 'v₁′', unit: 'm/s', decimals: 2, from: 'value' },
-      { key: 'v2f', label: 'v₂′', unit: 'm/s', decimals: 2, from: 'value' },
-      { key: 'pb', label: 'p합 전', unit: 'kg·m/s', decimals: 2, from: 'value' },
-      { key: 'pa', label: 'p합 후', unit: 'kg·m/s', decimals: 2, from: 'value' },
-      { key: 'kb', label: 'K 전', unit: 'J', decimals: 2, from: 'value' },
-      { key: 'ka', label: 'K 후', unit: 'J', decimals: 2, from: 'value' },
-      { key: 'J', label: '충격량', unit: 'N·s', decimals: 2, from: 'value' },
-      { key: 'fmax', label: '최대 힘', unit: 'N', decimals: 1, from: 'value' }
+      { key: 'mode', label: '장면', unit: '', from: 'param', priority: 2 },
+      { key: 'kind', label: '종류', unit: '', from: 'param', priority: 1, text: function (r) { return r.params.mode === 'separate' ? '–' : SK.valueText('kind', r.params.kind); } },
+      { key: 'tau', label: '범퍼', unit: '', from: 'param', priority: 1 },
+      { key: 'm1', label: 'm₁', unit: 'kg', from: 'param', priority: 1 },
+      { key: 'm2', label: 'm₂', unit: 'kg', from: 'param', priority: 1, text: function (r) { return r.params.mode === 'wall' ? '–' : SK.valueText('m2', r.params.m2); } },
+      { key: 'v1', label: 'v₁', unit: 'm/s', from: 'param', priority: 1, text: function (r) { return r.params.mode === 'separate' ? '0' : SK.valueText('v1', r.params.v1); } },
+      { key: 'v2u', label: 'v₂(u)', unit: 'm/s', from: 'value', priority: 2 },
+      { key: 'v1f', label: 'v₁′', unit: 'm/s', decimals: 2, from: 'value', priority: 2 },
+      { key: 'v2f', label: 'v₂′', unit: 'm/s', decimals: 2, from: 'value', priority: 2 },
+      { key: 'pb', label: 'p 합 처음', unit: 'kg·m/s', decimals: 2, from: 'value', priority: 1 },
+      { key: 'pa', label: 'p 합 나중', unit: 'kg·m/s', decimals: 2, from: 'value', priority: 1 },
+      { key: 'pOK', label: 'p 보존?', unit: '', from: 'value', priority: 1 },
+      { key: 'kb', label: 'K 합 처음', unit: 'J', decimals: 2, from: 'value', priority: 1 },
+      { key: 'ka', label: 'K 합 나중', unit: 'J', decimals: 2, from: 'value', priority: 1 },
+      { key: 'kOK', label: 'K 보존?', unit: '', from: 'value', priority: 1 },
+      { key: 'J', label: '충격량', unit: 'N·s', decimals: 2, from: 'value', priority: 2 },
+      { key: 'fmax', label: '최대 힘', unit: 'N', decimals: 1, from: 'value', priority: 2 }
     ]
   });
-
-  /* 기록 표: 그 장면에서 쓰지 않는(숨겨진) 변수는 공통 표의 text 옵션으로 '–'·'0' 으로 보이게 한다
-     (위 columns 의 m₂·v₁ 참고). 예) 분리 모드 줄에 숨은 v₁ = 2.0 이 찍혀 "대포가 처음에 2 m/s 로 움직였다"로 읽히는 것을 막음. */
+  /* 숨겨진 변수는 text 로 '–'·'0' (분리 모드에 숨은 v₁ = 2.0 이 찍혀 '대포가 처음에 움직였다'로 읽히는 것을 막음) */
 
   function capture(p) {
     if (!st) return null;
     var P = st.P, done = st.phase === 'post';
     var cv = CM.curve(P);
     var v2u = P.mode === 'separate' ? 'u ' + fmt(P.u, 1) : P.mode === 'wall' ? '벽' : fmt(P.v2, 1);
+    var pOK = '–', kOK = '–';
+    if (done) {
+      pOK = P.mode === 'wall' ? 'X (벽이 힘)' : Math.abs(P.pa - P.pb) < 1e-6 ? 'O 그대로' : 'X';
+      var dk = P.ka - P.kb;
+      kOK = dk < -0.005 ? 'X 줄어듦' : dk > 0.005 ? 'X 늘어남' : 'O 그대로';
+    }
     return {
       series: done ? { fa: cv.fa, fb: cv.fb } : {},
       values: {
         v2u: v2u, tau: P.tau,
         v1f: done ? P.v1f : st.vA, v2f: P.mode === 'wall' ? '–' : (done ? P.v2f : st.vB),
         pb: P.pb, pa: done ? P.pa : CM.pNow(st), kb: P.kb, ka: done ? P.ka : CM.kNow(st),
+        pOK: pOK, kOK: kOK,
         J: done ? P.J : 0, fmax: done ? P.Fmax : 0
       }
     };
   }
 
-  /* ---------- 7. 프리셋 (결정서 §5) ---------- */
+  /* 비교 단계: 기록 표 아래 '규칙 확인하기' (충돌 종류별 O/X) */
+  (function addRuleCard() {
+    var card = SK.h('div', { class: 'cm-rule' }, [
+      SK.h('p', { class: 'cm-rule__q', text: '표에서 찾아봐요 — 충돌 종류가 바뀌면 운동량 합과 운동 에너지 합은 어떻게 될까요?' }),
+      SK.h('p', { class: 'cm-rule__hint', text: '튕기기 한 번, 달라붙기 한 번을 기록하면 차이가 잘 보여요.' })
+    ]);
+    SK.reveal(card,
+      '<table class="cm-ox"><thead><tr><th>장면</th><th>운동량 합</th><th>운동 에너지 합</th></tr></thead><tbody>' +
+      '<tr><th>튕기기</th><td><b>O</b> 그대로</td><td><b>O</b> 그대로</td></tr>' +
+      '<tr><th>중간</th><td><b>O</b> 그대로</td><td><b>X</b> 줄어듦 (열·소리)</td></tr>' +
+      '<tr><th>달라붙기</th><td><b>O</b> 그대로</td><td><b>X</b> 가장 많이 줄어듦</td></tr>' +
+      '<tr><th>분리(반동)</th><td><b>O</b> 0 그대로</td><td><b>X</b> 늘어남 (용수철 에너지)</td></tr>' +
+      '<tr><th>벽 (수레만)</th><td><b>X</b> 벽이 바깥에서 힘을 줌</td><td>튕기면 O, 달라붙으면 X</td></tr>' +
+      '</tbody></table>' +
+      '<p>운동량 합은 <b>바깥에서 힘이 작용하지 않으면 언제나</b> 그대로예요. 운동 에너지 합은 <b>튕기기(탄성 충돌)</b>에서만 그대로예요.</p>',
+      '규칙 확인하기');
+    SK.el.recBigBody.insertBefore(card, SK.el.recVs);   // 표 바로 아래 (두 기록 나란히 보기 위)
+  })();
+
+  /* ---------- 8. 실험 카드 (이름 12자 이내 · 예측 answer/why) ---------- */
   SK.setPresets([
     {
-      name: '같은 질량끼리 튕기면?', tag: '탐구 재현',
+      name: '같은 질량끼리 튕기면', tag: '탐구 재현',
       change: '충돌 종류: 튕기기', fixed: 'm₁ = m₂ = 1 kg · v₁ = +2, v₂ = 0 m/s · 범퍼 보통',
       values: { mode: 'collide', kind: 'elastic', e: 1, tau: 0.05, m1: 1, m2: 1, v1: 2, v2: 0 },
-      predict: { question: 'A(1 kg, +2 m/s)가 멈춰 있는 B(1 kg)에 부딪쳐 튕기면?', choices: ['A는 멈추고 B가 +2 m/s', '둘 다 +1 m/s', 'A가 뒤로 튕겨 나온다'] }
+      predict: { question: 'A(1 kg, +2 m/s)가 멈춰 있는 B(1 kg)에 부딪쳐 튕기면 어떻게 될까?',
+        choices: ['A는 멈추고 B가 +2 m/s 로 간다', '둘 다 +1 m/s 로 간다', 'A가 뒤로 튕겨 나온다'],
+        answer: 1, why: '질량이 같고 튕기면 두 수레가 속도를 서로 바꿔요. 운동량 합(2 kg·m/s)과 운동 에너지 합(2 J)이 둘 다 그대로인 답은 이것뿐이에요. ②는 운동 에너지가 1 J 로 줄어 달라붙을 때의 결과예요.' },
+      onApply: function () { setTab('p'); }
     },
     {
-      name: '달라붙으면 운동량은?', tag: '탐구 재현',
+      name: '달라붙으면', tag: '탐구 재현',
       change: '충돌 종류만: 튕기기 → 달라붙기', fixed: 'm₁ = m₂ = 1 kg · v₁ = +2, v₂ = 0 m/s · 범퍼 보통',
       values: { mode: 'collide', kind: 'stick', e: 0, tau: 0.05, m1: 1, m2: 1, v1: 2, v2: 0 },
-      predict: { question: '두 수레가 달라붙어 함께 움직이면 운동량의 합은?', choices: ['줄어든다', '그대로 2 kg·m/s', '늘어난다'], info: '운동 에너지 막대도 함께 보세요.' }
+      predict: { question: '두 수레가 달라붙어 함께 움직이면 운동량의 합은?', choices: ['줄어든다', '그대로 2 kg·m/s', '늘어난다'],
+        info: '실행이 끝나면 [운동 에너지] 탭도 함께 보세요.',
+        answer: 2, why: '두 수레가 주고받는 힘은 크기가 같고 방향이 반대라서 A 가 잃은 운동량을 B 가 그대로 얻어요. 줄어드는 것은 운동 에너지(2 J → 1 J)예요.' },
+      onApply: function () { setTab('p'); }
     },
     {
-      name: '트럭 vs 승용차, 누가 더 큰 힘?', tag: '작용·반작용',
+      name: '트럭 vs 승용차', tag: '작용·반작용',
       change: '트럭 A 3 kg·+2 m/s, 승용차 B 1 kg·−2 m/s', fixed: '튕기기 · 범퍼 보통',
       values: { mode: 'collide', kind: 'elastic', e: 1, tau: 0.05, m1: 3, m2: 1, v1: 2, v2: -2 },
-      predict: { question: '트럭(3 kg)과 승용차(1 kg)가 마주 보고 부딪치면, 누가 더 큰 힘을 받을까?', choices: ['트럭이 더 큰 힘', '승용차가 더 큰 힘', '두 힘의 크기가 같다'], info: '힘-시간 그래프의 두 곡선을 비교해 보세요.' }
+      predict: { question: '트럭(3 kg)과 승용차(1 kg)가 마주 보고 부딪치면, 누가 더 큰 힘을 받을까?', choices: ['트럭이 더 큰 힘', '승용차가 더 큰 힘', '두 힘의 크기가 같다'],
+        info: '실행이 끝나면 [힘-시간] 탭에서 두 곡선을 비교해 보세요.',
+        answer: 3, why: '작용·반작용 — 질량이 달라도 서로 미는 힘의 크기는 같고 방향만 반대예요. 승용차가 더 위험한 까닭은 질량이 작아 속도가 더 크게 바뀌기 때문이에요(트럭 −2 m/s, 승용차 +6 m/s).' },
+      onApply: function () { setTab('f'); }
     },
     {
-      name: '대포를 쏘면 대포는?', tag: '발사체',
-      change: '포탄 속력 u = 4 m/s', fixed: '대포 A 2 kg · 포탄 B 0.5 kg · 처음엔 둘 다 정지',
+      name: '대포를 쏘면', tag: '발사체',
+      change: '포탄 나가는 속력 u = 4 m/s', fixed: '대포 A 2 kg · 포탄 B 0.5 kg · 처음엔 둘 다 정지',
       values: { mode: 'separate', tau: 0.05, m1: 2, m2: 0.5, u: 4 },
-      predict: { question: '멈춰 있던 대포(2 kg)가 포탄(0.5 kg)을 +4 m/s 로 쏘면 대포는?', choices: ['가만히 있다', '뒤로 1 m/s', '뒤로 4 m/s'] }
+      predict: { question: '멈춰 있던 대포(2 kg)가 포탄(0.5 kg)을 +4 m/s 로 쏘면 대포는?', choices: ['가만히 있다', '뒤로 1 m/s', '뒤로 4 m/s'],
+        answer: 2, why: '처음 운동량 합이 0 이라 나중에도 0 이에요. 포탄이 0.5 × 4 = +2 kg·m/s 를 얻으니 대포는 −2 kg·m/s, 질량이 2 kg 이라 뒤로 1 m/s 예요.' },
+      onApply: function () { setTab('p'); }
     },
     {
-      name: '에어백은 무엇을 줄일까?', tag: '교통안전',
-      change: '범퍼: 딱딱 0.01 s → S 기록 → P 로 푹신 0.2 s', fixed: '벽 · 달라붙기 · 수레 1 kg, +2 m/s',
+      name: '에어백은 무엇을 줄일까', tag: '교통안전',
+      change: '범퍼: 딱딱 0.01 s → 푹신 0.2 s', fixed: '벽 · 달라붙기 · 수레 1 kg, +2 m/s',
       values: { mode: 'wall', kind: 'stick', e: 0, tau: 0.01, m1: 1, v1: 2 },
-      predict: { question: '푹신한 범퍼(에어백)는 무엇을 줄여 줄까?', choices: ['운동량', '충격량', '최대 힘'], info: '딱딱 범퍼로 실행 → S → P 로 푹신 → 실행해서 비교해요.' },
-      onApply: function () { SK.notice('딱딱 범퍼로 실행 → S 기록 → P 로 푹신 → 다시 실행', 'info', 5000); }
+      predict: { question: '푹신한 범퍼(에어백)는 무엇을 줄여 줄까?', choices: ['운동량이 줄어든다', '충격량이 줄어든다', '최대 힘이 줄어든다'],
+        info: '딱딱 범퍼로 실행 → [기록하기] → 범퍼를 ‘푹신’으로 바꿔 실행 → [기록하기] 순서로 비교해요.',
+        answer: 3, why: '멈출 때까지 운동량 변화(충격량 = 힘-시간 그래프의 넓이)는 같고, 부딪쳐 있는 시간이 길어진 만큼 최대 힘이 줄어요.' },
+      onApply: function () { setTab('f'); SK.notice('딱딱 범퍼로 실행 → [기록하기] → 범퍼 ‘푹신’으로 바꿔 다시 실행', 'info', 5000); }
     }
   ]);
 
-  /* ---------- 8. 전용 키: E 충돌 종류 · P 범퍼 · X 자동 슬로 모션 ---------- */
+  /* ---------- 9. 이 실험 전용 키 (도움말 › 단축키 탭에만 적음) ---------- */
   SK.onKey(function (e) {
     if (e.repeat) return false;
     if (e.code === 'KeyE') {
-      if (SK.get('mode') === 'separate') { SK.notice('분리 모드에는 충돌 종류가 없어요', 'info'); return true; }
+      if (SK.get('mode') === 'separate') { SK.notice('분리(반동) 장면에는 충돌 종류가 없어요', 'info'); return true; }
       var i = KIND_ORDER.indexOf(SK.get('kind'));
       var k = KIND_ORDER[(i + 1) % KIND_ORDER.length];
       SK.set('kind', k);
-      SK.notice('충돌 종류: ' + { elastic: '튕기기', stick: '달라붙기', mid: '중간' }[k], 'info', 1500);
+      SK.notice('충돌 종류: ' + KIND_NAME[k], 'info', 1500);
       return true;
     }
     if (e.code === 'KeyP') {
@@ -510,20 +570,51 @@
     return false;
   });
 
-  /* ---------- 9. 실험 화면 위 HTML: 슬로 모션 배지 · 만나지 않음 안내 · 생각해 보기 ---------- */
+  /* ---------- 10. 실험 화면 위 HTML: 슬로 모션 배지 · 만나지 않음 안내 · 그래프 탭 ---------- */
   var badgeEl = SK.h('div', { class: 'cm-badge', hidden: true });
   var warnEl = SK.h('div', { class: 'cm-warn', hidden: true });
-  var thinkEl = SK.h('div', { class: 'think cm-think', hidden: true }, [
-    SK.h('span', { class: 'think__label', text: '생각해 보기' }),
-    SK.h('p', { class: 'think__q', text: '운동량은 보존됐는데, 줄어든 운동 에너지는 어디로 갔을까?' }),
-    SK.h('p', { class: 'think__hint', text: '달라붙기의 운동 에너지 막대에서 \'열·소리로\' 부분을 보세요. [12물리01-05]' }),
-    SK.h('p', { class: 'think__q', text: '같은 질량끼리 튕기면 왜 속도가 서로 바뀔까? (뉴턴의 요람)' })
-  ]);
   SK.el.cornerTR.appendChild(badgeEl);
   SK.el.cornerTR.appendChild(warnEl);
-  SK.el.cornerTR.appendChild(thinkEl);
 
-  /* ---------- 10. 수레 끌기 → 처음 속도 (0.5 m/s 단위) ---------- */
+  var lowerEl = SK.h('div', { class: 'cm-lower' });
+  var tabBox = SK.h('div', { class: 'cm-tabs', role: 'tablist', 'aria-label': '그래프 고르기' });
+  var tabBtns = {};
+  TABS.forEach(function (t) {
+    var badge = SK.h('span', { class: 'cm-tab__new', text: '보기', hidden: true });
+    var b = SK.h('button', { class: 'cm-tab', type: 'button', role: 'tab', 'aria-selected': 'false' }, [SK.h('span', { class: 'cm-tab__name', text: t.label }), badge]);
+    b._badge = badge;
+    b.addEventListener('click', function (e) { if (e.detail > 0) b.blur(); setTab(t.id); });
+    tabBtns[t.id] = b; tabBox.appendChild(b);
+  });
+  lowerEl.appendChild(SK.h('span', { class: 'cm-tabs__label', text: '그래프' }));
+  lowerEl.appendChild(tabBox);
+  SK.el.stage.appendChild(lowerEl);
+  var lowerEmpty = SK.empty(lowerEl, '운동량·힘·에너지 그래프');
+  function setTab(id) {
+    tab = id; seen[id] = true;
+    for (var k in tabBtns) {
+      tabBtns[k].setAttribute('aria-selected', String(k === id));
+      if (k === id) tabBtns[k]._badge.hidden = true;
+    }
+    SK.requestRender();
+  }
+  /** 실행이 끝나면 아직 안 본 탭에 '보기' 배지 */
+  function markBadges(on) {
+    for (var k in tabBtns) tabBtns[k]._badge.hidden = !(on && !seen[k]);
+  }
+  setTab('p');
+  var lowerBox = '';
+  function placeLower(view) {
+    var s = view.scale, key = [view.ox, view.oy, s].join(',');
+    if (key === lowerBox) return;
+    lowerBox = key;
+    lowerEl.style.left = (view.ox + LOW.x * s) + 'px';
+    lowerEl.style.top = (view.oy + LOW.y * s) + 'px';
+    lowerEl.style.width = (LOW.w * s) + 'px';
+    lowerEl.style.height = (LOW.h * s) + 'px';
+  }
+
+  /* ---------- 11. 수레 끌기 → 처음 속도 (0.5 m/s 단위) ---------- */
   (function installDrag() {
     var cv = SK.view.canvas;
     function cartAt(pt) {
@@ -540,9 +631,9 @@
       var pt = SK.view.toLogical(e), who = cartAt(pt);
       if (!who) return;
       var mode = SK.params.mode;
-      if (mode === 'separate') { SK.notice('분리 모드는 포탄 속력 u 로 정해요', 'info'); return; }
+      if (mode === 'separate') { SK.notice('분리(반동) 장면은 [포탄 나가는 속력]으로 정해요', 'info'); return; }
       if (mode === 'wall' && who === 'B') return;
-      if (SK.started) { SK.notice('R 로 처음 상태로 돌린 뒤 끌어 보세요', 'info'); return; }
+      if (SK.started) { SK.notice('[처음 설정으로]를 누른 뒤 끌어 보세요', 'info'); return; }
       var x0 = who === 'A' ? st.xA : st.xB;
       drag = { who: who, id: e.pointerId, x: x0, x0: x0, grab: (pt.x - sx(x0)) / SX, samples: [[performance.now(), x0]] };
       try { cv.setPointerCapture(e.pointerId); } catch (err) { /* 무시 */ }
@@ -552,7 +643,6 @@
       if (!drag || e.pointerId !== drag.id) return;
       var pt = SK.view.toLogical(e);
       var x = (pt.x - X0) / SX - drag.grab;
-      // 다른 수레·벽을 넘지 않게
       if (drag.who === 'A') x = Math.min(x, (st.xB !== null ? st.xB - CM.D0 : CM.XW - CM.HW - CM.BUMP));
       else x = Math.max(x, st.xA + CM.D0);
       drag.x = Math.max(-1.95, Math.min(1.95, x));
@@ -572,46 +662,209 @@
       var v = (dt > 0.008 && performance.now() - b[0] < 150) ? (b[1] - a[1]) / dt : 0;
       v = Math.max(-3, Math.min(3, Math.round(v * 2) / 2));
       if (Object.is(v, -0)) v = 0;
-      var key = d.who === 'A' ? 'v1' : 'v2';
-      SK.set(key, v);
-      SK.notice((d.who === 'A' ? 'A 처음 속도 v₁' : 'B 처음 속도 v₂') + ' = ' + sgn(v, 1) + ' m/s (끌어서 정함) · Space 로 실행', 'ok', 3000);
+      SK.set(d.who === 'A' ? 'v1' : 'v2', v);
+      SK.notice((d.who === 'A' ? 'A 처음 속도 v₁' : 'B 처음 속도 v₂') + ' = ' + sgn(v, 1) + ' m/s 로 정했어요 — ▶ 실행으로 확인해요', 'ok', 3000);
     }
     cv.addEventListener('pointerup', end);
     cv.addEventListener('pointercancel', end);
   })();
 
-  /* ---------- 11. 수업 안내 서랍 (요구 D 대응표 = 결정서 §4) ---------- */
+  /* ---------- 12. 설명 도우미: 도움말(이렇게 해요 · 개념 · 용어) ---------- */
+  function svgBox(inner, vb) { var d = SK.h('div', { class: 'cm-fig' }); d.innerHTML = '<svg viewBox="' + vb + '" role="img" aria-hidden="true">' + inner + '</svg>'; return d; }
+  function sine(x0, w, hgt, base) {
+    var s = 'M' + x0 + ' ' + base;
+    for (var i = 0; i <= 30; i++) s += ' L' + (x0 + w * i / 30).toFixed(1) + ' ' + (base - hgt * Math.sin(Math.PI * i / 30)).toFixed(1);
+    return s;
+  }
+  var ARW = '<defs><marker id="cmh" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" style="fill:context-stroke"/></marker></defs>';
+  function cart(x, y, w, h, fill, label) {
+    return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" rx="6" style="fill:var(' + fill + ')"/>' +
+      '<circle cx="' + (x + w * 0.25) + '" cy="' + (y + h + 6) + '" r="6" style="fill:var(--color-ink)"/><circle cx="' + (x + w * 0.75) + '" cy="' + (y + h + 6) + '" r="6" style="fill:var(--color-ink)"/>' +
+      '<text x="' + (x + w / 2) + '" y="' + (y + h / 2 + 6) + '" text-anchor="middle" class="cm-fig__inv">' + label + '</text>';
+  }
+  function arrowSvg(x1, y1, x2, y2, c) { return '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" style="stroke:var(' + c + ');stroke-width:5" marker-end="url(#cmh)"/>'; }
+  var FIG_P = svgBox(ARW +
+    cart(20, 14, 80, 40, '--color-rec-1', '1 kg') + arrowSvg(108, 34, 190, 34, '--color-q-velocity') +
+    '<text x="150" y="22" text-anchor="middle" class="cm-fig__v">+2 m/s</text><text x="220" y="40">p = 1 × (+2) = <tspan class="cm-fig__b">+2 kg·m/s</tspan></text>' +
+    cart(110, 84, 80, 40, '--color-rec-1', '1 kg') + arrowSvg(102, 104, 24, 104, '--color-q-velocity') +
+    '<text x="62" y="92" text-anchor="middle" class="cm-fig__v">−2 m/s</text><text x="220" y="110">p = 1 × (−2) = <tspan class="cm-fig__b">−2 kg·m/s</tspan></text>', '0 0 560 140');
+  var FIG_J = svgBox(
+    '<line x1="40" y1="130" x2="540" y2="130" style="stroke:var(--color-line-strong);stroke-width:2"/><line x1="40" y1="130" x2="40" y2="8" style="stroke:var(--color-line-strong);stroke-width:2"/>' +
+    '<text x="30" y="20" text-anchor="end">F</text><text x="540" y="150" text-anchor="end">시간 t</text>' +
+    '<path d="' + sine(60, 40, 110, 130) + ' Z" style="fill:var(--color-rec-1);fill-opacity:.35;stroke:var(--color-rec-1);stroke-width:3"/>' +
+    '<path d="' + sine(150, 200, 22, 130) + ' Z" style="fill:var(--color-rec-2);fill-opacity:.35;stroke:var(--color-rec-2);stroke-width:3"/>' +
+    '<text x="108" y="28">딱딱: 짧고 큰 힘</text><text x="250" y="96" text-anchor="middle">푹신(에어백): 길고 작은 힘</text>' +
+    '<text x="540" y="40" text-anchor="end" class="cm-fig__b">두 넓이(충격량)는 같아요</text>', '0 0 560 156');
+  var FIG_CONS = svgBox(
+    '<text x="20" y="22" class="cm-fig__b">처음</text><text x="300" y="22" class="cm-fig__b">나중(달라붙음)</text>' +
+    '<text x="20" y="52">A</text><rect x="60" y="38" width="160" height="22" style="fill:var(--color-rec-1)"/><text x="226" y="55">2</text>' +
+    '<text x="20" y="84">B</text><text x="60" y="84">0</text>' +
+    '<text x="20" y="116" class="cm-fig__b">합</text><rect x="60" y="102" width="160" height="22" style="fill:var(--color-ink)"/><text x="226" y="119" class="cm-fig__b">2</text>' +
+    '<text x="300" y="52">A</text><rect x="340" y="38" width="80" height="22" style="fill:var(--color-rec-1)"/><text x="426" y="55">1</text>' +
+    '<text x="300" y="84">B</text><rect x="340" y="70" width="80" height="22" style="fill:var(--color-rec-2)"/><text x="426" y="87">1</text>' +
+    '<text x="300" y="116" class="cm-fig__b">합</text><rect x="340" y="102" width="160" height="22" style="fill:var(--color-ink)"/><text x="506" y="119" class="cm-fig__b">2</text>', '0 0 560 134');
+  var FIG_AR = svgBox(ARW +
+    cart(130, 40, 140, 64, '--color-rec-1', '트럭 3 kg') + cart(276, 64, 70, 40, '--color-rec-2', '1 kg') +
+    arrowSvg(240, 26, 140, 26, '--color-q-force') + arrowSvg(310, 26, 410, 26, '--color-q-force') +
+    '<text x="130" y="16" class="cm-fig__f">트럭이 받는 힘 F</text><text x="420" y="16" text-anchor="end" class="cm-fig__f">승용차가 받는 힘 F</text>' +
+    '<text x="280" y="138" text-anchor="middle" class="cm-fig__b">크기는 같고 방향만 반대</text>', '0 0 560 146');
+
+  function concept(o) {
+    var kids = [SK.h('p', { class: 'cm-say', text: o.say })];
+    if (o.fig) kids.push(o.fig);
+    if (o.sym) {
+      var dl = SK.h('dl', { class: 'cm-sym' });
+      o.sym.forEach(function (r) { dl.appendChild(SK.h('dt', { text: r[0] })); dl.appendChild(SK.h('dd', null, [r[1], r[2] ? SK.h('span', { class: 'cm-sym__u', text: ' 단위 ' + r[2] }) : null])); });
+      kids.push(SK.h('p', { class: 'cm-sub', text: '기호 뜻' })); kids.push(dl);
+    }
+    if (o.ex) kids.push(SK.h('p', { class: 'cm-ex' }, [SK.h('b', { text: '예) ' }), o.ex]));
+    if (o.why) kids.push(SK.h('p', { class: 'cm-why' }, [SK.h('b', { text: '왜 그럴까? ' }), o.why]));
+    return SK.h('div', { class: 'cm-concept' }, kids);
+  }
+  function mistakes(list) {
+    return SK.h('ul', { class: 'cm-mis' }, list.map(function (m) {
+      return SK.h('li', null, [SK.h('p', { class: 'cm-mis__x' }, [SK.h('b', { text: '✗ 오해 ' }), m[0]]), SK.h('p', { class: 'cm-mis__o' }, [SK.h('b', { text: '✓ 바르게 ' }), m[1]])]);
+    }));
+  }
+  function liveP(p) {
+    if (p.mode === 'separate') return '처음엔 둘 다 정지 → 운동량 합 0 kg·m/s';
+    var s = 'A: ' + fmt(p.m1, 1) + ' × (' + sgn(+p.v1, 1) + ') = ' + sgn(p.m1 * p.v1, 2) + ' kg·m/s';
+    if (p.mode === 'collide') s += ' · B: ' + fmt(p.m2, 1) + ' × (' + sgn(+p.v2, 1) + ') = ' + sgn(p.m2 * p.v2, 2) + ' kg·m/s';
+    return s;
+  }
+  SK.help({
+    how: [
+      '아래 실험 카드 5장 중 하나를 누르면 예측 질문이 나와요. 답을 먼저 골라요.',
+      '▶ 실행을 눌러요. 부딪치는 순간에는 저절로 느려져서(슬로 모션) 힘 화살표를 볼 수 있어요.',
+      '끝나면 실험 화면 아래 [운동량] [힘-시간] [운동 에너지] 탭을 차례로 눌러 봐요. 아직 안 본 탭에는 ‘보기’ 표시가 붙어요.',
+      '[기록하기]로 저장하고, 오른쪽에서 충돌 종류나 질량 하나만 바꿔 다시 실행·기록해요.',
+      '비교 단계 표에서 운동량 합과 운동 에너지 합이 어떻게 달라졌는지 찾아요. 아래 [규칙 확인하기]로 답을 맞혀 봐요.',
+      '수레를 마우스(손가락)로 끌었다 놓으면 놓는 순간의 빠르기가 처음 속도가 돼요.'
+    ],
+    concepts: [
+      { title: '운동량', formula: 'p = m v',
+        plain: concept({ say: '얼마나 무거운 물체가 얼마나 빠르게 움직이는지를 함께 나타내는 양이에요. 속도처럼 방향이 있어서, 이 실험에서는 오른쪽(→)을 +, 왼쪽(←)을 − 로 써요.',
+          fig: FIG_P, sym: [['p', '운동량', 'kg·m/s'], ['m', '질량', 'kg'], ['v', '속도 (오른쪽 +, 왼쪽 −)', 'm/s']],
+          ex: '같은 1 kg 수레라도 오른쪽으로 2 m/s 면 +2 kg·m/s, 왼쪽으로 2 m/s 면 −2 kg·m/s 예요. 둘을 더하면 0 이에요.' }),
+        live: liveP },
+      { title: '충격량', formula: 'J = F Δt = Δp',
+        plain: concept({ say: '힘이 얼마 동안 작용했는지를 곱한 양이에요. 힘-시간 그래프 아래의 넓이와 같고, 물체의 운동량이 바뀐 양(나중 − 처음)과 같아요.',
+          fig: FIG_J, sym: [['J', '충격량', 'N·s (= kg·m/s)'], ['F', '힘 (시간에 따라 바뀌면 평균 힘)', 'N'], ['Δt', '힘이 작용한 시간', 's'], ['Δp', '운동량 변화 = 나중 운동량 − 처음 운동량', 'kg·m/s']],
+          ex: '1 kg 수레(+2 m/s)가 벽에 달라붙어 멈추면 Δp = 0 − 2 = −2 kg·m/s. 딱딱 범퍼(0.01 s)든 푹신 범퍼(0.2 s)든 충격량 크기는 2 N·s 로 같고, 평균 힘은 200 N 과 10 N 이에요.',
+          why: '멈추는 데 필요한 운동량 변화는 정해져 있어요. 시간을 20배로 늘리면 같은 넓이를 만들기 위해 힘이 1/20 로 줄어요. 에어백·매트·글러브가 모두 이 원리예요.' }),
+        live: function (p) { if (!st || !st.P.meet) return '부딪치지 않으면 충격량은 0 이에요'; return '충격량 ' + fmt(st.P.J, 2) + ' N·s ÷ 시간 ' + p.tau + ' s = 평균 힘 ' + fmtF(st.P.Favg) + ' N (최대 힘 ' + fmtF(st.P.Fmax) + ' N)'; } },
+      { title: '운동량 보존', formula: 'm₁v₁ + m₂v₂ = m₁v₁′ + m₂v₂′',
+        plain: concept({ say: '두 수레가 부딪칠 때, 바깥에서 작용하는 힘(마찰 등)이 없으면 운동량의 합은 충돌 전과 후가 같아요.',
+          fig: FIG_CONS, sym: [['m₁, m₂', 'A, B 의 질량', 'kg'], ['v₁, v₂', '부딪치기 전 속도', 'm/s'], ['v₁′, v₂′', '부딪친 뒤 속도 (′ 는 ‘나중’이라는 뜻)', 'm/s']],
+          ex: '1 kg(+2 m/s)가 멈춘 1 kg 에 달라붙으면 1×2 + 1×0 = (1+1)×v′ 이라서 v′ = +1 m/s 예요.',
+          why: '부딪치는 동안 A 가 B 를 미는 힘과 B 가 A 를 미는 힘은 크기가 같고 방향이 반대이며, 작용한 시간도 같아요. 그래서 A 가 잃은 운동량(충격량)을 B 가 그대로 얻어 합이 변하지 않아요.' }),
+        live: function (p) {
+          if (!st) return '';
+          var P = st.P;
+          if (P.mode === 'wall') return '벽 장면: 벽이 바깥에서 힘을 주므로 수레만의 운동량은 ' + sgn(P.pb, 2) + ' → ' + sgn(P.pa, 2) + ' kg·m/s 로 바뀌어요';
+          return fmt(P.m1, 1) + '×(' + sgn(P.v1, 1) + ') + ' + fmt(P.m2, 1) + '×(' + sgn(P.v2, 1) + ') = ' + fmt(P.m1, 1) + '×(' + sgn(P.v1f, 2) + ') + ' + fmt(P.m2, 1) + '×(' + sgn(P.v2f, 2) + ') → ' + sgn(P.pb, 2) + ' = ' + sgn(P.pa, 2) + ' kg·m/s';
+        } },
+      { title: '작용·반작용', formula: 'F(A가 받는 힘) = − F(B가 받는 힘)',
+        plain: concept({ say: 'A 가 B 를 미는 힘과 B 가 A 를 미는 힘은 언제나 크기가 같고 방향이 반대예요. 질량이 달라도, 한쪽이 멈춰 있어도 마찬가지예요.',
+          fig: FIG_AR,
+          ex: '트럭(3 kg, +2 m/s)과 승용차(1 kg, −2 m/s)가 튕기면 두 쪽 모두 6 N·s 의 충격량을 받아요. 속도 변화는 Δv = 충격량 ÷ 질량이라 트럭 −2 m/s, 승용차 +6 m/s 예요.',
+          why: '힘은 ‘주고받는’ 것이어서 한쪽만 힘을 받는 일은 없어요. 같은 힘이라도 가벼운 쪽이 더 크게 흔들리기 때문에 ‘가벼운 쪽이 더 큰 힘을 받았다’고 착각하기 쉬워요.' }) },
+      { title: '운동 에너지와 충돌 종류', formula: 'K = ½ m v²',
+        plain: concept({ say: '움직이는 물체가 가진 에너지예요. 운동량과 달리 방향이 없고 언제나 0 이상이에요. 튕기기(탄성 충돌)에서는 운동 에너지 합이 그대로지만, 달라붙기·중간(비탄성 충돌)에서는 일부가 열·소리·찌그러짐으로 바뀌어 줄어요.',
+          sym: [['K', '운동 에너지', 'J'], ['m', '질량', 'kg'], ['v', '속력 (제곱하므로 방향과 관계없음)', 'm/s']],
+          ex: '1 kg(+2 m/s)가 멈춘 1 kg 에 달라붙으면 처음 ½×1×2² = 2 J, 나중 ½×2×1² = 1 J → 1 J 이 열과 소리로 바뀌어요. 운동량 합은 2 kg·m/s 로 그대로예요.',
+          why: '에너지가 사라진 것이 아니라 다른 형태로 바뀐 거예요. 반대로 분리(반동)에서는 눌린 용수철에 있던 에너지가 운동 에너지로 바뀌어 합이 늘어나요.' }),
+        live: function () { if (!st) return ''; var P = st.P; return '처음 ' + fmt(P.kb, 2) + ' J → 나중 ' + fmt(P.ka, 2) + ' J' + (P.kb - P.ka > 0.005 ? ' (열·소리로 ' + fmt(P.kb - P.ka, 2) + ' J)' : P.ka - P.kb > 0.005 ? ' (용수철 에너지에서 ' + fmt(P.ka - P.kb, 2) + ' J)' : ' (그대로)'); } },
+      { title: '흔한 오해 바로잡기',
+        plain: mistakes([
+          ['무거운 트럭이 승용차에 더 큰 힘을 준다.', '두 힘의 크기는 같아요. 승용차가 더 위험한 건 질량이 작아 속도 변화가 크기 때문이에요.'],
+          ['멈춰 있던 물체는 힘을 주지 않는다.', '부딪치는 순간 똑같은 크기로 되밀어요. 그래서 움직이던 A 도 느려져요.'],
+          ['에어백은 충격량(운동량 변화)을 줄인다.', '멈출 때까지의 충격량은 같아요. 부딪쳐 있는 시간을 늘려 최대 힘을 줄여요.'],
+          ['운동량이 보존되면 운동 에너지도 보존된다.', '달라붙는 충돌에서는 운동량만 보존되고 운동 에너지는 줄어요. 둘은 서로 다른 양이에요.'],
+          ['대포를 쏘면 운동량이 새로 생긴다.', '포탄(+)과 대포(−)의 운동량은 크기가 같고 방향이 반대라서 합은 처음처럼 0 이에요.'],
+          ['운동량은 속력만 보면 된다.', '방향이 있어요. 오른쪽 +2 와 왼쪽 −2 를 더하면 0 이에요.']
+        ]) }
+    ],
+    terms: {
+      '운동량': '질량 × 속도(p = mv). 방향이 있어요. 단위 kg·m/s',
+      '충격량': '힘 × 작용 시간(J = FΔt) = 운동량의 변화량. 힘-시간 그래프의 넓이. 단위 N·s',
+      '운동 에너지': '움직이는 물체의 에너지 K = ½mv². 방향이 없어요. 단위 J',
+      '운동량 보존': '바깥 힘이 없으면 부딪치기 전과 후의 운동량 합이 같다는 법칙',
+      '작용·반작용': '두 물체가 서로 주고받는 힘은 크기가 같고 방향이 반대라는 법칙(뉴턴 운동 제3법칙)',
+      '탄성 충돌': '튕기기. 운동량도, 운동 에너지도 그대로인 충돌',
+      '비탄성 충돌': '달라붙기·중간. 운동량은 그대로지만 운동 에너지 일부가 열·소리로 바뀌는 충돌',
+      '슬로 모션': '부딪치는 아주 짧은 순간을 천천히 보여 주는 것. 물리 결과는 그대로예요',
+      '반동': '정지한 물체가 한 부분을 밀어낼 때 나머지가 반대 방향으로 움직이는 것(대포, 로켓)',
+      '반발 계수': '(심화) 부딪친 뒤 멀어지는 빠르기 ÷ 다가가던 빠르기. 1 이면 튕기기, 0 이면 달라붙기',
+      '질량 중심': '(심화) 질량으로 가중 평균한 위치. 바깥 힘이 없으면 충돌 전후로 같은 빠르기로 움직여요'
+    },
+    keys: [['E', '충돌 종류 바꾸기 (튕기기 → 달라붙기 → 중간)'], ['P', '범퍼 바꾸기 (딱딱 → 보통 → 푹신)'], ['X', '자동 슬로 모션 켜기 / 끄기']]
+  });
+
+  /* 실행이 끝나면 '이 실험이 보여 주는 것' (수치는 이번 실행 값) */
+  SK.takeaway(function () {
+    if (!st || st.end !== 'done') return null;
+    var P = st.P;
+    if (P.mode === 'separate') return '처음 운동량 합 0 → 나중에도 0. 포탄이 앞(+)으로 ' + fmt(P.m2 * P.v2f, 2) + ' kg·m/s 를 얻은 만큼 대포가 뒤(−)로 같은 크기를 얻어요 — 가벼운 포탄이 더 빨라요(포탄 ' + fmt(P.v2f, 1) + ' m/s, 대포 ' + fmt(Math.abs(P.v1f), 1) + ' m/s).';
+    if (P.mode === 'wall') return '수레의 운동량 변화(충격량)는 ' + fmt(P.J, 2) + ' N·s — 범퍼를 바꿔도 같아요. 범퍼가 ' + TAU_NAME[P.tau] + '(' + P.tau + ' s)일 때 최대 힘은 ' + fmtF(P.Fmax) + ' N. 부딪쳐 있는 시간이 길수록 최대 힘이 작아져요(에어백의 원리).';
+    var s = '두 수레가 받은 힘은 매 순간 크기가 같고 방향이 반대예요({{작용·반작용}}). 그래서 운동량 합이 ' + sgn(P.pb, 2) + ' → ' + sgn(P.pa, 2) + ' kg·m/s 로 그대로예요.';
+    var lost = P.kb - P.ka;
+    if (lost > 0.005) s += ' 운동 에너지는 ' + fmt(lost, 2) + ' J 이 열과 소리로 바뀌었어요.';
+    else s += ' 튕기기라서 운동 에너지 합(' + fmt(P.kb, 2) + ' J)도 그대로예요.';
+    if (P.m1 !== P.m2) s += ' 질량이 작은 쪽의 속도가 더 크게 바뀌어요.';
+    return s;
+  });
+
+  /* 정리 단계: 질문 카드 (모범 답·해설 포함) */
+  SK.think({ q: '달라붙는 충돌에서 운동량은 그대로인데, 줄어든 {{운동 에너지}}는 어디로 갔을까?',
+    choices: ['그냥 사라졌다', '열·소리·찌그러짐 같은 다른 에너지로 바뀌었다', '운동량으로 바뀌었다'], answer: 2,
+    why: '에너지는 사라지지 않고 형태만 바뀌어요. 범퍼가 찌그러지며 데워지고 소리가 나요. 운동량과 에너지는 서로 다른 양이라 하나가 다른 하나로 바뀌지 않아요.' });
+  SK.think({ q: '움직이는 A 가 멈춰 있는 B 에 부딪칠 때, B 가 A 에 주는 힘은?',
+    choices: ['0 이다 (B 는 가만히 있었으니까)', 'A 가 B 에 주는 힘보다 작다', 'A 가 B 에 주는 힘과 크기가 같다'], answer: 3,
+    why: '{{작용·반작용}} — 부딪치는 순간 B 도 같은 크기로 A 를 되밀어요. 그래서 A 가 느려지거나 멈춰요.' });
+  SK.think({ q: '트럭과 승용차가 부딪칠 때 승용차에 탄 사람이 더 위험한 까닭은?',
+    choices: ['승용차가 더 큰 힘을 받아서', '힘은 같지만 승용차는 질량이 작아 속도가 더 크게 바뀌어서', '트럭이 더 단단해서'], answer: 2,
+    why: '두 차가 받는 충격량은 같아요. 속도 변화 Δv = 충격량 ÷ 질량이라, 질량이 1/3 인 승용차는 속도가 3배 크게 바뀌어요.' });
+  SK.think({ q: '에어백·체육관 매트·야구 글러브의 공통점은 무엇일까요? ‘충격량’과 ‘시간’을 넣어 말해 봐요.',
+    hint: '[힘-시간] 탭에서 딱딱 범퍼와 푹신 범퍼 기록을 겹쳐 보세요.',
+    reveal: '<b>모범 답</b> 멈출 때까지의 충격량(운동량 변화)은 같게 두고, 부딪쳐 있는 시간을 길게 해서 최대 힘(평균 힘)을 줄여요. 평균 힘 = 충격량 ÷ 시간이므로 시간이 길수록 힘이 작아져요.' });
+  SK.think({ q: '같은 질량끼리 튕기면 왜 두 수레의 속도가 서로 바뀔까요? (뉴턴의 요람)',
+    reveal: '<b>모범 답</b> 튕기기에서는 운동량 합(m v₁ + m v₂)과 운동 에너지 합(½ m v₁² + ½ m v₂²)이 둘 다 그대로여야 해요. 질량이 같을 때 두 조건을 함께 만족하는 결과는 ‘속도를 서로 바꾸기’뿐이에요(그대로 지나가는 답은 부딪치지 않은 경우). 뉴턴의 요람에서 한쪽 공 하나를 부딪치면 반대쪽 공 하나만 튀어 나가는 것도 같은 까닭이에요.' });
+
+  /* ---------- 13. 수업 안내 서랍 (교사 모드에서만) ---------- */
   SK.guide({
     rows: [
-      { target: '수레 A 질량 m₁ · 0.5~3.0 kg, 0.5 간격, 기본 1.0 (다시 시작)', standard: '[12물리01-03] 탐구 활동(역학 수레)', discover: '질량이 달라도 운동량 합은 보존되고, 두 수레가 주고받는 힘은 같다', misconception: '무거운 쪽이 더 큰 힘을 준다' },
-      { target: '수레 B 질량 m₂ · 0.5~3.0 kg, 0.5 간격, 기본 1.0 (다시 시작)', standard: '[12물리01-03] 탐구 활동(역학 수레)', discover: '가벼운 쪽 속도 변화가 크다(힘은 같아도)', misconception: '가벼운 쪽이 더 큰 힘을 받는다' },
-      { target: 'A 처음 속도 v₁ · −3~+3 m/s, 0.5 간격, 기본 +2.0 (다시 시작)', standard: '[12물리01-03] 운동량은 방향이 있다', discover: '속도의 부호(방향)가 운동량 합에 들어간다', misconception: '속도는 크기만 있다' },
-      { target: 'B 처음 속도 v₂ · −3~+3 m/s, 0.5 간격, 기본 0 (다시 시작)', standard: '[12물리01-03]', discover: '정지한 물체도 같은 크기의 힘을 준다', misconception: '가만히 있는 물체는 힘을 주지 않는다' },
-      { target: '범퍼(충돌 시간 τ) · 딱딱 0.01 / 보통 0.05 / 푹신 0.2 s (다시 시작)', standard: '[12물리01-03] 고려 사항 \'충격량\', 교통수단(에어백)', discover: '힘-시간 그래프 넓이(충격량)는 같고 높이(최대 힘)만 다르다', misconception: '에어백은 운동량을 줄인다' },
-      { target: '충돌 종류(상황) · 튕기기 / 달라붙기 / 중간 (다시 시작)', standard: '[12물리01-03], 연계 [12물리01-05]', discover: '달라붙어도 운동량 합은 같고 운동 에너지만 준다(열·소리)', misconception: '운동량 보존 = 에너지 보존' },
-      { target: '포탄 속력 u (분리 모드) · 0~6 m/s, 0.5 간격, 기본 4.0 (다시 시작)', standard: '[12물리01-03] 발사체(반동)', discover: '운동량 합은 0, 가벼운 쪽이 빠르다', misconception: '반동은 운동량이 새로 생긴 것' },
+      { target: '수레 A 질량 m₁ · 0.5~3.0 kg, 0.5 간격, 기본 1.0', standard: '[12물리01-03] 탐구 활동(역학 수레)', discover: '질량이 달라도 운동량 합은 보존되고, 두 수레가 주고받는 힘은 같다', misconception: '무거운 쪽이 더 큰 힘을 준다' },
+      { target: '수레 B 질량 m₂ · 0.5~3.0 kg, 0.5 간격, 기본 1.0', standard: '[12물리01-03] 탐구 활동(역학 수레)', discover: '가벼운 쪽 속도 변화가 크다(힘은 같아도)', misconception: '가벼운 쪽이 더 큰 힘을 받는다' },
+      { target: 'A 처음 속도 v₁ · −3~+3 m/s, 0.5 간격, 기본 +2.0', standard: '[12물리01-03] 운동량은 방향이 있다', discover: '속도의 부호(방향)가 운동량 합에 들어간다', misconception: '속도는 크기만 있다' },
+      { target: 'B 처음 속도 v₂ (더 많은 설정) · −3~+3 m/s, 기본 0', standard: '[12물리01-03]', discover: '정지한 물체도 같은 크기의 힘을 준다', misconception: '가만히 있는 물체는 힘을 주지 않는다' },
+      { target: '범퍼(충돌 시간 τ) · 딱딱 0.01 / 보통 0.05 / 푹신 0.2 s', standard: '[12물리01-03] 고려 사항 ‘충격량’, 교통수단(에어백)', discover: '힘-시간 그래프 넓이(충격량)는 같고 높이(최대 힘)만 다르다', misconception: '에어백은 운동량을 줄인다' },
+      { target: '충돌 종류 · 튕기기 / 달라붙기 / 중간', standard: '[12물리01-03], 연계 [12물리01-05]', discover: '달라붙어도 운동량 합은 같고 운동 에너지만 준다(열·소리)', misconception: '운동량 보존 = 에너지 보존' },
+      { target: '포탄 나가는 속력 u (분리 장면) · 0~6 m/s, 기본 4.0', standard: '[12물리01-03] 발사체(반동)', discover: '운동량 합은 0, 가벼운 쪽이 빠르다', misconception: '반동은 운동량이 새로 생긴 것' },
       { target: '실험 장면 · 충돌 / 분리(반동) / 벽', standard: '[12물리01-03] 스포츠·교통수단·발사체에 적용', discover: '세 장면 모두 주고받는 힘은 크기 같고 방향 반대', misconception: '—' },
-      { target: '반발 계수 e (심화 ▸)', standard: '성취기준 밖 — 심화', discover: '—', misconception: '—' },
-      { target: '질량 중심 함께 보기 (심화 ▸)', standard: '성취기준 밖 — 심화', discover: '충돌 전후 질량 중심의 속도가 일정하다', misconception: '—' }
+      { target: '반발 계수 e · 질량 중심 (더 많은 설정)', standard: '성취기준 밖 — 심화', discover: '충돌 전후 질량 중심의 속도가 일정하다', misconception: '—' }
     ],
     sections: [
-      { title: '수업 흐름', items: [
-        '① 예측: 프리셋 3(트럭 vs 승용차) → 예측 카드에서 고르기',
-        '② 실험: Space 로 실행. 자동 슬로 모션 중 , . 로 한 프레임씩',
-        '③ 규칙 찾기: 프리셋 1 실행 → S, 프리셋 2(충돌 종류만 바꿈) 실행 → S, 질량만 바꿔 실행 → S. 기록 표의 p합 전/후 열 비교',
-        '④ 생각해 보기(→ 정리 단계): "운동 에너지는 어디로?", "같은 질량이면 왜 속도가 바뀔까?(뉴턴의 요람)"'
+      { title: '수업 흐름 (40분 예)', items: [
+        '예측: 처음 화면에 뜨는 카드 ①(같은 질량끼리 튕기면) → 손들기 → 실행. 이어서 ③ 트럭 vs 승용차로 작용·반작용 예측',
+        '실행: 슬로 모션으로 힘 화살표 한 쌍을 확인 → [힘-시간] 탭에서 두 곡선이 위아래로 같은 모양인지 확인',
+        '비교: ① 실행 → 기록, ② 달라붙으면(충돌 종류만 바꿈) 실행 → 기록. 표의 p 보존?/K 보존? 열 → [규칙 확인하기]',
+        '적용: ⑤ 에어백 — 딱딱 기록 → 푹신 기록 → [힘-시간] 탭에서 넓이는 같고 높이만 다름을 확인',
+        '정리: 오른쪽 질문 5개(모범 답·해설 포함). 토론 전에는 교사 서랍에서 ‘답 확인 잠금’을 켤 수 있어요'
       ] },
       { title: '모형 안내', items: [
         '마찰 없음(에어트랙). 충돌 힘은 사인 모양으로 단순화한 모형: F(t) = F최대·sin(πt/τ).',
         '충격량 J = 2·F최대·τ/π = 힘-시간 그래프 넓이, 평균 힘 = J/τ.',
-        '벽 모드의 벽은 질량이 아주 큰 물체(지구에 붙음)로 보아, 수레 운동량만 바뀐다(벽이 같은 크기의 충격량을 반대로 받음).',
-        '분리 모드에서 늘어난 운동 에너지는 눌린 용수철에 저장돼 있던 에너지다.',
-        '수레를 끌었다 놓으면 놓는 순간 속도(0.5 m/s 단위)가 처음 속도에 들어간다(실행은 하지 않음).',
+        '벽 장면의 벽은 질량이 아주 큰 물체(지구에 붙음)로 보아, 수레 운동량만 바뀐다(벽이 같은 크기의 충격량을 반대로 받음).',
+        '분리 장면에서 늘어난 운동 에너지는 눌린 용수철에 저장돼 있던 에너지다.',
+        '자동 슬로 모션은 화면 재생만 느리게 하며 물리 결과는 같다.',
         '성취기준 코드는 결정서에서 확인된 [12물리01-03], [12물리01-05]만 썼다.'
       ] }
-    ],
-    keys: 'E 충돌 종류 순환 · P 범퍼 순환 · X 자동 슬로 모션'
+    ]
   });
+
+  /* 처음 들어오면 카드 ① 예측 질문을 바로 띄운다 (SimKit 첫 reset 뒤) */
+  setTimeout(function () { if (!SK.started && SK.stepIndex === 0 && !SK.prediction) SK.applyPreset(0); }, 120);
 
   /* =================================================================
      그리기
@@ -630,6 +883,7 @@
     ctx.fillStyle = col(o.color || '--color-ink');
     ctx.textAlign = o.align || 'left'; ctx.textBaseline = o.base || 'middle';
     ctx.fillText(s, x, y);
+    return ctx.measureText(s).width;
   }
   function zigzag(ctx, x1, x2, y, amp, n) {
     ctx.beginPath(); ctx.moveTo(x1, y);
@@ -637,10 +891,19 @@
     for (var i = 1; i < n; i++) ctx.lineTo(x1 + w * i / n, y + (i % 2 ? -amp : amp));
     ctx.lineTo(x2, y); ctx.stroke();
   }
+  /** 빗금 (색약 대비: 색 + 무늬) */
+  function hatch(ctx, x, y, w, h, color, gap) {
+    if (w <= 0 || h <= 0) return;
+    ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+    ctx.strokeStyle = col(color); ctx.lineWidth = 2;
+    for (var k = -h; k < w + h; k += (gap || 10)) { ctx.beginPath(); ctx.moveTo(x + k, y + h); ctx.lineTo(x + k + h, y); ctx.stroke(); }
+    ctx.restore();
+  }
 
   function render(view, p) {
     if (!st) return;
     var ctx = view.ctx, P = st.P;
+    placeLower(view);
     drawTrack(ctx, P);
     if (p.showCM && P.mode !== 'wall') drawCM(ctx, P);
     drawCarts(ctx, P);
@@ -649,28 +912,22 @@
   }
 
   function drawTrack(ctx, P) {
-    // 레일
     ctx.fillStyle = col('--color-paper-sunk');
     rr(ctx, sx(-2) - 10, RAIL, sx(2) - sx(-2) + 20, 12, 4); ctx.fill();
     ctx.strokeStyle = col('--color-line-strong'); ctx.lineWidth = 2; ctx.stroke();
-    // 눈금 0.5 m
     for (var i = -4; i <= 4; i++) {
       var x = sx(i / 2), big = i % 2 === 0;
       ctx.fillStyle = col(big ? '--color-line-strong' : '--color-line');
-      ctx.fillRect(x - 1, RAIL + 12, 2, big ? 14 : 8);
-      if (big) text(ctx, (i > 0 ? '+' : i < 0 ? '−' : '') + Math.abs(i / 2) + (i === 4 ? ' m' : ''), x, RAIL + 40, { size: 20, w: 500, color: '--color-ink-muted', align: 'center' });
+      ctx.fillRect(x - 1, RAIL + 12, 2, big ? 12 : 7);
+      if (big) text(ctx, (i > 0 ? '+' : i < 0 ? '−' : '') + Math.abs(i / 2) + (i === 4 ? ' m' : ''), x, RAIL + 36, { size: 20, w: 500, color: '--color-ink-muted', align: 'center' });
     }
-    text(ctx, '마찰 없는 트랙 · 눈금 0.5 m', sx(-2) - 10, RAIL - 16, { size: 20, w: 500, color: '--color-ink-muted' });
-    // 벽
+    text(ctx, '마찰 없는 트랙 · 오른쪽(→)이 + 방향 · 눈금 0.5 m', sx(-2) - 10, RAIL + 62, { size: 20, w: 500, color: '--color-ink-muted' });
     if (P.mode === 'wall') {
-      var wx = sx(CM.XW);
-      ctx.fillStyle = col('--color-paper-sunk'); ctx.fillRect(wx, RAIL - 210, 36, 222);
-      ctx.strokeStyle = col('--color-line-strong'); ctx.lineWidth = 3; ctx.strokeRect(wx, RAIL - 210, 36, 222);
-      ctx.save(); ctx.beginPath(); ctx.rect(wx, RAIL - 210, 36, 222); ctx.clip();
-      ctx.lineWidth = 2;
-      for (var k = -230; k < 40; k += 18) { ctx.beginPath(); ctx.moveTo(wx, RAIL + k); ctx.lineTo(wx + 36, RAIL + k - 36); ctx.stroke(); }
-      ctx.restore();
-      text(ctx, '벽', wx + 18, RAIL - 228, { size: 24, w: 700, align: 'center' });
+      var wx = sx(CM.XW), wt = RAIL - 170;
+      ctx.fillStyle = col('--color-paper-sunk'); ctx.fillRect(wx, wt, 32, RAIL + 12 - wt);
+      ctx.strokeStyle = col('--color-line-strong'); ctx.lineWidth = 3; ctx.strokeRect(wx, wt, 32, RAIL + 12 - wt);
+      hatch(ctx, wx, wt, 32, RAIL + 12 - wt, '--color-line-strong', 16);
+      text(ctx, '벽', wx + 16, wt - 18, { size: 24, w: 700, align: 'center' });
     }
   }
 
@@ -680,60 +937,52 @@
   }
 
   function drawBumper(ctx, faceX, dir, len, tau) {
-    // faceX: 몸통 앞면(u), dir: +1 오른쪽으로 뻗음 / −1 왼쪽, len: 지금 길이(u)
-    var y = RAIL - 50, x2 = faceX + dir * len;
+    var y = RAIL - 46, x2 = faceX + dir * len;
     var a = Math.min(faceX, x2), w = Math.abs(len);
     ctx.save();
     if (tau <= 0.01) {
-      ctx.fillStyle = col('--color-ink-muted'); rr(ctx, a, y - 13, w, 26, 3); ctx.fill();
+      ctx.fillStyle = col('--color-ink-muted'); rr(ctx, a, y - 12, w, 24, 3); ctx.fill();
     } else if (tau <= 0.05) {
       ctx.strokeStyle = col('--color-ink-muted'); ctx.lineWidth = 3;
-      zigzag(ctx, faceX, x2 - dir * 6, y, 12, 7);
-      ctx.fillStyle = col('--color-ink-muted'); ctx.fillRect(dir > 0 ? x2 - 6 : x2, y - 18, 6, 36);
+      zigzag(ctx, faceX, x2 - dir * 6, y, 11, 6);
+      ctx.fillStyle = col('--color-ink-muted'); ctx.fillRect(dir > 0 ? x2 - 6 : x2, y - 16, 6, 32);
     } else {
-      ctx.fillStyle = col('--color-paper-sunk'); rr(ctx, a, y - 24, w, 48, 14); ctx.fill();
+      ctx.fillStyle = col('--color-paper-sunk'); rr(ctx, a, y - 22, w, 44, 12); ctx.fill();
       ctx.strokeStyle = col('--color-line-strong'); ctx.lineWidth = 2; ctx.stroke();
     }
     ctx.restore();
   }
 
-  function drawCart(ctx, who, x, m, color, name) {
+  function drawCart(ctx, x, m, color, name) {
     var hgt = CM.cartH(m), bw = 2 * CM.HW * SX, cx = sx(x);
     var top = RAIL - 18 - hgt;
     ctx.fillStyle = col(color);
     rr(ctx, cx - bw / 2, top, bw, hgt, 8); ctx.fill();
-    // 바퀴
     ctx.fillStyle = col('--color-ink');
     [-0.28, 0.28].forEach(function (f) { ctx.beginPath(); ctx.arc(cx + f * bw, RAIL - 9, 9, 0, Math.PI * 2); ctx.fill(); });
-    text(ctx, name, cx, top + 24, { size: name.length > 1 ? 24 : 28, w: 800, color: '--color-ink-inverse', align: 'center' });
-    if (hgt >= 86) text(ctx, fmt(m, m % 0.5 ? 2 : 1) + ' kg', cx, top + 54, { size: 20, w: 700, color: '--color-ink-inverse', align: 'center' });
-    else text(ctx, fmt(m, m % 0.5 ? 2 : 1) + ' kg', cx + bw / 2 + 6, top + 12, { size: 20, w: 700, color: '--color-ink-muted' });
+    text(ctx, name, cx, top + 20, { size: name.length > 1 ? 20 : 24, w: 800, color: '--color-ink-inverse', align: 'center' });
+    text(ctx, fmt(m, m % 0.5 ? 2 : 1) + ' kg', cx, top + 43, { size: 20, w: 700, color: '--color-ink-inverse', align: 'center' });
     return { cx: cx, top: top };
   }
 
-  function velArrow(ctx, cx, top, v) {
-    var y = top - 30;
-    if (Math.abs(v) < 0.005) {
-      ctx.fillStyle = col('--color-q-velocity'); ctx.beginPath(); ctx.arc(cx, y, 6, 0, Math.PI * 2); ctx.fill();
-      text(ctx, '0 m/s (정지)', cx, y - 24, { size: 22, w: 700, color: '--color-q-velocity', align: 'center' });
-      return;
-    }
-    var L = Math.max(-240, Math.min(240, v * 40));
-    SK.arrow(ctx, cx, y, cx + L, y, { color: '--color-q-velocity', width: 5 });
-    text(ctx, sgn(v, 1) + ' m/s', cx + L / 2, y - 24, { size: 22, w: 700, color: '--color-q-velocity', align: 'center' });
+  function velLabel(cx, top, v) {
+    var y = top - 26;
+    if (Math.abs(v) < 0.005) return { x: cx, y: y - 22, text: '0 m/s (정지)', color: '--color-q-velocity', size: 22, dot: true, ay: y };
+    var L = Math.max(-200, Math.min(200, v * 34));
+    if (cx + L > 1236) L = Math.max(24, 1236 - cx);          // 실험 화면 밖으로 나가지 않게
+    if (cx + L < 14) L = Math.min(-24, 14 - cx);
+    return { x: Math.max(60, Math.min(1190, cx + L / 2)), y: y - 22, text: sgn(v, 1) + ' m/s', color: '--color-q-velocity', size: 22, ax: cx, ay: y, L: L };
   }
 
   function drawCarts(ctx, P) {
     var tau = P.tau, xA = cartPos('A'), xB = cartPos('B');
     var hw = CM.HW * SX;
-    var nameA = P.mode === 'separate' ? 'A 대포' : 'A', nameB = P.mode === 'separate' ? 'B 포탄' : 'B';
-    if (P.mode === 'separate') {
-      // 눌린 용수철: A 앞면에 붙어 있음
+    var sep = P.mode === 'separate';
+    if (sep) {
       var fa = sx(xA) + hw, fb = sx(xB) - hw;
       var len = Math.min(fb - fa, CM.L0 * SX);
       ctx.strokeStyle = col('--color-ink-muted'); ctx.lineWidth = 3;
-      zigzag(ctx, fa, fa + len, RAIL - 50, 14, 9);
-      if (st.phase === 'pre') text(ctx, '눌린 용수철', (fa + fb) / 2, RAIL - 80, { size: 20, w: 600, color: '--color-ink-muted', align: 'center' });
+      zigzag(ctx, fa, fa + len, RAIL - 46, 12, 9);
     } else {
       var cA = P.mode === 'wall' ? st.c : st.c / 2;
       if (drag || st.phase === 'pre') cA = 0;
@@ -741,33 +990,38 @@
       drawBumper(ctx, sx(xA) + hw, 1, lenA, tau);
       if (P.mode === 'collide') drawBumper(ctx, sx(xB) - hw, -1, lenA, tau);
     }
-    var a = drawCart(ctx, 'A', xA, P.m1, '--color-rec-1', nameA);
-    var b = P.mode === 'wall' ? null : drawCart(ctx, 'B', xB, P.m2, '--color-rec-2', nameB);
-    // 끌기 중: 손가락 안내
+    var a = drawCart(ctx, xA, P.m1, '--color-rec-1', sep ? '대포' : 'A');
+    var b = P.mode === 'wall' ? null : drawCart(ctx, xB, P.m2, '--color-rec-2', sep ? '포탄' : 'B');
     if (drag) {
-      text(ctx, '놓는 순간 속도가 처음 속도가 돼요', sx(drag.x), RAIL - 18 - CM.cartH(drag.who === 'A' ? P.m1 : P.m2) - 70, { size: 22, w: 700, color: '--color-primary', align: 'center' });
+      text(ctx, '놓는 순간의 빠르기가 처음 속도가 돼요', sx(drag.x), RAIL - 18 - CM.cartH(drag.who === 'A' ? P.m1 : P.m2) - 50, { size: 22, w: 700, color: '--color-primary', align: 'center' });
       return;
     }
-    velArrow(ctx, a.cx, a.top, st.vA);
-    if (b) velArrow(ctx, b.cx, b.top, st.vB);
+    // 속도 화살표 + 라벨 (라벨은 겹치면 placeLabel 이 비켜 줌)
+    var labs = [velLabel(a.cx, a.top, st.vA)];
+    if (b) labs.push(velLabel(b.cx, b.top, st.vB));
+    labs.forEach(function (l) {
+      if (l.dot) { ctx.fillStyle = col('--color-q-velocity'); ctx.beginPath(); ctx.arc(l.ax !== undefined ? l.ax : l.x, l.ay, 6, 0, Math.PI * 2); ctx.fill(); }
+      else SK.arrow(ctx, l.ax, l.ay, l.ax + l.L, l.ay, { color: '--color-q-velocity', width: 5 });
+    });
+    if (sep && st.phase === 'pre') labs.push({ x: (sx(xA) + sx(xB)) / 2, y: RAIL - 82, text: '눌린 용수철', color: '--color-ink-muted', size: 20 });
+    SK.placeLabel(ctx, labs.map(function (l) { return { x: l.x, y: l.y, text: l.text, color: l.color, size: l.size, anchor: 'center', font: font(700, l.size) }; }));
     // 힘 화살표 한 쌍 (충돌 중)
     var F = CM.force(st);
     if (F > 0.002 * P.Fmax && P.Fmax > 0) {
-      var L = 30 + 150 * F / P.Fmax, y = RAIL - 30;
-      var cx;
+      var L = 26 + 120 * F / P.Fmax, y = RAIL - 28, cx;
       if (P.mode === 'wall') cx = sx(CM.XW);
-      else if (P.mode === 'separate') cx = (sx(xA) + hw + sx(xB) - hw) / 2;
+      else if (sep) cx = (sx(xA) + hw + sx(xB) - hw) / 2;
       else cx = (sx(xA) + sx(xB)) / 2;
-      var fs = fmt(F, F >= 100 ? 0 : 1) + ' N';
+      var fs = fmtF(F) + ' N';
       SK.arrow(ctx, cx - 4, y, cx - 4 - L, y, { color: '--color-q-force', width: 8 });
       SK.arrow(ctx, cx + 4, y, cx + 4 + L, y, { color: '--color-q-force', width: 8 });
-      // 글자는 레일 아래 띠에 (속도 화살표와 겹치지 않게)
-      var lab = '← A가 받는 힘 ' + fs + '   |   ' + (P.mode === 'wall' ? '벽' : 'B') + '가 받는 힘 ' + fs + ' →   크기 같고 방향 반대';
+      var who = P.mode === 'wall' ? '벽이' : sep ? '포탄이' : 'B가';
+      var lab = '← ' + (sep ? '대포' : 'A') + '가 받는 힘 ' + fs + '   |   ' + who + ' 받는 힘 ' + fs + ' →   크기 같고 방향 반대';
       ctx.font = font(800, 22);
       var tw = ctx.measureText(lab).width + 28, lx = Math.max(16, Math.min(1234 - tw, cx - tw / 2));
-      ctx.fillStyle = col('--color-copper-tint'); rr(ctx, lx, RAIL + 22, tw, 36, 8); ctx.fill();
+      ctx.fillStyle = col('--color-copper-tint'); rr(ctx, lx, RAIL + 44, tw, 34, 8); ctx.fill();
       ctx.strokeStyle = col('--color-copper'); ctx.lineWidth = 2; ctx.stroke();
-      text(ctx, lab, lx + 14, RAIL + 40, { size: 22, w: 800, color: '--color-copper-text' });
+      text(ctx, lab, lx + 14, RAIL + 61, { size: 22, w: 800, color: '--color-copper-text' });
     }
   }
 
@@ -776,185 +1030,190 @@
     var vcm = (P.m1 * st.vA + P.m2 * st.vB) / M, x = sx(xcm);
     ctx.save();
     ctx.strokeStyle = col('--color-ink'); ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
-    ctx.beginPath(); ctx.moveTo(x, RAIL + 6); ctx.lineTo(x, RAIL - 236); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x, RAIL + 6); ctx.lineTo(x, RAIL - 196); ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = col('--color-paper-raised'); ctx.beginPath(); ctx.arc(x, RAIL + 6, 11, 0, Math.PI * 2); ctx.fill();
     ctx.lineWidth = 3; ctx.stroke();
     ctx.beginPath(); ctx.moveTo(x - 11, RAIL + 6); ctx.lineTo(x + 11, RAIL + 6); ctx.moveTo(x, RAIL - 5); ctx.lineTo(x, RAIL + 17); ctx.stroke();
     ctx.restore();
-    text(ctx, '질량 중심 v = ' + sgn(vcm, 2) + ' m/s (일정)', x, RAIL - 250, { size: 20, w: 700, align: 'center' });
+    text(ctx, '질량 중심 v = ' + sgn(vcm, 2) + ' m/s (일정)', x, RAIL - 208, { size: 20, w: 700, align: 'center' });
   }
 
-  /* ---------- 아래 영역: 운동량 막대 | 힘-시간 그래프 | 운동 에너지 막대 ---------- */
+  /* ---------- 아래 그래프 판: 탭 하나만 ---------- */
   function drawLower(ctx, p, P) {
-    var items = [];
-    if (p.showP) items.push({ w: 1, fn: drawPBars });
-    if (p.showF) items.push({ w: 1.35, fn: drawFT });
-    if (p.showK) items.push({ w: 0.9, fn: drawKBars });
-    if (!items.length) return;
-    var x = 16, W = 1250 - 32, gap = 14, total = 0;
-    items.forEach(function (it) { total += it.w; });
-    var avail = W - gap * (items.length - 1);
-    items.forEach(function (it) {
-      var w = avail * it.w / total;
-      var box = { x: x, y: LOW_Y0, w: w, h: LOW_Y1 - LOW_Y0 };
-      ctx.fillStyle = col('--color-paper'); rr(ctx, box.x, box.y, box.w, box.h, 10); ctx.fill();
-      ctx.strokeStyle = col('--color-line'); ctx.lineWidth = 1.5; ctx.stroke();
-      ctx.save(); it.fn(ctx, box, P); ctx.restore();
-      x += w + gap;
-    });
+    if (!SK.started) return;           // 실행 전: 빈 상태 한 줄(HTML)
+    ctx.fillStyle = col('--color-paper'); rr(ctx, LOW.x, LOW.y, LOW.w, LOW.h, 12); ctx.fill();
+    ctx.strokeStyle = col('--color-line'); ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.strokeStyle = col('--color-line'); ctx.beginPath(); ctx.moveTo(GX - 12, LOW.y + 12); ctx.lineTo(GX - 12, LOW.y + LOW.h - 12); ctx.stroke();
+    var b = { x: GX, y: LOW.y, w: LOW.x + LOW.w - GX - 8, h: LOW.h };
+    ctx.save();
+    if (tab === 'p') drawPBars(ctx, b, P); else if (tab === 'f') drawFT(ctx, b, P); else drawKBars(ctx, b, P);
+    ctx.restore();
   }
 
   function niceMax(v, step) { return Math.max(step, Math.ceil(v / step - 1e-9) * step); }
 
   function drawPBars(ctx, b, P) {
-    text(ctx, '운동량 p (kg·m/s) — 전 / 후', b.x + 14, b.y + 20, { size: 22, w: 700 });
-    var hit = st.phase !== 'pre';
-    var pA0 = P.m1 * P.v1, pB0 = P.m2 * P.v2, pA = P.m1 * st.vA, pB = P.mode === 'wall' ? 0 : P.m2 * st.vB;
-    var rows;
-    if (P.mode === 'wall') {
-      rows = [
-        { lab: 'A 전', v: pA0, c: '--color-rec-1', pre: true },
-        { lab: 'A 후', v: hit ? pA : null, c: '--color-rec-1' },
-        { lab: '벽이 받은 충격량', v: hit ? (pA0 - pA) : null, c: '--color-ink-muted', note: true }
-      ];
-    } else {
-      rows = [
-        { lab: 'A 전', v: pA0, c: '--color-rec-1', pre: true },
-        { lab: 'A 후', v: hit ? pA : null, c: '--color-rec-1' },
-        { lab: 'B 전', v: pB0, c: '--color-rec-2', pre: true },
-        { lab: 'B 후', v: hit ? pB : null, c: '--color-rec-2' },
-        { lab: '합 전', v: pA0 + pB0, c: '--color-ink', pre: true, sum: true },
-        { lab: '합 후', v: hit ? pA + pB : null, c: '--color-ink', sum: true }
-      ];
-    }
+    var wall = P.mode === 'wall', hit = st.phase !== 'pre', done = st.phase === 'post';
+    text(ctx, '운동량 p = m v', b.x + 4, b.y + 22, { size: 24, w: 800, fam: 'serif' });
+    text(ctx, '단위 kg·m/s · 오른쪽 + / 왼쪽 − · 진한 막대 = 합', b.x + b.w, b.y + 22, { size: 20, w: 600, color: '--color-ink-muted', align: 'right' });
+    var pA0 = P.m1 * P.v1, pB0 = wall ? 0 : P.m2 * P.v2, pA = P.m1 * st.vA, pB = wall ? 0 : P.m2 * st.vB;
+    var sep = P.mode === 'separate';
+    var nA = sep ? '대포' : 'A', nB = sep ? '포탄' : 'B';
+    var cols = [
+      { title: '충돌 전 (처음)', rows: wall ? [[nA, pA0, '--color-rec-1']] : [[nA, pA0, '--color-rec-1'], [nB, pB0, '--color-rec-2'], ['합', pA0 + pB0, '--color-ink', true]] },
+      { title: done ? '충돌 후 (나중)' : hit ? '부딪치는 중 (지금)' : '충돌 후', rows: wall ? [[nA, hit ? pA : null, '--color-rec-1']] : [[nA, hit ? pA : null, '--color-rec-1'], [nB, hit ? pB : null, '--color-rec-2'], ['합', hit ? CM.pNow(st) : null, '--color-ink', true]] }
+    ];
     var mx = 0.5;
-    rows.forEach(function (r) { mx = Math.max(mx, Math.abs(r.v || 0)); });
-    [P.pa, P.m1 * P.v1f, P.m2 * P.v2f].forEach(function (v) { if (isFinite(v)) mx = Math.max(mx, Math.abs(v)); });
-    var tick = mx <= 3 ? 0.5 : mx <= 6 ? 1 : 2;
+    [pA0, pB0, pA0 + pB0, P.pa, P.m1 * P.v1f, wall ? 0 : P.m2 * P.v2f, pA, pB].forEach(function (v) { if (isFinite(v)) mx = Math.max(mx, Math.abs(v)); });
+    var tick = mx <= 3 ? 1 : mx <= 6 ? 2 : 4;
     mx = niceMax(mx, tick);
-    var labW = P.mode === 'wall' ? 150 : 64, x0 = b.x + 12 + labW, x1 = b.x + b.w - 16, zx = (x0 + x1) / 2, half = (x1 - x0) / 2;
-    var top = b.y + 44, bot = b.y + b.h - 34, rh = (bot - top) / rows.length;
-    function X(v) { return zx + v / mx * half; }
-    // 눈금
-    ctx.lineWidth = 1;
-    for (var t = -mx; t <= mx + 1e-9; t += tick) {
-      ctx.strokeStyle = col(Math.abs(t) < 1e-9 ? '--color-line-strong' : '--color-grid');
-      ctx.lineWidth = Math.abs(t) < 1e-9 ? 3 : 1;
-      ctx.beginPath(); ctx.moveTo(X(t), top - 4); ctx.lineTo(X(t), bot + 4); ctx.stroke();
-    }
-    [-mx, 0, mx].forEach(function (t) { text(ctx, (t > 0 ? '+' : '') + fmt(t, tick < 1 ? 1 : 0), X(t), bot + 18, { size: 20, w: 500, color: '--color-ink-muted', align: 'center' }); });
-    rows.forEach(function (r, i) {
-      var y = top + rh * i + rh / 2, bh = Math.min(26, rh - 8);
-      text(ctx, r.lab, b.x + 12, y, { size: 20, w: r.sum ? 800 : 600, color: r.sum ? '--color-ink' : '--color-ink-muted' });
-      if (r.v === null) { text(ctx, '실행하면 나타나요', zx + 8, y, { size: 20, w: 500, color: '--color-ink-muted' }); return; }
-      var xa = X(0), xb = X(r.v);
-      ctx.fillStyle = col(r.c);
-      ctx.globalAlpha = r.pre ? 0.5 : 1;
-      ctx.fillRect(Math.min(xa, xb), y - bh / 2, Math.abs(xb - xa), bh);
-      ctx.globalAlpha = 1;
-      if (r.pre) { ctx.strokeStyle = col(r.c); ctx.lineWidth = 2; ctx.strokeRect(Math.min(xa, xb), y - bh / 2, Math.abs(xb - xa), bh); }
-      var lbl = sgn(r.v, 2);
-      var right = r.v >= 0;
-      var tx = right ? Math.max(xb, xa) + 6 : Math.min(xb, xa) - 6;
-      if (right && tx > x1 - 60) { right = false; tx = xa - 6; }
-      if (!right && tx < x0 + 60) { right = true; tx = xa + 6; }
-      text(ctx, lbl, tx, y, { size: r.sum ? 22 : 20, w: 800, color: r.sum ? '--color-ink' : r.c, align: right ? 'left' : 'right' });
+    var colW = (b.w - 24) / 2, top = b.y + 74, bot = b.y + b.h - (wall ? 64 : 34);
+    var rh = (bot - top) / (wall ? 1 : 3);
+    cols.forEach(function (c, ci) {
+      var cx0 = b.x + ci * (colW + 24), labW = 58, x0 = cx0 + labW, x1 = cx0 + colW - 8, zx = (x0 + x1) / 2, half = (x1 - x0) / 2;
+      function X(v) { return zx + v / mx * half; }
+      text(ctx, c.title, cx0, b.y + 52, { size: 22, w: 800, color: ci ? '--color-ink' : '--color-ink-muted' });
+      // 눈금
+      ctx.strokeStyle = col('--color-grid'); ctx.lineWidth = 1;
+      [-mx, -mx / 2, mx / 2, mx].forEach(function (t) { ctx.beginPath(); ctx.moveTo(X(t), top - 2); ctx.lineTo(X(t), bot + 2); ctx.stroke(); });
+      ctx.strokeStyle = col('--color-line-strong'); ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(X(0), top - 4); ctx.lineTo(X(0), bot + 4); ctx.stroke();
+      [-mx, 0, mx].forEach(function (t) { text(ctx, (t > 0 ? '+' : t < 0 ? '−' : '') + fmt(Math.abs(t), 0), X(t), bot + 16, { size: 20, w: 500, color: '--color-ink-muted', align: t < 0 ? 'left' : t > 0 ? 'right' : 'center' }); });
+      c.rows.forEach(function (r, i) {
+        var y = top + rh * i + rh / 2, bh = Math.min(30, rh - 12), sum = !!r[3];
+        text(ctx, r[0], cx0, y, { size: sum ? 22 : 20, w: sum ? 800 : 700, color: sum ? '--color-ink' : r[2] });
+        if (r[1] === null) { text(ctx, '부딪친 뒤 나와요', zx + 10, y, { size: 20, w: 500, color: '--color-ink-muted' }); return; }
+        var xa = X(0), xb = X(r[1]), bx = Math.min(xa, xb), bw = Math.abs(xb - xa);
+        ctx.fillStyle = col(r[2]);
+        ctx.globalAlpha = ci === 0 ? 0.45 : 1;
+        ctx.fillRect(bx, y - bh / 2, bw, bh);
+        ctx.globalAlpha = 1;
+        if (ci === 0) { ctx.strokeStyle = col(r[2]); ctx.lineWidth = 2; ctx.strokeRect(bx, y - bh / 2, bw, bh); }   // 처음 = 연한 막대 + 실선 테두리
+        if (sum) hatch(ctx, bx, y - bh / 2, bw, bh, '--color-paper', 12);                                      // 합 = 빗금
+        var right = r[1] >= 0, tx = right ? Math.max(xa, xb) + 8 : Math.min(xa, xb) - 8;
+        if (right && tx > x1 - 64) { right = false; tx = xa - 8; }
+        if (!right && tx < x0 + 64) { right = true; tx = xa + 8; }
+        text(ctx, sgn(r[1], 2), tx, y, { size: sum ? 22 : 20, w: 800, color: sum ? '--color-ink' : r[2], align: right ? 'left' : 'right' });
+      });
     });
+    if (wall) {
+      var dp = hit ? pA - pA0 : null;
+      text(ctx, dp === null ? '벽에 부딪치면 수레의 운동량이 바뀌어요 — 바뀐 양 Δp 가 충격량이에요.' : '수레 운동량 변화 Δp = 나중 − 처음 = ' + sgn(dp, 2) + ' kg·m/s  =  수레가 받은 충격량 (벽은 같은 크기를 반대로)',
+        b.x, b.y + b.h - 26, { size: 20, w: 700, color: '--color-ink' });
+    }
   }
 
   function drawKBars(ctx, b, P) {
-    text(ctx, '운동 에너지 K (J)', b.x + 14, b.y + 20, { size: 22, w: 700 });
-    var hit = st.phase !== 'pre';
-    var kA0 = 0.5 * P.m1 * P.v1 * P.v1, kB0 = P.mode === 'wall' ? 0 : 0.5 * P.m2 * P.v2 * P.v2;
-    var kA = 0.5 * P.m1 * st.vA * st.vA, kB = P.mode === 'wall' ? 0 : 0.5 * P.m2 * st.vB * st.vB;
-    var done = st.phase === 'post';
-    var mx = Math.max(0.5, kA0 + kB0, P.ka);
-    var x0 = b.x + 60, x1 = b.x + b.w - 20, W = x1 - x0;
+    var hit = st.phase !== 'pre', done = st.phase === 'post', wall = P.mode === 'wall';
+    text(ctx, '운동 에너지 K = ½ m v²', b.x + 4, b.y + 22, { size: 24, w: 800, fam: 'serif' });
+    text(ctx, '단위 J · 방향 없음(늘 + 값)', b.x + b.w, b.y + 22, { size: 20, w: 600, color: '--color-ink-muted', align: 'right' });
+    var kA0 = 0.5 * P.m1 * P.v1 * P.v1, kB0 = wall ? 0 : 0.5 * P.m2 * P.v2 * P.v2;
+    var kA = 0.5 * P.m1 * st.vA * st.vA, kB = wall ? 0 : 0.5 * P.m2 * st.vB * st.vB;
+    var mx = Math.max(0.5, kA0 + kB0, P.ka, kA + kB);
+    var x0 = b.x + 110, x1 = b.x + b.w - 190, W = x1 - x0;
     function wd(v) { return v / mx * W; }
-    var rows = [{ lab: '전', a: kA0, b: kB0, y: b.y + 92 }, { lab: '후', a: hit ? kA : null, b: kB, y: b.y + 170 }];
+    var sep = P.mode === 'separate';
+    var rows = [{ lab: '처음', a: kA0, b: kB0, y: b.y + 92 }, { lab: done ? '나중' : '지금', a: hit ? kA : null, b: kB, y: b.y + 176 }];
     rows.forEach(function (r) {
-      text(ctx, r.lab, b.x + 16, r.y, { size: 24, w: 800 });
-      if (r.a === null) { text(ctx, '실행하면 나타나요', x0, r.y, { size: 20, w: 500, color: '--color-ink-muted' }); return; }
-      var x = x0;
-      ctx.fillStyle = col('--color-q-energy-k'); ctx.fillRect(x, r.y - 18, wd(r.a), 36);
-      if (wd(r.a) > 34) text(ctx, 'A', x + 8, r.y, { size: 20, w: 800, color: '--color-ink-inverse' });
+      text(ctx, r.lab, b.x + 4, r.y, { size: 24, w: 800 });
+      if (r.a === null) { text(ctx, '부딪친 뒤 나와요', x0, r.y, { size: 20, w: 500, color: '--color-ink-muted' }); return; }
+      var x = x0, bh = 40;
+      ctx.fillStyle = col('--color-q-energy-k'); ctx.fillRect(x, r.y - bh / 2, wd(r.a), bh);
+      if (wd(r.a) > 70) text(ctx, sep ? '대포' : 'A', x + 8, r.y, { size: 20, w: 800, color: '--color-ink-inverse' });
       x += wd(r.a);
       if (r.b > 0) {
-        ctx.globalAlpha = 0.55; ctx.fillStyle = col('--color-q-energy-k'); ctx.fillRect(x, r.y - 18, wd(r.b), 36); ctx.globalAlpha = 1;
-        ctx.fillStyle = col('--color-paper-raised'); ctx.fillRect(x - 1, r.y - 18, 2, 36);
-        if (wd(r.b) > 34) text(ctx, 'B', x + 8, r.y, { size: 20, w: 800, color: '--color-ink' });
+        ctx.globalAlpha = 0.5; ctx.fillStyle = col('--color-q-energy-k'); ctx.fillRect(x, r.y - bh / 2, wd(r.b), bh); ctx.globalAlpha = 1;
+        ctx.strokeStyle = col('--color-q-energy-k'); ctx.lineWidth = 2; ctx.strokeRect(x, r.y - bh / 2, wd(r.b), bh);
+        if (wd(r.b) > 70) text(ctx, sep ? '포탄' : 'B', x + 8, r.y, { size: 20, w: 800, color: '--color-ink' });
         x += wd(r.b);
       }
-      text(ctx, fmt(r.a + r.b, 2) + ' J', Math.min(x + 8, x1 - 70), r.y - 30, { size: 22, w: 800, color: '--color-q-energy-k' });
-      if (r.lab === '후') {
-        var lost = (kA0 + kB0) - (r.a + r.b);
+      var tot = r.a + r.b, endX = x;
+      if (r.lab !== '처음') {
+        var lost = (kA0 + kB0) - tot;
         if (lost > 0.005) {
-          ctx.save();
-          ctx.strokeStyle = col('--color-q-energy-heat'); ctx.lineWidth = 3; ctx.setLineDash([6, 4]);
-          ctx.strokeRect(x, r.y - 18, wd(lost), 36);
-          ctx.beginPath(); ctx.rect(x, r.y - 18, wd(lost), 36); ctx.clip();
-          ctx.setLineDash([]); ctx.lineWidth = 2;
-          for (var k = -40; k < wd(lost) + 40; k += 12) { ctx.beginPath(); ctx.moveTo(x + k, r.y + 18); ctx.lineTo(x + k + 36, r.y - 18); ctx.stroke(); }
-          ctx.restore();
-          text(ctx, (done ? '' : '지금 ') + '열·소리로 ' + fmt(lost, 2) + ' J', x0, r.y + 40, { size: 22, w: 800, color: '--color-q-energy-heat' });
-        } else if (lost < -0.005 && P.mode === 'separate') {
-          text(ctx, '용수철 에너지 → 운동 에너지', x0, r.y + 40, { size: 20, w: 700, color: '--color-ink-muted' });
+          var lw = wd(lost);
+          ctx.save(); ctx.setLineDash([6, 4]); ctx.strokeStyle = col('--color-q-energy-heat'); ctx.lineWidth = 3; ctx.strokeRect(x, r.y - bh / 2, lw, bh); ctx.restore();
+          hatch(ctx, x, r.y - bh / 2, lw, bh, '--color-q-energy-heat', 10);
+          endX = x + lw;
+          var lt = '손실(열·소리) ' + fmt(lost, 2) + ' J';
+          text(ctx, lt, endX + 10, r.y, { size: 20, w: 800, color: '--color-q-energy-heat' });
+        } else if (lost < -0.005 && sep) {
+          text(ctx, '늘어남 ← 용수철 에너지', x + 10, r.y, { size: 20, w: 700, color: '--color-ink-muted' });
         } else if (done) {
-          text(ctx, '운동 에너지 그대로', x0, r.y + 40, { size: 20, w: 700, color: '--color-ink-muted' });
+          text(ctx, '그대로', x + 10, r.y, { size: 20, w: 700, color: '--color-ink-muted' });
         }
       }
+      text(ctx, '합 ' + fmt(tot, 2) + ' J', x0, r.y - bh / 2 - 14, { size: 20, w: 800, color: '--color-q-energy-k' });
     });
   }
 
-  function drawFT(ctx, b, P) {
-    text(ctx, '힘-시간 (넓이 = 충격량)', b.x + 14, b.y + 20, { size: 22, w: 700 });
-    // 범례
-    var lx = b.x + b.w - 14;
-    ctx.font = font(700, 20); ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    var lb = P.mode === 'wall' ? '벽' : 'B';
-    ctx.fillStyle = col('--color-copper-text'); ctx.fillText('F_' + lb, lx, b.y + 20);
-    var w1 = ctx.measureText('F_' + lb).width;
-    SK.drawPath(ctx, [[lx - w1 - 40, b.y + 20], [lx - w1 - 8, b.y + 20]], SK.recStyle(1));
-    ctx.fillStyle = col('--color-rec-1'); ctx.fillText('F_A', lx - w1 - 52, b.y + 20);
-    var w2 = ctx.measureText('F_A').width;
-    SK.drawPath(ctx, [[lx - w1 - w2 - 92, b.y + 20], [lx - w1 - w2 - 60, b.y + 20]], SK.recStyle(0));
+  function niceTop(v) {
+    if (v <= 0) return 10;
+    var s = Math.pow(10, Math.floor(Math.log(v) / Math.LN10));
+    if (v / s < 3) s /= 2;
+    return Math.max(s, Math.floor(v / s) * s);
+  }
 
-    var pl = b.x + 70, pr = b.x + b.w - 16, pt = b.y + 44, pb = b.y + b.h - 62;
-    // 보이는 선들: 지금 + 직전 + 기록
+  function drawFT(ctx, b, P) {
+    var lb = P.mode === 'wall' ? '벽' : P.mode === 'separate' ? '포탄' : 'B';
+    var la = P.mode === 'separate' ? '대포' : 'A';
+    text(ctx, '힘-시간 그래프', b.x + 4, b.y + 22, { size: 24, w: 800, fam: 'serif' });
+    // 범례 (그래프 바깥 제목 줄)
+    var lx = b.x + b.w;
+    ctx.font = font(700, 20);
+    var t2 = lb + (lb === 'B' ? '가' : '이') + ' 받는 힘', t1 = la + '가 받는 힘';
+    var w2 = ctx.measureText(t2).width, w1 = ctx.measureText(t1).width;
+    text(ctx, t2, lx, b.y + 22, { size: 20, w: 700, color: '--color-ink', align: 'right' });
+    SK.drawPath(ctx, [[lx - w2 - 44, b.y + 22], [lx - w2 - 8, b.y + 22]], SK.recStyle(1));
+    text(ctx, t1, lx - w2 - 64, b.y + 22, { size: 20, w: 700, color: '--color-ink', align: 'right' });
+    SK.drawPath(ctx, [[lx - w2 - w1 - 108, b.y + 22], [lx - w2 - w1 - 72, b.y + 22]], SK.recStyle(0));
+
     var lines = [];
     SK.records.forEach(function (r) { if (r.series.fb && r.series.fb.length) lines.push({ s: r.series, st: SK.recStyle(r.slot), tau: r.values.tau, n: r.n, J: r.values.J, F: r.values.fmax }); });
     if (SK.ghost && SK.ghost.series.fb && SK.ghost.series.fb.length) lines.push({ s: SK.ghost.series, st: SK.ghostStyle(), tau: SK.ghost.values.tau, ghost: true });
+    // 둘째 줄: 이번 실행 숫자 + 기록 요약 (그래프 바깥)
+    var info = '';
+    if (P.meet && P.J > 0 && st.phase !== 'pre') {
+      var k = Math.PI / P.tau, tc = st.phase === 'hit' ? st.tc : P.tau;
+      var Jnow = P.J * (1 - Math.cos(k * tc)) / 2;
+      info = '넓이 = 충격량 ' + fmt(Jnow, 2) + ' N·s · 최대 힘 ' + fmtF(P.Fmax) + ' N · 평균 힘 ' + fmtF(P.Favg) + ' N';
+    }
+    var recInfo = lines.filter(function (L) { return !L.ghost; }).slice(-2).map(function (L) { return '기록' + L.n + ': ' + fmt(L.J, 2) + ' N·s, 최대 ' + fmtF(L.F) + ' N'; }).join('  ·  ');
+    text(ctx, info, b.x + 4, b.y + 52, { size: 20, w: 800, color: '--color-copper-text' });
+    if (recInfo) {
+      ctx.font = font(600, 20);
+      var iw = info ? ctx.measureText(info).width + 30 : 0;
+      if (ctx.measureText(recInfo).width < b.w - iw) text(ctx, recInfo, b.x + b.w, b.y + 52, { size: 20, w: 600, color: '--color-ink-muted', align: 'right' });
+    }
+
+    var pl = b.x + 66, pr = b.x + b.w - 8, pt = b.y + 72, pb = b.y + b.h - 44;
     var tauMax = P.tau, fpk = P.meet ? P.Fmax : 0;
     lines.forEach(function (L) { tauMax = Math.max(tauMax, L.tau || 0); L.s.fb.forEach(function (q) { fpk = Math.max(fpk, Math.abs(q[1])); }); });
     if (fpk <= 0) fpk = 10;
-    var t0 = -0.2 * tauMax * 1000, t1 = 1.2 * tauMax * 1000, fm = fpk * 1.15;
+    var t0 = -0.2 * tauMax * 1000, t1 = 1.2 * tauMax * 1000, fm = fpk * 1.12;
     function X(t) { return pl + (t - t0) / (t1 - t0) * (pr - pl); }
     function Y(f) { return (pt + pb) / 2 - f / fm * (pb - pt) / 2; }
-    // 모눈
-    ctx.lineWidth = 1; ctx.strokeStyle = col('--color-grid');
-    var tstep = tauMax <= 0.01 ? 2 : tauMax <= 0.05 ? 10 : 50;
-    var tLast = Math.floor((t1 + 1e-6) / tstep) * tstep;
+    // 모눈 + x 눈금 (겹치면 건너뜀)
+    var tstep = tauMax <= 0.01 ? 2 : tauMax <= 0.05 ? 10 : 50, lastX = -1e9;
     for (var t = 0; t <= t1 + 1e-6; t += tstep) {
+      ctx.strokeStyle = col('--color-grid'); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(X(t), pt); ctx.lineTo(X(t), pb); ctx.stroke();
-      var last = Math.abs(t - tLast) < 1e-6;
-      text(ctx, String(Math.round(t)) + (last ? ' ms' : ''), X(t), pb + 16, { size: 20, w: last ? 700 : 500, color: '--color-ink-muted', align: last ? 'right' : 'center' });
+      if (X(t) - lastX >= 56 && X(t) < pr - 20) { text(ctx, String(Math.round(t)), X(t), pb + 14, { size: 20, w: 500, color: '--color-ink-muted', align: 'center' }); lastX = X(t); }
     }
+    text(ctx, '시간 (ms) · 0 = 부딪친 순간', pr, pb + 34, { size: 20, w: 600, color: '--color-ink-muted', align: 'right' });
+    var ft = niceTop(fpk);
+    ctx.strokeStyle = col('--color-grid'); ctx.lineWidth = 1;
+    [ft, -ft].forEach(function (f) { ctx.beginPath(); ctx.moveTo(pl, Y(f)); ctx.lineTo(pr, Y(f)); ctx.stroke(); });
     ctx.strokeStyle = col('--color-line-strong'); ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(pl, Y(0)); ctx.lineTo(pr, Y(0)); ctx.moveTo(pl, pt); ctx.lineTo(pl, pb); ctx.stroke();
-    var fTxt = fmt(fm, fm >= 100 ? 0 : 1);
-    text(ctx, '+' + fTxt, pl - 6, pt + 8, { size: 20, w: 500, color: '--color-ink-muted', align: 'right' });
+    text(ctx, '+' + fmt(ft, 0), pl - 6, Y(ft), { size: 20, w: 500, color: '--color-ink-muted', align: 'right' });
     text(ctx, '0', pl - 6, Y(0), { size: 20, w: 500, color: '--color-ink-muted', align: 'right' });
-    text(ctx, '−' + fTxt, pl - 6, pb - 8, { size: 20, w: 500, color: '--color-ink-muted', align: 'right' });
-    text(ctx, 'F (N)', pl - 6, pt + 36, { size: 20, w: 700, color: '--color-ink-muted', align: 'right' });
+    text(ctx, '−' + fmt(ft, 0), pl - 6, Y(-ft), { size: 20, w: 500, color: '--color-ink-muted', align: 'right' });
+    text(ctx, 'F (N)', pl + 8, pt + 10, { size: 20, w: 700, color: '--color-ink-muted' });
 
     ctx.save(); ctx.beginPath(); ctx.rect(pl, pt - 2, pr - pl, pb - pt + 4); ctx.clip();
     function map(a, c) { return [X(a), Y(c)]; }
-    lines.forEach(function (L) {
-      SK.drawPath(ctx, L.s.fa, L.st, map);
-      SK.drawPath(ctx, L.s.fb, L.st, map);
-    });
-    // 지금 실행: 넓이 색칠 40% + 선
+    lines.forEach(function (L) { SK.drawPath(ctx, L.s.fa, L.st, map); SK.drawPath(ctx, L.s.fb, L.st, map); });
     if (P.meet && st.phase !== 'pre') {
       var cv = CM.curve(P, st.phase === 'hit' ? st.tc : undefined, 90);
       [[cv.fa, '--color-rec-1', 0], [cv.fb, '--color-rec-2', 1]].forEach(function (z) {
@@ -962,82 +1221,40 @@
         ctx.beginPath(); ctx.moveTo(X(pts[0][0]), Y(0));
         pts.forEach(function (q) { ctx.lineTo(X(q[0]), Y(q[1])); });
         ctx.lineTo(X(pts[pts.length - 1][0]), Y(0)); ctx.closePath();
-        ctx.globalAlpha = 0.4; ctx.fillStyle = col(z[1]); ctx.fill(); ctx.globalAlpha = 1;
+        ctx.globalAlpha = 0.35; ctx.fillStyle = col(z[1]); ctx.fill(); ctx.globalAlpha = 1;
         SK.drawPath(ctx, pts, SK.recStyle(z[2]), map);
       });
     }
     ctx.restore();
-    // 글자: 충격량·최대 힘
-    if (!P.meet || P.J <= 0) {
-      text(ctx, P.mode === 'separate' ? '포탄 속력이 0 이면 힘이 없어요' : '만나지 않으면 힘도 없어요', (pl + pr) / 2, (pt + pb) / 2 - 30, { size: 20, w: 600, color: '--color-ink-muted', align: 'center' });
-    } else if (st.phase === 'pre') {
-      text(ctx, '부딪치면 여기에 그려져요', (pl + pr) / 2, (pt + pb) / 2 - 30, { size: 20, w: 600, color: '--color-ink-muted', align: 'center' });
-    } else {
-      var k = Math.PI / P.tau, tc = st.phase === 'hit' ? st.tc : P.tau;
-      var Jnow = P.J * (1 - Math.cos(k * tc)) / 2;
-      var who = P.mode === 'wall' ? '벽' : 'B';
-      text(ctx, '충격량 ' + who + ' +' + fmt(Jnow, 2) + ' · A −' + fmt(Jnow, 2) + ' N·s', pl + 8, pt + 12, { size: 20, w: 800, color: '--color-ink' });
-      text(ctx, '최대 힘 ' + fmt(P.Fmax, P.Fmax >= 100 ? 0 : 1) + ' N · 평균 ' + fmt(P.Favg, P.Favg >= 100 ? 0 : 1) + ' N', pl + 8, pb - 12, { size: 20, w: 700, color: '--color-copper-text' });
-    }
-    // 기록 요약
-    var info = lines.filter(function (L) { return !L.ghost; }).map(function (L) { return '기록' + L.n + ' J ' + fmt(L.J, 2) + ' · 최대 ' + fmt(L.F, L.F >= 100 ? 0 : 1) + ' N'; });
-    var foot = '시간 0 = 부딪친 순간 · 힘은 사인 모양 모형';
-    if (info.length) {
-      ctx.font = font(600, 20);
-      foot = info.slice(-2).join('  |  ');
-      if (ctx.measureText(foot).width > b.w - 24) foot = info[info.length - 1];
-    }
-    text(ctx, foot, b.x + 12, b.y + b.h - 16, { size: 20, w: 600, color: '--color-ink-muted' });
+    if (!P.meet || P.J <= 0) text(ctx, P.mode === 'separate' ? '포탄 속력이 0 이면 힘도 없어요' : '만나지 않으면 힘도 없어요', (pl + pr) / 2, (pt + pb) / 2 - 24, { size: 20, w: 600, color: '--color-ink-muted', align: 'center' });
+    else if (st.phase === 'pre') text(ctx, '부딪치면 여기에 그려져요', (pl + pr) / 2, (pt + pb) / 2 - 24, { size: 20, w: 600, color: '--color-ink-muted', align: 'center' });
   }
 
-  /* ---------- HTML 갱신 (계기판·배지·안내·식) ---------- */
-  function vText(v, unit) {
+  /* ---------- HTML 갱신 (계기판·배지·안내) ---------- */
+  function vText(v) {
     var a = Math.abs(v) < 0.005 ? '' : v > 0 ? ' →' : ' ←';
     return sgn(v, 1) + a;
   }
   function updateHTML(p, P) {
     var hit = st.phase !== 'pre';
+    meterEmpty.show(!SK.started);
+    lowerEmpty.show(!SK.started);
     meters.update({
       v1: vText(st.vA),
-      v2: P.mode === 'wall' ? '벽' : vText(st.vB),
-      p: fmt(P.pb, 2) + ' → ' + (hit ? fmt(CM.pNow(st), 2) : '?'),
-      k: fmt(P.kb, 2) + ' → ' + (hit ? fmt(CM.kNow(st), 2) : '?')
+      v2: P.mode === 'wall' ? '0.0' : vText(st.vB),
+      p: fmt(P.pb, 2) + ' → ' + (hit ? fmt(CM.pNow(st), 2) : '부딪친 뒤'),
+      k: fmt(P.kb, 2) + ' → ' + (hit ? fmt(CM.kNow(st), 2) : '부딪친 뒤')
     });
-    // 슬로 모션 배지
     var slowOn = SK.running && st.slow < 0.999;
     badgeEl.hidden = !slowOn;
     if (slowOn) {
       var tx = '슬로 모션 ×1/' + Math.round(1 / st.slow);
       if (badgeEl.textContent !== tx) badgeEl.textContent = tx;
     }
-    // 만나지 않음 안내 (패널에 보이는 값 기준)
     var um = SK.get('mode'), w = '';
-    if (um === 'collide' && SK.get('v1') <= SK.get('v2')) w = '두 수레가 만나지 않아요 (v₁ > v₂ 로)';
-    else if (um === 'wall' && SK.get('v1') <= 0) w = '수레가 벽에 닿지 않아요 (v₁ > 0 으로)';
+    if (um === 'collide' && SK.get('v1') <= SK.get('v2')) w = '두 수레가 만나지 않아요 — A 속도를 B 보다 크게';
+    else if (um === 'wall' && SK.get('v1') <= 0) w = '수레가 벽에 닿지 않아요 — 처음 속도를 + 로';
     warnEl.hidden = !w;
     if (w && warnEl.textContent !== w) warnEl.textContent = w;
-    // 식 보기
-    if (eqBox.open) {
-      var html = eqHTML(P, hit);
-      if (html !== lastEqHTML) { eqBody.innerHTML = html; lastEqHTML = html; }
-    }
-  }
-  function par(v) { return v < 0 ? '(' + fmt(v, 2) + ')' : fmt(v, 2); }
-  function eqHTML(P, hit) {
-    var done = st.phase === 'post';
-    var a = done ? P.v1f : st.vA, b = done ? P.v2f : st.vB;
-    var q = hit ? '' : ' <span class="cm-eq__note">(실행하면 채워져요)</span>';
-    if (P.mode === 'wall') {
-      return '<p class="cm-eq__f">J = Δp = m₁v₁′ − m₁v₁</p>' +
-        '<p>= ' + fmt(P.m1, 2) + '×' + (hit ? par(a) : '?') + ' − ' + fmt(P.m1, 2) + '×' + par(P.v1) + q + '</p>' +
-        '<p class="cm-eq__r">수레가 받은 충격량 ' + (hit ? fmt(P.m1 * a - P.m1 * P.v1, 2) : '?') + ' N·s · 벽은 반대로 같은 크기</p>';
-    }
-    var v1 = P.v1, v2 = P.v2;
-    var lhs = P.m1 * v1 + P.m2 * v2, rhs = P.m1 * a + P.m2 * b;
-    return '<p class="cm-eq__f">m₁v₁ + m₂v₂ = m₁v₁′ + m₂v₂′</p>' +
-      '<p>' + fmt(P.m1, 2) + '×' + par(v1) + ' + ' + fmt(P.m2, 2) + '×' + par(v2) + ' = ' +
-      (hit ? fmt(P.m1, 2) + '×' + par(a) + ' + ' + fmt(P.m2, 2) + '×' + par(b) : '?') + q + '</p>' +
-      '<p class="cm-eq__r">' + fmt(lhs, 2) + ' = ' + (hit ? fmt(rhs, 2) : '?') + ' kg·m/s</p>' +
-      '<p class="cm-eq__f">J = Δp_B = m₂(v₂′ − v₂) = ' + (hit ? sgn(P.m2 * (b - v2), 2) : '?') + ' N·s</p>';
   }
 })(typeof window !== 'undefined' ? window : null);
