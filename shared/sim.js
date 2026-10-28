@@ -1835,7 +1835,7 @@
         numIn.addEventListener('keydown', function (e) {
           e.stopPropagation();
           if (e.code === 'Enter' || e.code === 'NumpadEnter') { e.preventDefault(); submit(); }
-          if (e.code === 'Escape') { e.preventDefault(); numIn.blur(); }
+          if (e.code === 'Escape') { e.preventDefault(); if (numIn.value.trim()) { numIn.value = ''; okBtn.disabled = sel === null; } else close(null, null); }
         });
         numIn.addEventListener('input', function () { okBtn.disabled = !numIn.value.trim() && sel === null; });
       }

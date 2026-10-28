@@ -1,5 +1,5 @@
 /* =====================================================================
-   double-slit-quantum 전용 스타일 (접두사 dsq-) — R1 고도화 1차
+   double-slit-quantum 전용 스타일 (접두사 dsq-) — R2 고도화 2차 (해설 회피·모드별 숨김 CSS 삭제)
    공통 클래스는 덮어쓰지 않고 새 클래스만 둔다. 색은 토큰만.
    스펙트럼 그라디언트(--dsq-spectrum)는 파장→색 계산값을 JS 가 넣는다.
    ===================================================================== */
@@ -115,8 +115,35 @@
 .dsq-check__row.is-ok .dsq-check__box { background: var(--color-ok); border-color: var(--color-ok); }
 .dsq-check__row.is-ok { color: var(--color-ok); }
 
-/* 모드별로 숨기는 정리 질문 카드 */
-.think-card[hidden] { display: none !important; }
+/* R2: 칸 이름 뒤 짧은 풀이 '(빛깔을 정함)' · 설명 대신 단위 칩 */
+.dsq-labsub { margin-left: calc(6 * var(--u)); font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-sans); color: var(--color-ink-muted); white-space: nowrap; }
+.var__hint.dsq-unitchip {
+  display: inline-block; width: fit-content; justify-self: start; align-self: start; margin-top: calc(4 * var(--u));
+  padding: calc(2 * var(--u)) var(--space-2);
+  border-radius: 999px; background: var(--color-paper); border: 1px solid var(--color-line);
+  font: var(--font-weight-semibold) var(--fs-caption)/1.3 var(--font-num); color: var(--color-ink-muted);
+}
 
-/* 실험 카드 설명 상자(공통)가 스크린·확대창까지 덮지 않게 이 시뮬레이터에서만 폭을 줄인다 */
-body[data-sim="double-slit-quantum"] .stage-corner--tl .preset-info { max-width: calc(560 * var(--u)); }
+/* R2: 하단 띠 왼쪽 — 간격 재기 3단계 (① 시작점 → ② 끝점 → ③ 칸 수 n) */
+.dsq-steps {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1.15fr);
+  align-items: stretch; gap: calc(4 * var(--u)); height: 100%; min-width: 0; min-height: 0;
+}
+.dsq-steps[hidden], .dsq-meters[hidden] { display: none; }
+.dsq-step {
+  min-width: 0; display: grid; align-content: center; gap: calc(2 * var(--u));
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md); border: calc(2 * var(--u)) solid var(--color-line);
+  background: var(--color-paper-raised);
+}
+.dsq-step__name { font: var(--font-weight-bold) var(--fs-caption)/1.2 var(--font-sans); color: var(--color-ink-muted); white-space: nowrap; }
+.dsq-step__val { font: var(--font-weight-semibold) var(--fs-caption)/1.2 var(--font-num); color: var(--color-ink-muted); white-space: nowrap; overflow: hidden; }
+.dsq-step.is-now { border-color: var(--color-sim-slit); background: var(--sim-tint, var(--color-paper-raised)); }
+.dsq-step.is-now .dsq-step__name, .dsq-step.is-now .dsq-step__val { color: var(--color-sim-slit-text, var(--color-ink)); }
+.dsq-step.is-done .dsq-step__name { color: var(--color-ok-text, var(--color-ok)); }
+.dsq-step.is-done .dsq-step__val { color: var(--color-ink); }
+.dsq-step__arrow { align-self: center; font: var(--font-weight-bold) var(--fs-meta)/1 var(--font-sans); color: var(--color-ink-muted); }
+
+/* R2: 비교 체크리스트 머리 옆 안내 */
+.dsq-check__t { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: var(--space-3); }
+.dsq-check__tip { font: var(--font-weight-medium) var(--fs-caption)/1.4 var(--font-sans); color: var(--color-ink-muted); word-break: keep-all; }

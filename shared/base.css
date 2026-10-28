@@ -1132,7 +1132,7 @@ html:not(.cursor-hidden) .predict__skip:hover { color: var(--color-primary); }
 
 /* ---------- 37. 기록 표 · 나란히 보기 -------------------------------------- */
 .rec-table th { vertical-align: bottom; }
-.rec-table .th-name { display: block; white-space: normal; word-break: keep-all; color: var(--color-ink); }
+.rec-table .th-name { display: block; white-space: nowrap; word-break: keep-all; color: var(--color-ink); } /* 최종 점검: 이름 한 줄 + 단위 한 줄 = 머리글 2줄 고정 */
 .rec-table .th-unit { display: block; font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-num); color: var(--color-ink-muted); }
 .rec-table th.is-result .th-name { color: var(--color-primary); }
 .rec-mark { font: var(--font-weight-black) var(--fs-meta)/1 var(--font-sans); }

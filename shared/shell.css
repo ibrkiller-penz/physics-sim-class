@@ -51,7 +51,10 @@ html:not(.cursor-hidden) .sim-top__hub:hover { border-color: var(--color-primary
 }
 .sim-top__teacher { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); align-items: center; }
 html.is-teacher .sim-top__teacher { display: flex !important; }
-.sim-top__teacher .chip { height: auto; min-height: calc(28 * var(--u)); white-space: normal; }
+.sim-top__teacher .chip { height: auto; min-height: calc(28 * var(--u)); white-space: nowrap; }
+/* 최종 점검: 교사 모드에서 제목이 성취기준 칩에 밀려 두 줄로 꺾이지 않게 — 제목은 한 줄 고정, 칩이 대신 줄바꿈·잘림 */
+html.is-teacher .sim-title { flex: 0 0 auto; max-width: calc(760 * var(--u)); -webkit-line-clamp: 1; }
+html.is-teacher .sim-top__teacher { max-height: calc(64 * var(--u)); overflow: hidden; align-content: center; }
 .sim-top__spacer { flex: 1 1 auto; }
 html.is-teacher .sim-top__spacer { display: none; }
 .sim-top__tools { flex: none; display: flex; align-items: center; gap: var(--space-2); position: relative; }

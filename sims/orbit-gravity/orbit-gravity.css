@@ -87,8 +87,6 @@
 .og-kbtns .btn { padding: 0 var(--space-4); font-size: var(--fs-meta); min-height: calc(56 * var(--u)); }
 .og-kmsg { font: var(--font-weight-medium) var(--fs-caption)/1.4 var(--font-sans); color: var(--color-ink-muted); }
 
-/* 결과 해설(위쪽 띠)이 뜨면 표를 그 아래로 내리고 칸 안에서 스크롤 */
-.sim.has-note .og-kepler { top: calc(var(--note-h, 0px) + 96 * var(--u)); overflow: auto; }
 
 /* 비교 표 창 */
 .og-compare { width: 100%; }
@@ -102,12 +100,12 @@
 
 /* 실험 화면 오른쪽 위: 시간 배속 · 흐른 시간 · 보는 범위 (진한 글자) */
 .og-hud {
-  display: grid; gap: calc(2 * var(--u));
+  display: grid; gap: 0;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
   background: var(--color-paper-glass, var(--color-paper-raised));
   box-shadow: inset 0 0 0 1px var(--color-line);
-  text-align: right; max-width: calc(470 * var(--u));
+  text-align: right; max-width: calc(520 * var(--u));
 }
 .og-hud:empty { display: none; }
 .og-hud__main { font: var(--font-weight-bold) var(--fs-meta)/1.3 var(--font-sans); color: var(--color-ink); }
@@ -133,29 +131,30 @@
 .og-view__btn:hover { border-color: var(--sim); }
 .og-view__hint { font-size: var(--fs-caption); }
 
-/* 실험 화면 왼쪽 아래: 순서 도우미 */
-.og-seq {
-  display: grid; gap: calc(6 * var(--u));
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--color-paper-glass, var(--color-paper-raised));
-  box-shadow: var(--shadow-sm), inset 0 0 0 1px var(--color-line);
-  max-width: calc(430 * var(--u));
-}
-.og-seq__title { font: var(--font-weight-bold) var(--fs-caption)/1.2 var(--font-sans); color: var(--sim-text); }
-.og-seq__steps { display: flex; flex-wrap: wrap; align-items: center; gap: calc(4 * var(--u)); }
-.og-seq__arrow { color: var(--color-ink-muted); font-size: var(--fs-caption); }
+/* 패널 수치 칸 아래: 순서 칩 한 줄 [4][6][✓ 7.9][10][11.2] [다음: 10 km/s ▶] */
+.og-seq { display: grid; gap: var(--space-1); margin-top: calc(14 * var(--u)); padding-top: var(--space-2); border-top: 1px dashed var(--color-line); }
+.og-seq__title { font: var(--font-weight-semibold) var(--fs-caption)/1.3 var(--font-sans); color: var(--color-ink-muted); }
+.og-seq__row { display: flex; flex-wrap: wrap; align-items: center; gap: calc(6 * var(--u)); }
 .og-seq__chip {
-  min-height: calc(40 * var(--u)); padding: 0 calc(8 * var(--u));
-  border: 1px solid var(--color-line-strong); border-radius: var(--radius-sm);
+  min-height: calc(52 * var(--u)); min-width: calc(56 * var(--u)); padding: 0 calc(10 * var(--u));
+  border: calc(2 * var(--u)) solid var(--color-line-strong); border-radius: var(--radius-sm);
   background: var(--color-paper-raised); color: var(--color-ink); cursor: pointer;
   font: var(--font-weight-semibold) var(--fs-caption)/1 var(--font-num); font-variant-numeric: tabular-nums;
 }
-.og-seq__chip.is-done { border-color: var(--color-ok); color: var(--color-ok-text, var(--color-ink)); }
+.og-seq__chip:hover { border-color: var(--sim); }
+.og-seq__chip.is-done { border-color: var(--color-ok); color: var(--color-ok-text); }
 .og-seq__chip.is-now { background: var(--sim); border-color: var(--sim); color: var(--color-paper); }
-.og-seq__hint { font: var(--font-weight-medium) var(--fs-caption)/1.35 var(--font-sans); color: var(--color-ink); word-break: keep-all; }
-.og-seq__foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
-.og-seq__why { font: var(--font-weight-semibold) var(--fs-caption)/1.3 var(--font-sans); color: var(--color-warn-text, var(--color-ink-muted)); word-break: keep-all; }
+.og-seq__next { min-height: calc(52 * var(--u)); font-size: var(--fs-caption); margin-left: auto; }
+.og-seq__next.is-blocked { opacity: .55; cursor: help; }
+.og-seq__done { margin-left: auto; font: var(--font-weight-bold) var(--fs-caption)/1.3 var(--font-sans); color: var(--color-ok-text); }
+
+/* 발사 속력 칸: 눈금 이름(지구를 돎·탈출)과 안내문 사이 8u 더 */
+.og-var-v0 .var__hint { margin-top: calc(var(--space-2) + 8 * var(--u)); }
+
+/* 하단 띠 그래프 머리: 제목 + 기호 풀이 한 줄 */
+.og-band__head { white-space: nowrap; }
+.og-band__title { color: var(--color-ink); font-weight: var(--font-weight-bold); }
+.og-band__legend { margin-left: auto; color: var(--color-ink-muted); }
 
 /* 케플러 3단계 안내 */
 .og-ksteps { display: grid; gap: var(--space-1); padding-left: calc(30 * var(--u)); list-style: decimal; font: var(--font-weight-semibold) var(--fs-caption)/1.35 var(--font-sans); color: var(--color-ink-muted); }
@@ -163,6 +162,3 @@
 .og-ksteps li.is-now { background: var(--sim-tint); color: var(--sim-text); font-weight: var(--font-weight-bold); }
 .og-ksteps li.is-done { color: var(--color-ink); }
 .og-ksteps li.is-done::after { content: " ✓"; color: var(--color-ok); }
-
-/* 결과 해설이 뜨면 오른쪽 위 시간 안내는 접어 둔다 (겹침 방지) */
-.sim.has-note .og-hud { display: none; }

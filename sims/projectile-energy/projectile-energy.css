@@ -12,7 +12,7 @@
 /* 실험 화면 왼쪽 위 화살표 범례 (28u) */
 .pe-legend {
   justify-self: end; max-width: calc(620 * var(--u));
-  display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--space-1) var(--space-4);
+  display: flex; flex-direction: column; align-items: flex-start; gap: calc(2 * var(--u));
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-md);
   background: var(--color-paper-scrim);
@@ -25,27 +25,22 @@
 .pe-legend__row { display: inline-flex; align-items: center; gap: var(--space-2); white-space: nowrap; }
 .pe-legend__row svg { width: calc(44 * var(--u)); height: calc(16 * var(--u)); flex: none; }
 
-/* 오른쪽 위 눈금 판 */
-.pe-scale {
-  justify-self: end;
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--color-paper-scrim);
-  box-shadow: var(--shadow-sm);
-}
-.pe-scale__text { font: var(--font-weight-bold) var(--fs-caption)/1.2 var(--font-num); color: var(--color-ink); white-space: nowrap; }
+/* '수업 정보' 팝오버 맨 위 '오늘 알아볼 것' (띠에는 한 줄만 두려고 옮김) */
+.pe-today { font: var(--font-weight-medium) var(--fs-meta)/1.5 var(--font-sans); color: var(--color-ink); word-break: keep-all; }
+.pe-today b { display: block; color: var(--color-ink-muted); font-size: var(--fs-caption); font-weight: var(--font-weight-bold); }
 
 /* 하단 띠: 계기판 1줄 4개 */
 .pe-meters {
   display: grid; height: 100%;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.7fr);
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(0, 1.7fr);
   gap: var(--space-1);
 }
 .pe-meters .meter { padding: calc(2 * var(--u)) var(--space-2); gap: 0; align-content: center; }
 .pe-meters .meter__label { white-space: nowrap; line-height: 1.15; }
 .pe-meters .meter__value { font-size: calc(36 * var(--u)); }
 .pe-meters .meter__unit { font-size: var(--fs-caption); }
-.pe-meter-note { margin-left: calc(6 * var(--u)); font-size: var(--fs-caption); font-weight: var(--font-weight-medium); color: var(--color-ink-muted); }
+.pe-meters .meter__label sub { font-size: 0.75em; vertical-align: -0.25em; line-height: 0; }
+.pe-meter-note { display: inline-block; vertical-align: middle; margin-left: calc(8 * var(--u)); font: var(--font-weight-medium) var(--fs-caption)/1.0 var(--font-sans); color: var(--color-ink-muted); width: min-content; white-space: normal; word-break: keep-all; }
 
 /* 하단 띠: 에너지 막대 */
 .pe-energy {
