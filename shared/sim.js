@@ -167,15 +167,16 @@
     if (text === null || text === undefined) return [];
     if (typeof text !== 'string') return [text];
     var out = [], re = /\{\{(.+?)\}\}/g, last = 0, m;
+    function pushText(t) { mathNodes(t).forEach(function (n) { out.push(n); }); }   // R4: $v_0$ → <i class="sym">v<sub>0</sub></i>
     while ((m = re.exec(text))) {
-      if (m.index > last) out.push(text.slice(last, m.index));
+      if (m.index > last) pushText(text.slice(last, m.index));
       termNodes(m[1]).forEach(function (n) { out.push(n); });
       last = re.lastIndex;
     }
-    if (last < text.length) out.push(text.slice(last));
+    if (last < text.length) pushText(text.slice(last));
     return out;
   }
-  function plain(text) { return typeof text === 'string' ? text.replace(/\{\{(.+?)\}\}/g, '$1') : ''; }
+  function plain(text) { return typeof text === 'string' ? plainMath(text.replace(/\{\{(.+?)\}\}/g, '$1')) : ''; }
   function stripNo(label) { return String(label || '').replace(/^\s*(?:[①-⑨]|\d+[.)]?)\s*/, ''); }
 
   /** R3: 단위 붙이기 한 곳 — 영문 단위는 한 칸 띄우고('20 m/s'), °·% 는 붙인다('45°', '100%') */
@@ -211,8 +212,365 @@
     if (!colorCache[name]) colorCache[name] = cssVar(name, document.body || document.documentElement) || '#000';
     return colorCache[name];
   };
-  /** n u → CSS px (지금 창 크기 기준, 설계 1920×1080) */
-  SK.px = function (n) { return n * Math.min(window.innerWidth / 1920, window.innerHeight / 1080); };
+  /** n u → CSS px (지금 창 크기 기준, 설계 1920 폭). R4: 무대(.slide)의 실제 폭/1920 — tokens.css 의 --u 와 같은 값 */
+  SK.px = function (n) {
+    var s = SK.el.slide || document.querySelector('.slide');
+    var w = s ? s.getBoundingClientRect().width : 0;
+    return n * ((w > 0 ? w : Math.min(window.innerWidth, window.innerHeight * 16 / 9)) / 1920);
+  };
+
+  /* ------------------------------------------------------------------
+     0-R4. 글꼴 · 캔버스 글자(수식 표기) · 아이콘
+     ------------------------------------------------------------------ */
+  var FONT_FALLBACK_SANS = '"S-Core Dream", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif';
+  var FONT_FALLBACK_MATH = '"Times New Roman", "Cambria", "Batang", "AppleMyungjo", serif';
+  var fontCache = { sans: '', math: '' };
+  /** --font-sans / --font-math 를 한 번만 읽어 둔다(매 프레임 getComputedStyle 금지) */
+  function fontFamily(kind) {
+    if (!fontCache[kind]) {
+      var v = cssVar(kind === 'sans' ? '--font-sans' : '--font-math');
+      if (!v) return kind === 'sans' ? FONT_FALLBACK_SANS : FONT_FALLBACK_MATH;   // CSS 가 아직 안 붙었으면 캐시하지 않음
+      fontCache[kind] = v;
+    }
+    return fontCache[kind];
+  }
+  var MATH_SCALE = 1.1;    // 이탤릭 세리프는 에스코어보다 작아 보여 1.1배 (HTML .sym 의 1.1em 과 같음)
+  var SCRIPT_SCALE = 0.7;  // 첨자 크기
+  var SUB_DY = 0.22, SUP_DY = -0.45;   // 첨자 기준선 이동 (글자 크기 비율)
+  /**
+   * R4: 캔버스 글꼴 문자열. weight 300|400|500 (500 넘으면 500), size = 논리 단위 px.
+   * kind: 'sans'(기본, 에스코어) | 'math'(세리프 정체) | 'math-italic'(세리프 이탤릭 — 물리 기호)
+   */
+  SK.font = function (weight, size, kind) {
+    var w = +weight || 400; if (w > 500) w = 500; if (w < 300) w = 300;
+    var s = (+size || 22) + 'px ';
+    if (kind === 'math') return '400 ' + s + fontFamily('math');
+    if (kind === 'math-italic') return 'italic 400 ' + s + fontFamily('math');
+    return w + ' ' + s + fontFamily('sans');
+  };
+
+  var LATIN_RE = /[A-Za-z]/, GREEK_LOWER_RE = /[α-ωϑϕϵϖ]/, HANGUL_RE = /[가-힣ㄱ-ㅎㅏ-ㅣ]/;
+  /** $…$ 안쪽 → 런 배열 [{t, kind:'mi'(이탤릭)|'mu'(정체)|'sans', script:0|'sub'|'sup'}] */
+  function mathRuns(src) {
+    var runs = [], i = 0;
+    function kindOf(c, multi) {
+      if (HANGUL_RE.test(c)) return 'sans';
+      if ((LATIN_RE.test(c) || GREEK_LOWER_RE.test(c)) && !multi) return 'mi';
+      return 'mu';
+    }
+    function push(t, kind, script) {
+      var last = runs[runs.length - 1];
+      if (last && last.kind === kind && last.script === script) last.t += t;
+      else runs.push({ t: t, kind: kind, script: script });
+    }
+    function group() {
+      if (src.charAt(i) === '{') {
+        var d = 1, j = i + 1;
+        while (j < src.length && d) { if (src.charAt(j) === '{') d++; else if (src.charAt(j) === '}') d--; j++; }
+        var g = src.slice(i + 1, d ? j : j - 1); i = j; return g;
+      }
+      var ch = src.charAt(i); i++; return ch;
+    }
+    while (i < src.length) {
+      var c = src.charAt(i);
+      if (c === '_' || c === '^') {
+        i++;
+        var g = group(), sc = c === '_' ? 'sub' : 'sup';
+        var multi = g.replace(/[^A-Za-zα-ω]/g, '').length > 1;    // 여러 글자 첨자(esc·max)는 정체
+        for (var k = 0; k < g.length; k++) { var ch = g.charAt(k) === "'" ? '′' : g.charAt(k); if (ch !== '{' && ch !== '}') push(ch, kindOf(ch, multi), sc); }
+        continue;
+      }
+      if (c === '{' || c === '}') { i++; continue; }
+      if (c === "'") { push('′', 'mu', 0); i++; continue; }
+      push(c, kindOf(c, false), 0); i++;
+    }
+    return runs;
+  }
+  /** 문장 전체 → 런 배열. $ 밖은 'sans'. $ 가 홀수 개면 마지막 $ 는 글자 그대로 */
+  function textRuns(str) {
+    var parts = normMath(String(str === null || str === undefined ? '' : str)).split('$');
+    if (parts.length % 2 === 0) { var tail = parts.pop(); parts[parts.length - 1] += '$' + tail; }
+    var runs = [];
+    for (var p = 0; p < parts.length; p++) {
+      if (p % 2 === 0) { if (parts[p]) runs.push({ t: parts[p], kind: 'sans', script: 0 }); }
+      else runs.push.apply(runs, mathRuns(parts[p]));
+    }
+    return runs;
+  }
+  function hasMath(str) { return typeof str === 'string' && /\$[^$]+\$/.test(str); }
+  /** R4 마무리: 유니코드 아래첨자(v₀ m₁ vₓ vᵧ v₁′)를 $v_0$ 표기로 — $…$ 밖에서만. 예전 문자열(카드 아래 줄·표 머리·용어 뜻)도 같은 모양으로 그려진다 */
+  var USUB = { '₀': '0', '₁': '1', '₂': '2', '₃': '3', '₄': '4', '₅': '5', '₆': '6', '₇': '7', '₈': '8', '₉': '9', 'ₓ': 'x', 'ᵧ': 'y' };
+  var USUB_RE = /([A-Za-zα-ω])([₀-₉ₓᵧ]+)(′?)/g;
+  function normMath(text) {
+    if (typeof text !== 'string' || !/[₀-₉ₓᵧ]/.test(text)) return text;
+    var parts = text.split('$');
+    for (var p = 0; p < parts.length; p += 2) {
+      parts[p] = parts[p].replace(USUB_RE, function (m, a, sub, pr) {
+        var t = ''; for (var k = 0; k < sub.length; k++) t += USUB[sub.charAt(k)];
+        return '$' + a + '_' + (t.length > 1 ? '{' + t + '}' : t) + (pr ? "'" : '') + '$';
+      });
+    }
+    return parts.join('$');
+  }
+  SK.normMath = normMath;
+  /** HTML: '$v_0$' 안쪽 → <i class="sym">v<sub>0</sub></i> */
+  function mathEl(src) {
+    var el = h('i', { class: 'sym' });
+    mathRuns(src).forEach(function (r) {
+      var up = r.kind !== 'mi';
+      if (r.script) el.appendChild(h(r.script, up ? { class: 'up' } : null, r.t));
+      else if (!up) el.appendChild(document.createTextNode(r.t));
+      else el.appendChild(h('span', { class: 'up' }, r.t));
+    });
+    return el;
+  }
+  /** 문자열의 $…$ 를 수식 요소로 바꾼 노드 배열 */
+  function mathNodes(text) {
+    text = normMath(text);
+    if (!hasMath(text)) return [text];
+    var parts = text.split('$'), out = [];
+    if (parts.length % 2 === 0) { var tail = parts.pop(); parts[parts.length - 1] += '$' + tail; }
+    for (var p = 0; p < parts.length; p++) {
+      if (p % 2 === 0) { if (parts[p]) out.push(parts[p]); }
+      else out.push(mathEl(parts[p]));
+    }
+    return out;
+  }
+  var SUB_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
+  /** 글자만 쓰는 곳(aria·title·표 머리)용: '$v_0$' → 'v₀', '$v_{esc}$' → 'v_esc' */
+  function plainMath(text) {
+    if (!hasMath(text)) return text;
+    return text.replace(/\$([^$]*)\$/g, function (m, g) {
+      return g.replace(/_\{?([0-9])\}?/g, function (mm, d) { return SUB_DIGITS.charAt(+d); })
+        .replace(/\^\{?2\}?/g, '²').replace(/\^\{?3\}?/g, '³').replace(/[{}]/g, '').replace(/'/g, '′');
+    });
+  }
+  /** 기호 칸(symbol)용: 'v_0'·'$v_0$'·'v₀' 모두 받아 HTML 노드 / 글자로 */
+  function symNodes(sym) { sym = normMath(sym); return hasMath(sym) ? mathNodes(sym) : /[_^]/.test(sym) ? [mathEl(sym)] : [sym]; }
+  function symPlain(sym) { return !sym ? '' : hasMath(sym) ? plainMath(sym) : /[_^]/.test(sym) ? plainMath('$' + sym + '$') : sym; }
+  /** 기호를 $…$ 마크업 문자열로 ('v_0'·'v₀'·'$v_0$' → '$v_0$', 'h' → 'h') — 표 머리처럼 문자열을 이어 붙인 뒤 rich() 로 그리는 곳용 */
+  function symMarkup(sym) { if (!sym) return ''; sym = normMath(String(sym)); return hasMath(sym) ? sym : /[_^]/.test(sym) ? '$' + sym + '$' : sym; }
+  SK.mathNodes = mathNodes;
+  SK.plainMath = plainMath;
+
+  /** 런마다 글꼴·폭·첨자 이동 계산 → {runs, w} */
+  function layoutRuns(ctx, str, o) {
+    var size = o.size || 22, weight = o.weight || 400;
+    var sansBase = o.font || SK.font(weight, size);
+    var runs = textRuns(str), x = 0, prev = null, out = [];
+    for (var i = 0; i < runs.length; i++) {
+      var r = runs[i], sz = r.script ? size * SCRIPT_SCALE : size, font;
+      if (r.kind === 'sans') font = r.script ? SK.font(weight, sz) : sansBase;
+      else font = SK.font(400, sz * MATH_SCALE, r.kind === 'mi' ? 'math-italic' : 'math');
+      // 이탤릭 다음 정체(첨자 아님) 사이 0.06em 보정, 정체 다음 이탤릭은 0.03em
+      if (prev && !r.script) {
+        if (prev.kind === 'mi' && r.kind !== 'mi') x += size * 0.06;
+        else if (prev.kind !== 'mi' && r.kind === 'mi' && !/\s$/.test(prev.t)) x += size * 0.03;
+      }
+      if (prev && prev.script && !r.script) x += size * 0.04;
+      ctx.font = font;
+      var w = ctx.measureText(r.t).width;
+      out.push({ t: r.t, font: font, x: x, dy: r.script === 'sub' ? size * SUB_DY : r.script === 'sup' ? size * SUP_DY : 0 });
+      x += w; prev = r;
+    }
+    return { runs: out, w: x };
+  }
+  var baseShiftCache = {};
+  /** textBaseline(middle·top·bottom…) 의 y → 알파벳 기준선 y 로 옮기는 양 (같은 글꼴·크기로 측정, 캐시) */
+  function baseShift(ctx, font, baseline) {
+    if (!baseline || baseline === 'alphabetic') return 0;
+    var key = font + '|' + baseline;
+    if (baseShiftCache[key] === undefined) {
+      ctx.save(); ctx.font = font;
+      ctx.textBaseline = baseline; var a = ctx.measureText('H').actualBoundingBoxAscent;
+      ctx.textBaseline = 'alphabetic'; var b = ctx.measureText('H').actualBoundingBoxAscent;
+      ctx.restore();
+      if (!isFinite(a) || !isFinite(b)) return 0;
+      baseShiftCache[key] = b - a;
+    }
+    return baseShiftCache[key];
+  }
+  function labelBox(ctx, x, y, w, hgt, r, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + hgt, r); ctx.arcTo(x + w, y + hgt, x, y + hgt, r);
+    ctx.arcTo(x, y + hgt, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); ctx.fill();
+  }
+  /**
+   * R4: 캔버스 글자 한 줄. str 의 $…$ 는 수식(기울임 세리프 + 아래첨자), 밖은 에스코어.
+   * o = {size:22, weight:400|500, color:'--color-ink'(없으면 지금 fillStyle), align:'left'|'center'|'right',
+   *      baseline:'middle'(기본)|'alphabetic'|'top'|'bottom', bg:false|true|'--색', pad:[6,2], radius:4,
+   *      halo:'--색'(글자 둘레 테), haloWidth:4, tabular:false, font:'원래 ctx.font 문자열(에스코어 부분 대체)'}
+   * 반환: 그린 폭(논리 단위). bg 를 그리면 view.lastBox = {x,y,w,h} 도 남긴다(SK.text.lastBox).
+   */
+  SK.text = function (ctx, str, x, y, o) {
+    o = o || {};
+    if (str === null || str === undefined || str === '') return 0;
+    str = String(str);
+    var size = o.size || 22, align = o.align || 'left', baseline = o.baseline || 'middle';
+    ctx.save();
+    var color = o.color ? SK.color(o.color) : ctx.fillStyle;
+    var lay;
+    if (o.tabular) lay = tabularLayout(ctx, str, o);
+    else lay = layoutRuns(ctx, str, o);
+    var x0 = align === 'center' ? x - lay.w / 2 : align === 'right' || align === 'end' ? x - lay.w : x;
+    var sansBase = o.font || SK.font(o.weight || 400, size);
+    var yA = y + baseShift(ctx, sansBase, baseline);
+    if (o.bg) {
+      var pad = o.pad || [6, 2], hgt = size * 1.2 + pad[1] * 2;
+      var cy = yA - size * 0.36;   // 글자 눈높이 가운데
+      var bx = { x: x0 - pad[0], y: cy - hgt / 2, w: lay.w + pad[0] * 2, h: hgt };
+      labelBox(ctx, bx.x, bx.y, bx.w, bx.h, o.radius !== undefined ? o.radius : 4, SK.color(o.bg === true ? '--color-paper-label' : o.bg) || 'rgba(251,248,239,0.85)');
+      SK.text.lastBox = bx;
+    }
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    for (var i = 0; i < lay.runs.length; i++) {
+      var r = lay.runs[i];
+      ctx.font = r.font;
+      if (o.halo) {
+        ctx.lineJoin = 'round'; ctx.lineWidth = o.haloWidth || 4; ctx.strokeStyle = SK.color(o.halo); ctx.setLineDash([]);
+        ctx.strokeText(r.t, x0 + r.x, yA + r.dy);
+      }
+      ctx.fillStyle = color;
+      ctx.fillText(r.t, x0 + r.x, yA + r.dy);
+    }
+    ctx.restore();
+    return lay.w;
+  };
+  /** 숫자 고정 폭: '0' 폭 칸에 숫자 한 글자씩 (대체 글꼴일 때도 자릿수가 흔들리지 않게) */
+  function tabularLayout(ctx, str, o) {
+    var size = o.size || 22, font = o.font || SK.font(o.weight || 400, size);
+    ctx.font = font;
+    var cell = ctx.measureText('0').width, x = 0, runs = [];
+    for (var i = 0; i < str.length; i++) {
+      var c = str.charAt(i), w = ctx.measureText(c).width;
+      if (/[0-9]/.test(c)) { runs.push({ t: c, font: font, x: x + (cell - w) / 2, dy: 0 }); x += cell; }
+      else { runs.push({ t: c, font: font, x: x, dy: 0 }); x += w; }
+    }
+    return { runs: runs, w: x };
+  }
+  /** R4: 한 줄 크기 {w, h} (논리 단위). o 는 SK.text 와 같음 */
+  SK.measure = function (ctx, str, o) {
+    o = o || {};
+    ctx.save();
+    var lay = o.tabular ? tabularLayout(ctx, String(str), o) : layoutRuns(ctx, String(str === null || str === undefined ? '' : str), o);
+    ctx.restore();
+    return { w: lay.w, h: (o.size || 22) * 1.2 };
+  };
+  /** R4: 기호 하나 — SK.sym(ctx, 'v_0', x, y, o) = SK.text(ctx, '$v_0$', x, y, o) */
+  SK.sym = function (ctx, sym, x, y, o) { return SK.text(ctx, '$' + sym + '$', x, y, o); };
+  /** R4: 숫자 — 기본은 SK.text 와 같고, o.tabular:true 면 '0' 폭 칸 고정 */
+  SK.num = function (ctx, str, x, y, o) { return SK.text(ctx, typeof str === 'number' ? fmt(str, (o && o.decimals) || 0) : str, x, y, o); };
+
+  /** R4: 글꼴이 준비되면 풀리는 Promise (에스코어 300/400/500 + 수식 이탤릭). 1.5초 안에 안 되면 그냥 풀림 */
+  SK.fontsReady = (function () {
+    var fonts = document.fonts;
+    if (!fonts || !fonts.load) return Promise.resolve();
+    var list = ['300', '400', '500'].map(function (w) { return fonts.load(w + ' 24px "S-Core Dream"', '가A1'); });
+    list.push(fonts.load('italic 400 24px ' + FONT_FALLBACK_MATH, 'vλ'));
+    var all = Promise.all(list).then(function () {}, function () {});
+    var late = new Promise(function (res) { setTimeout(res, 1500); });
+    return Promise.race([all, late]);
+  })();
+  var redrawHooks = [];
+  /** R4: 실험 화면·그래프를 한 번 다시 그린다(글꼴이 늦게 도착했을 때 등) */
+  SK.redraw = function () {
+    baseShiftCache = {};
+    dirty = true;
+    for (var i = 0; i < redrawHooks.length; i++) { try { redrawHooks[i](); } catch (e) { console.error(e); } }
+  };
+  if (document.fonts && 'onloadingdone' in document.fonts) {
+    document.fonts.addEventListener('loadingdone', function () { if (initialized) SK.redraw(); });
+  }
+
+  /* --- 아이콘 (shared/icons.js = window.SimIcons) --- */
+  // icons.js 를 안 불러온 예전 페이지: sim.js 바로 뒤에 끼워 넣는다(파서가 읽는 중일 때만, file:// 동작)
+  (function ensureIcons() {
+    if (global.SimIcons) return;
+    var me = document.currentScript, src = me && me.src ? me.src.replace(/sim\.js(\?.*)?$/, 'icons.js') : '';
+    if (!src || src === me.src) return;
+    if (document.readyState === 'loading' && !me.async && !me.defer) document.write('<script src="' + src + '"><\/script>');
+    else { var s = document.createElement('script'); s.src = src; document.head.appendChild(s); }
+  })();
+  /**
+   * R4: 아이콘 SVG 요소. name = play pause replay reset step-back step-fwd chev-right chev-down chev-up
+   *   arrow-left arrow-down arrow-up arrow-ne close check bolt help expand more warn (shared/icons.js)
+   * o = {size:'sm'|'md'|'lg', cls, label} — label 이 있으면 읽어 주는 이름, 없으면 aria-hidden. 아이콘이 없으면 null
+   */
+  SK.icon = function (name, o) { return global.SimIcons ? global.SimIcons.el(name, o) : null; };
+  SK.iconHTML = function (name, o) { return global.SimIcons ? global.SimIcons.html(name, o) : ''; };
+  /** 캔버스용 path 글자열(24×24) — new Path2D(SK.iconPath('help')). SK.drawIcon 이 그려 준다 */
+  SK.iconPath = function (name) { return global.SimIcons ? global.SimIcons.path(name) : ''; };
+  /** R4: 캔버스에 아이콘 (x,y = 가운데, size = 논리 단위 한 변, color 토큰) */
+  SK.drawIcon = function (ctx, name, x, y, size, o) {
+    o = o || {};
+    var d = SK.iconPath(name); if (!d || typeof Path2D === 'undefined') return;
+    var s = (size || 24) / 24, col = SK.color(o.color || '--color-ink');
+    ctx.save();
+    ctx.translate(x - 12 * s, y - 12 * s); ctx.scale(s, s);
+    var p = new Path2D(d);
+    ctx.lineWidth = o.width || 2; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.setLineDash([]);
+    ctx.strokeStyle = col; ctx.stroke(p);
+    if (global.SimIcons.FILLED[name]) { ctx.fillStyle = col; ctx.fill(p); }
+    ctx.restore();
+  };
+  /** 아이콘 또는 (없으면) 원래 글자 */
+  function ico(name, glyph, o) { return SK.icon(name, o) || (glyph || ''); }
+  var ICONIFY_SKIP = { SVG: 1, svg: 1, KBD: 1, INPUT: 1, TEXTAREA: 1, SCRIPT: 1, STYLE: 1, CODE: 1 };
+  function iconSkip(n, root) {
+    for (var p = n.parentNode; p && p !== root; p = p.parentNode) {
+      if (ICONIFY_SKIP[p.nodeName] || (p.classList && (p.classList.contains('btn__key') || p.classList.contains('sym') || p.classList.contains('no-ico')))) return true;
+    }
+    return false;
+  }
+  function iconAt(node, idx, name, where) {
+    var t = node.nodeValue, after = node.splitText(idx);
+    after.nodeValue = after.nodeValue.slice(1);
+    var svg = SK.icon(name, { cls: 'ico--' + where });
+    node.parentNode.insertBefore(svg, after);
+    if (!t.slice(0, idx)) node.parentNode.removeChild(node);
+    if (!after.nodeValue) after.parentNode.removeChild(after);
+  }
+  /**
+   * R4: 요소 안 텍스트의 맨 앞/맨 뒤 글자 기호(▶ ⏸ ↻ ↺ ◀ ▸ ▾ ▴ ← ↓ ↑ ↗ ✕ ✓ ⚡ ? ⤢ ⋯)만 SVG 아이콘으로.
+   * 가운데('10 → 20', '속도 ×2')는 그대로. '?' 는 '? 도움말'·'측정 방법 ?' 처럼 띄어 쓴 것만.
+   * o.all:true 면 문장 가운데 기호도(→ × ? 제외) — 띠 문장 '아래 ▶ 실행을 눌러요' 용. 반환: el
+   */
+  SK.iconify = function (el, o) {
+    if (!el || !global.SimIcons) return el;
+    var G = global.SimIcons.GLYPHS, all = !!(o && o.all), nodes = [];
+    if (el.nodeType === 3) { nodes.push(el); el = el.parentNode; }
+    else {
+      var w = document.createTreeWalker(el, 4, null), n;
+      while ((n = w.nextNode())) if (!iconSkip(n, el)) nodes.push(n);
+    }
+    nodes.forEach(function (node) {
+      var t = node.nodeValue; if (!t || !node.parentNode) return;
+      // 맨 뒤
+      var m = /(^|\s)(\S)\s*$/.exec(t);
+      if (m && G[m[2]] && (m[2] !== '?' || m[1] || t.trim() === '?')) iconAt(node, m.index + m[1].length, G[m[2]], 'trail');
+      if (!node.parentNode) return;
+      t = node.nodeValue;
+      var a = /^\s*(\S)(\s|$)?/.exec(t);
+      if (a && G[a[1]] && (a[1] !== '?' || a[2] !== undefined)) { iconAt(node, t.indexOf(a[1]), G[a[1]], 'lead'); if (!node.parentNode) return; }
+      if (all && node.parentNode) {
+        t = node.nodeValue;
+        for (var i = t.length - 1; i >= 0; i--) { var c = t.charAt(i); if (c !== '?' && G[c]) iconAt(node, i, G[c], 'mid'); if (!node.parentNode) break; }
+      }
+    });
+    return el;
+  };
+  /** 글자 바꾸기 + 아이콘 (같은 글이면 건드리지 않음 — textContent 비교 대신) */
+  function setText(el, text, o) {
+    if (!el) return;
+    text = text === null || text === undefined ? '' : String(text);
+    if (el._raw === text && el.firstChild) return;
+    el._raw = text;
+    el.textContent = '';
+    mathNodes(text).forEach(function (n) { el.appendChild(typeof n === 'string' ? document.createTextNode(n) : n); });
+    SK.iconify(el, o);
+  }
+  SK.setText = setText;
 
   /* ------------------------------------------------------------------
      1. 상태
@@ -285,7 +643,9 @@
     colorCache = {};
     if (/[?&]teacher=1\b/.test(location.search)) setTeacher(true, true);
 
-    SK.view = SK.canvas(SK.el.stage, { w: 1250, h: cfg.stageH || 700, fit: cfg.stageFit !== false, className: 'stage-canvas' });
+    SK.view = SK.canvas(SK.el.stage, { w: 1250, h: cfg.stageH || 700, fit: cfg.stageFit !== false, grow: cfg.stageGrow !== false, className: 'stage-canvas' });
+    // R4: cfg.onResize(view) — 무대 크기가 바뀔 때마다(태블릿 세로 여유 view.extra) view.offsetY 를 정한다
+    if (cfg.onResize) { SK.view.onResize = cfg.onResize; SK.view.resize(); }
     installKeys();
     installCursorHide();
     installNoZoom();
@@ -298,7 +658,11 @@
       doReset(false);
       tidyPanel();
       renderRecords();
-      requestAnimationFrame(frame);
+      // R4: 캔버스 글자가 대체 글꼴로 한 번 그려졌다 바뀌지 않게 — 글꼴 준비 뒤 첫 프레임 (최대 1.5초 기다림)
+      var started = false;
+      function start() { if (started) return; started = true; SK.redraw(); requestAnimationFrame(frame); }
+      SK.fontsReady.then(start, start);
+      setTimeout(start, 1600);
     }, 0);
     return SK;
   };
@@ -314,9 +678,11 @@
     var a = { class: 'btn ' + (cls || ''), type: 'button' };
     if (extra) for (var k in extra) a[k] = extra[k];
     var b = h('button', a, label);
+    SK.iconify(b);   // R4: 맨 앞/뒤 글자 기호(▶ ▸ ▾ ✕ ? ⤢ …) → SVG 아이콘
     if (onClick) b.addEventListener('click', function (e) { blurOnMouse(e); onClick(e); });
     return b;
   }
+  SK.btn = btn;
   function keyHint(k) { return h('span', { class: 'btn__key', text: k }); }
 
   function buildSkeleton() {
@@ -345,7 +711,7 @@
     var helpBtn = btn('? 도움말', 'btn--outline', function () { SK.toggleHelp(); });
     var fsBtn = btn('⤢ 전체 화면', 'btn--outline', function () { SK.toggleFullscreen(); });
     var top = h('header', { class: 'sim-top' }, [
-      h('a', { class: 'sim-top__hub', href: cfg.hubHref, title: '처음 화면(실험 고르기)으로' }, '← 허브'),
+      h('a', { class: 'sim-top__hub', href: cfg.hubHref, title: '처음 화면(실험 고르기)으로' }, [ico('arrow-left', '←'), '허브']),
       h('h1', { class: 'sim-title', text: cfg.title || '제목' }),
       teacherInfo,
       h('span', { class: 'sim-top__spacer' }),
@@ -393,10 +759,10 @@
     var legend = h('div', { class: 'panel-legend' }, [
       /* R3: ⚡·↻ 둘 다 같은 칩, 가운데 '·' 대신 간격 */
       h('span', { class: 'panel-legend__words' }, [
-        h('span', { class: 'apply-ico apply-ico--live', 'aria-hidden': 'true', text: '⚡' }), h('span', { text: '값을 바꾸면 바로 반영' })
+        h('span', { class: 'apply-ico apply-ico--live', 'aria-hidden': 'true' }, ico('bolt', '⚡')), h('span', { text: '값을 바꾸면 바로 반영' })
       ]),
       h('span', { class: 'panel-legend__words' }, [
-        h('span', { class: 'apply-ico apply-ico--restart', 'aria-hidden': 'true', text: '↻' }), h('span', { text: '바꾸면 처음부터 다시 실행' })
+        h('span', { class: 'apply-ico apply-ico--restart', 'aria-hidden': 'true' }, ico('replay', '↻')), h('span', { text: '바꾸면 처음부터 다시 실행' })
       ]),
       toRecBtn
     ]);
@@ -422,7 +788,7 @@
     var foot = h('div', { class: 'panel-foot' });
     scroll.appendChild(foot);
     /* R2(A5): '아래에 더 있어요 ↓' = 누르면 다음 묶음 머리까지 */
-    var more = h('button', { class: 'panel-more', type: 'button', hidden: true }, '아래에 더 있어요 ↓');
+    var more = SK.iconify(h('button', { class: 'panel-more', type: 'button', hidden: true }, '아래에 더 있어요 ↓'));
     more.addEventListener('click', function (e) { blurOnMouse(e); scrollToNextSection(); });
     scroll.addEventListener('scroll', checkMore, { passive: true });
     var panelBox = h('aside', { class: 'sim-panel', 'aria-label': '조절 패널' }, [panelHead, noteEl.root, scroll, more]);
@@ -434,7 +800,7 @@
     var recMoreCols = btn('열 더 보기 ▾', 'btn--outline btn--sm', function () { showAllCols = !showAllCols; renderRecords(); });
     recMoreCols.hidden = true;
     var recScroll = h('div', { class: 'rec-box__scroll scroll-shadow' });
-    var recSlide = h('p', { class: 'rec-slide', hidden: true, text: '← 옆으로 밀어 보기' });
+    var recSlide = SK.iconify(h('p', { class: 'rec-slide', hidden: true, text: '← 옆으로 밀어 보기' }));
     recScroll.addEventListener('scroll', function () { checkRecScroll(); }, { passive: true });
     var recBox = h('div', { class: 'rec-box' }, [h('div', { class: 'rec-box__head' }, [recTitle, recMoreCols, h('span', { class: 'rec-box__end' })]), recChanged, recScroll, recSlide]);
     var recExtra = h('div', { class: 'rec-extra' });
@@ -465,8 +831,8 @@
     var presetsBox = h('div', { class: 'sim-bar__presets', role: 'group', 'aria-label': '실험 카드' });
     var btnRun = h('button', { class: 'btn btn--primary btn--run', type: 'button' });
     btnRun.addEventListener('click', function (e) { blurOnMouse(e); SK.toggle(); });
-    var btnBack = btn(['◀ 한 장면 뒤로', keyHint(',')], '', function () { SK.stepFrame(-1); }, { title: '실행 장면을 되감아 봐요' });
-    var btnFwd = btn(['한 장면 앞으로 ▶', keyHint('.')], '', function () { SK.stepFrame(1); }, { title: '실행 장면을 조금씩 넘겨 봐요' });
+    var btnBack = btn([ico('step-back', '◀', { cls: 'ico--lead' }), '한 장면 뒤로', keyHint(',')], '', function () { SK.stepFrame(-1); }, { title: '실행 장면을 되감아 봐요' });
+    var btnFwd = btn(['한 장면 앞으로', ico('step-fwd', '▶', { cls: 'ico--trail' }), keyHint('.')], '', function () { SK.stepFrame(1); }, { title: '실행 장면을 조금씩 넘겨 봐요' });
     var speedMenu = h('div', { class: 'pop-menu', hidden: true, role: 'menu', 'aria-label': '재생 속도' });
     SPEEDS.forEach(function (s) {
       var it = h('button', { type: 'button', role: 'menuitemradio', 'data-s': s }, '×' + s + ' ' + SPEED_WORDS[s]);
@@ -627,7 +993,8 @@
       var it = items[k], num = it.querySelector('.task-step__num');
       if (k === i) it.setAttribute('aria-current', 'step'); else it.removeAttribute('aria-current');
       it.classList.toggle('is-done', k < i);
-      num.textContent = k < i ? '✓' : String(k + 1);
+      if (k < i) { if (!num.querySelector('.ico')) { num.textContent = ''; num.appendChild(SK.icon('check') || document.createTextNode('✓')); } }   // R4: ✓ → 아이콘
+      else num.textContent = String(k + 1);
       it.title = k < i ? STEPS[k] + ' — 완료' : (k + 1) + '단계 ' + withJosa(STEPS[k], '으로/로') + ' 가기';
     }
     refreshThinks();
@@ -657,8 +1024,8 @@
     SK.el.thinkBoard.hidden = mode !== 'think';
     SK.el.recChipBtn.textContent = mode === 'records' ? '표 닫기' : '표 보기';
     var tb = SK.el.toRecBtn;
-    if (SK.stepIndex === 3 && visibleThinks()) { tb.hidden = false; tb.textContent = '정리 질문 보기 ▸'; }
-    else if (SK.stepIndex === 2 && cfg.capture) { tb.hidden = false; tb.textContent = '기록 표 보기 ▸'; }
+    if (SK.stepIndex === 3 && visibleThinks()) { tb.hidden = false; setText(tb, '정리 질문 보기 ▸'); }
+    else if (SK.stepIndex === 2 && cfg.capture) { tb.hidden = false; setText(tb, '기록 표 보기 ▸'); }
     else tb.hidden = true;
     if (mode === 'records') renderRecords();
     if (mode === 'panel') setTimeout(checkMore, 0);
@@ -724,7 +1091,7 @@
     var alert = now < taskAlertUntil;
     if (alert) text = '먼저 예측하기 버튼을 누르거나 예측 없이 실행해요';
     else if (now < bandMsg.until && bandMsg.text) text = bandMsg.text;
-    if (SK.el.taskText.textContent !== text) SK.el.taskText.textContent = text;
+    setText(SK.el.taskText, text, { all: true });   // R4: 문장 속 ▶·↻ 도 아이콘, $v_0$ 수식
     SK.el.taskText.classList.toggle('is-alert', alert);
     SK.el.taskText.classList.toggle('is-msg', !alert && now < bandMsg.until);
     var todayEl = SK.el.top.querySelector('.sim-today');   // 시뮬레이터가 이 글을 바꾸면(모드별 문장) 그대로 따라감
@@ -733,7 +1100,7 @@
     var showSub = i === 0 && !todaySeen && !!today;
     SK.el.taskSub.hidden = !showSub;
     SK.el.taskWords.classList.toggle('has-sub', showSub);
-    if (showSub && SK.el.taskSub.textContent !== '오늘 알아볼 것 — ' + today) SK.el.taskSub.textContent = '오늘 알아볼 것 — ' + today;
+    if (showSub) setText(SK.el.taskSub, '오늘 알아볼 것 — ' + today);
     var act = t.action === null ? null : (t.action || defaultAction(i));
     // 시뮬레이터가 준 행동이 '실행'이면(▶·실행하기) 띠에는 띄우지 않는다 — 실행은 하단 하나 (R2 원칙 7)
     if (act && /^(▶|⏸|↻)|실행하기|이어서 실행|다시 실행/.test(act.label || '')) act = null;
@@ -742,14 +1109,14 @@
     var b = SK.el.taskAct;
     if (act) {
       b.hidden = false;
-      if (b.textContent !== act.label) b.textContent = act.label;
+      setText(b, act.label);
       b._fn = act.onClick;
     } else { b.hidden = true; b._fn = null; }
     // '다음 단계 ▸' 대신 단계 이름이 든 '○○하러 가기 ▸' 하나만
     var nx = SK.el.taskNext;
     var actGoesNext = act && (act.next || /하러 가기/.test(act.label || ''));
     nx.hidden = i >= STEPS.length - 1 || !!actGoesNext;
-    if (!nx.hidden && nx.textContent !== NEXT_WORDS[i]) nx.textContent = NEXT_WORDS[i];
+    if (!nx.hidden) setText(nx, NEXT_WORDS[i]);
   }
   /** R2(A1): 띠 문장 자리에 잠깐 보여 줄 말 (긴 토스트·finish(msg) 가 여기로 온다) */
   SK.say = function (text, ms) {
@@ -763,8 +1130,8 @@
      ------------------------------------------------------------------ */
   function applyIcon(apply) {
     return apply === 'live'
-      ? h('span', { class: 'apply-ico apply-ico--live', title: '값을 바꾸면 바로 반영돼요', 'aria-label': '값을 바꾸면 바로 반영' }, '⚡')
-      : h('span', { class: 'apply-ico apply-ico--restart', title: '바꾸면 처음부터 다시 실행돼요 (실행 중이면 다음 실행부터)', 'aria-label': '바꾸면 처음부터 다시 실행' }, '↻');
+      ? h('span', { class: 'apply-ico apply-ico--live', title: '값을 바꾸면 바로 반영돼요', 'aria-label': '값을 바꾸면 바로 반영' }, ico('bolt', '⚡'))
+      : h('span', { class: 'apply-ico apply-ico--restart', title: '바꾸면 처음부터 다시 실행돼요 (실행 중이면 다음 실행부터)', 'aria-label': '바꾸면 처음부터 다시 실행' }, ico('replay', '↻'));
   }
   function registerDef(def, kind, where) {
     if (!def.key) throw new Error('SimKit: key 가 없습니다.');
@@ -845,7 +1212,7 @@
     var prec = def.precision !== undefined ? def.precision : dec + 1;
     var value = def.value !== undefined ? def.value : min;
     var unitTxt = def.unit || '';
-    var aria = plain(def.label) + (def.symbol ? ' ' + def.symbol : '');
+    var aria = plain(def.label) + (def.symbol ? ' ' + symPlain(def.symbol) : '');
 
     var range = h('input', { class: 'range', type: 'range', min: min, max: max, step: step, 'aria-label': aria + (unitTxt ? ' (' + unitTxt + ')' : '') });
     var input = h('input', { class: 'var__input num', type: 'text', inputmode: 'decimal', autocomplete: 'off', spellcheck: 'false', 'aria-label': aria + ' 숫자 입력' });
@@ -871,7 +1238,7 @@
     var plus = h('button', { class: 'btn btn--icon var__step', type: 'button', 'aria-label': plain(def.label) + ' ' + stepNum + ' 늘리기', title: '한 번에 ' + stepNum + ' 늘려요' }, '+');
     var track = h('div', { class: 'var__track' + (ticks ? ' has-ticks' : '') }, [range, bubble, ticks]);
     var labelKids = rich(def.label);
-    if (def.symbol) labelKids.push(h('span', { class: 'var__sym', text: def.symbol }));
+    if (def.symbol) labelKids.push(h('span', { class: 'var__sym' }, symNodes(def.symbol)));   // R4: 'v_0'·'$v_0$' 도 받음
     var stepInfo = h('span', { class: 'var__stepinfo', text: '버튼 한 번에 ' + stepNum });
     var el = h('div', { class: 'var' + (def.teacher ? ' teacher-only' : ''), 'data-key': def.key }, [
       h('div', { class: 'var__head' }, [
@@ -888,7 +1255,7 @@
     def.initial = value;
 
     function showRange() { rangeTxt.textContent = withUnit(fmtFlex(min, 0, prec) + '~' + fmtFlex(max, 0, prec), unitTxt); }
-    function showErr(text) { err.textContent = text; err.hidden = false; input.classList.add('is-invalid'); setTimeout(checkMore, 0); }
+    function showErr(text) { err.textContent = text; var wi = SK.icon('warn', { cls: 'ico--lead' }); if (wi) err.insertBefore(wi, err.firstChild); err.hidden = false; input.classList.add('is-invalid'); setTimeout(checkMore, 0); }
     function clearErr() { if (!err.hidden) { err.hidden = true; input.classList.remove('is-invalid'); } }
     function show(v) {
       var s = fmtFlex(v, dec, prec);
@@ -1023,7 +1390,7 @@
     var el = h('div', { class: 'ctl' + (def.teacher ? ' teacher-only' : ''), 'data-key': def.key }, b);
     if (def.hint) el.appendChild(h('p', { class: 'var__hint' }, rich(def.hint)));
     resolveWhere(where).appendChild(el);
-    function show(v) { b.setAttribute('aria-pressed', String(v)); stateEl.textContent = v ? (def.onText || '켬') : (def.offText || '끔'); }
+    function show(v) { b.setAttribute('aria-pressed', String(v)); setText(stateEl, v ? (def.onText || '켬') : (def.offText || '끔')); }   // R4: onText 의 ✓ 도 아이콘
     function set(v, opts) { value = !!v; show(value); valueChanged(def.key, value, opts); }
     var api = {
       key: def.key, el: el, def: def, get: function () { return value; }, set: set,
@@ -1069,17 +1436,17 @@
       var tip = h('span', { class: 'preset-tip', role: 'tooltip' }, [
         h('b', null, [circ(i + 1), ' ' + p.name]),
         p.tag ? h('span', { class: 'preset-tip__tag', text: SK.tagText(p.tag) }) : null,
-        p.change ? h('span', null, [h('b', { text: '바꾸는 값: ' }), p.change]) : null,
-        p.fixed ? h('span', null, [h('b', { text: '그대로 두는 값: ' }), p.fixed]) : null,
+        p.change ? h('span', null, [h('b', { text: '바꾸는 값: ' })].concat(rich(p.change))) : null,   // R4: $m_1$·m₁ 수식 표기
+        p.fixed ? h('span', null, [h('b', { text: '그대로 두는 값: ' })].concat(rich(p.fixed))) : null,
         p.predict && cfg.autoPredict ? h('span', { text: '누르면 값이 바로 바뀌고 예측 질문이 나와요.' }) : null
       ]);
-      var b = h('button', { class: 'preset-card', type: 'button', 'aria-pressed': 'false', 'aria-label': (i + 1) + '번 실험 카드: ' + p.name + (ch ? ' — ' + ch : '') + (p.tag ? ' (' + SK.tagText(p.tag) + ')' : '') }, [
+      var b = h('button', { class: 'preset-card', type: 'button', 'aria-pressed': 'false', 'aria-label': (i + 1) + '번 실험 카드: ' + p.name + (ch ? ' — ' + plain(ch) : '') + (p.tag ? ' (' + SK.tagText(p.tag) + ')' : '') }, [
         h('span', { class: 'preset-card__name' }, [h('span', { class: 'preset-card__key' }, circ(i + 1)), h('span', { class: 'preset-card__title', text: p.name })]),
         h('span', { class: 'preset-card__changes' }, [
           p.tag ? h('span', { class: 'preset-card__dot', 'data-tag': p.tag, title: SK.tagText(p.tag), 'aria-hidden': 'true' }) : null,
-          h('span', { class: 'preset-card__ch', text: ch })
+          h('span', { class: 'preset-card__ch' }, rich(ch))   // R4: 카드 아래 줄 'm₁ 3 · v₂ −2' 도 이탤릭 세리프+아래첨자
         ]),
-        h('span', { class: 'preset-card__picked', 'aria-hidden': 'true', text: '✓ 고름' }),
+        SK.iconify(h('span', { class: 'preset-card__picked', 'aria-hidden': 'true', text: '✓ 고름' })),
         tip
       ]);
       b.addEventListener('click', function (e) { blurOnMouse(e); SK.applyPreset(i); });
@@ -1095,7 +1462,7 @@
     if (i >= 0) {
       // R2 원칙 6: 실험 화면에는 모서리 칩 한 줄만 ('카드 ① 이름'), 자세한 값은 말풍선
       var p = presets[i];
-      presetInfoEl = h('div', { class: 'preset-info', title: [p.change ? '바꾸는 값: ' + p.change : '', p.fixed ? '그대로: ' + p.fixed : ''].filter(Boolean).join('\n') || null }, [
+      presetInfoEl = h('div', { class: 'preset-info', title: [p.change ? '바꾸는 값: ' + plain(p.change) : '', p.fixed ? '그대로: ' + plain(p.fixed) : ''].filter(Boolean).join('\n') || null }, [
         h('b', null, ['카드 ', circ(i + 1)]), h('span', { class: 'preset-info__name', text: p.name })
       ]);
       SK.el.cornerTL.appendChild(presetInfoEl);
@@ -1124,7 +1491,7 @@
     var parts = [], vals = p.values || {};
     for (var k in vals) {
       if (!Object.prototype.hasOwnProperty.call(vals, k) || !SK.defs[k] || !SK.defs[k].record) continue;
-      var d = SK.defs[k], name = d.symbol || plain(d.label);
+      var d = SK.defs[k], name = symPlain(d.symbol) || plain(d.label);
       parts.push(name + ' ' + withUnit(SK.valueText(k, vals[k]), d.unit));
     }
     var s = head + ': ' + parts.slice(0, 2).join(' · ');
@@ -1212,13 +1579,15 @@
     var b = SK.el.btnRun; b.innerHTML = '';
     // R2(B1): 실행 전 '▶ 실행'(주 색) · 실행 중 '⏸ 멈추기' · 멈춤 '▶ 이어서 실행' · 끝난 뒤 '↻ 다시 실행'(윤곽선)
     var label = SK.running ? '⏸ 멈추기' : (SK.finished ? '↻ 다시 실행' : (SK.started ? '▶ 이어서 실행' : '▶ 실행'));
-    b.appendChild(document.createTextNode(label));
+    var tn = document.createTextNode(label);
+    b.appendChild(tn);
     b.appendChild(keyHint('Space'));
+    SK.iconify(tn);   // R4: ▶ ⏸ ↻ → 아이콘
     b.setAttribute('aria-label', label.replace(/^[^가-힣]+/, ''));
     b.classList.toggle('btn--primary', !SK.finished);
     b.classList.toggle('btn--secondary', SK.finished);
     b.classList.toggle('is-long', SK.started && !SK.finished && !SK.running);
-    SK.el.btnSpeed.textContent = '속도 ×' + SK.speed + ' ▾';
+    setText(SK.el.btnSpeed, '속도 ×' + SK.speed + ' ▾');
     var items = SK.el.speedMenu.querySelectorAll('button');
     for (var i = 0; i < items.length; i++) items[i].setAttribute('aria-checked', String(+items[i].getAttribute('data-s') === SK.speed));
     var canBack = !!(cfg.save && cfg.load);
@@ -1308,8 +1677,8 @@
     if (el._sig !== sig) {
       el._sig = sig; el.innerHTML = '';
       parts.forEach(function (p) { if (p !== '' && p !== null && p !== undefined) el.appendChild(h('span', { class: 'chip' }, rich(String(p)))); });
-      el.appendChild(h('span', { class: 'chip num is-time ' + run[1], text: run[0] + (SK.speed !== 1 ? ' · 속도 ×' + SK.speed : '') }));
-      if (SK.hasPending()) el.appendChild(h('span', { class: 'chip is-pend', text: '↻ 바꾼 값은 다음 실행부터' }));
+      el.appendChild(SK.iconify(h('span', { class: 'chip num is-time ' + run[1], text: run[0] + (SK.speed !== 1 ? ' · 속도 ×' + SK.speed : '') })));
+      if (SK.hasPending()) el.appendChild(SK.iconify(h('span', { class: 'chip is-pend', text: '↻ 바꾼 값은 다음 실행부터' })));
     }
     updateTask();
   };
@@ -1453,7 +1822,7 @@
   }
   function colParts(c) {
     var d = SK.defs[c.key] || {};
-    var lab = c.label || (d.label ? plain(d.label) + (d.symbol ? ' ' + d.symbol : '') : c.key);
+    var lab = c.label || (d.label ? plain(d.label) + (d.symbol ? ' ' + symMarkup(d.symbol) : '') : c.key);   // R4: 기호는 $v_0$ 표기로 (rich 로 그림)
     var unit = c.unit !== undefined ? c.unit : (d.unit || '');
     return { name: lab, unit: unit };
   }
@@ -1477,7 +1846,7 @@
     // 머리글 2줄: 이름 / 단위
     var headCells = [h('th', { scope: 'col' }, [h('span', { class: 'th-name', text: '기록' })])].concat(cols.map(function (c) {
       var p = colParts(c);
-      return h('th', { scope: 'col', class: c.from === 'value' ? 'is-result' : null }, [h('span', { class: 'th-name', text: p.name }), h('span', { class: 'th-unit', text: p.unit ? '(' + p.unit + ')' : ' ' })]);
+      return h('th', { scope: 'col', class: c.from === 'value' ? 'is-result' : null }, [h('span', { class: 'th-name' }, rich(p.name)), h('span', { class: 'th-unit', text: p.unit ? '(' + p.unit + ')' : ' ' })]);
     }));
     var head = h('tr', null, headCells);
     function cells(src, prev) {
@@ -1507,7 +1876,7 @@
     var A = SK.records[n - 2], B = SK.records[n - 1], out = [];
     recordKeys().forEach(function (k) {
       if (A.params[k] === B.params[k]) return;
-      var d = SK.defs[k] || {}, name = d.symbol || plain(d.label) || k;
+      var d = SK.defs[k] || {}, name = symPlain(d.symbol) || plain(d.label) || k;
       out.push(name + ' ' + withUnit(SK.valueText(k, A.params[k]) + ' → ' + SK.valueText(k, B.params[k]), d.unit));
     });
     return out.length ? '바꾼 값(기록 ' + A.n + ' → ' + B.n + '): ' + out.join(' · ') : '기록 ' + A.n + '과 ' + B.n + '은 값이 같아요';
@@ -1548,7 +1917,7 @@
         var ta = cellText(c, A, null), tb = cellText(c, B, null);
         diff = ta === tb ? h('span', { class: 'vs-same', text: '같음' }) : h('span', { class: 'vs-up', text: '다름' });
       }
-      return h('tr', null, [h('td', { text: colLabel(c) }), h('td', { text: cellText(c, A, null) }), h('td', { text: cellText(c, B, null) }), h('td', null, diff)]);
+      return h('tr', null, [h('td', null, rich(colLabel(c))), h('td', { text: cellText(c, A, null) }), h('td', { text: cellText(c, B, null) }), h('td', null, diff)]);
     });
     function headOf(nm, r) {
       var st = SK.recStyle(r.slot);
@@ -1570,7 +1939,7 @@
       var canRec = SK.canRecord() && SK.finished;
       // R3: 빈 상태는 안내 한 상자만 (표 상자·'저장한 실험 0/5' 소제목은 숨김)
       need.appendChild(h('div', { class: 'rec-need' + (n === 0 ? ' is-empty' : '') }, [
-        h('p', { text: n === 0 ? '아직 저장한 실험이 없어요 — ▶ 실행한 뒤 기록하기를 누르면 여기에 쌓여요.' : '기록이 2개 있어야 비교할 수 있어요 (지금 1개). 값 하나를 바꾸고 ▶ 실행한 뒤 기록하기 버튼으로 저장해요.' }),
+        SK.iconify(h('p', { text: n === 0 ? '아직 저장한 실험이 없어요 — ▶ 실행한 뒤 기록하기를 누르면 여기에 쌓여요.' : '기록이 2개 있어야 비교할 수 있어요 (지금 1개). 값 하나를 바꾸고 ▶ 실행한 뒤 기록하기 버튼으로 저장해요.' }), { all: true }),
         canRec ? btn('지금 결과 기록하기', 'btn--secondary', function () { SK.record(); }) : null
       ]));
     }
@@ -1592,16 +1961,16 @@
     if (!cfg.capture) SK.el.records.hidden = true;
     smallTables.forEach(function (t) { t.render(); });
     // 큰 판의 표는 늘 다시 그린다(숨어 있어도) — 시뮬레이터가 rt.el 안 표를 꾸미는 경우 호환
-    SK.el.recTitle.textContent = '저장한 실험 ' + n + '/' + MAX_RECORDS + (n >= MAX_RECORDS ? ' — 가득 찼어요(✕ 로 하나 지우기)' : '');
+    setText(SK.el.recTitle, '저장한 실험 ' + n + '/' + MAX_RECORDS + (n >= MAX_RECORDS ? ' — 가득 찼어요(✕ 로 하나 지우기)' : ''), { all: true });
     if (SK.el.recBox) SK.el.recBox.hidden = n === 0;   // R3: 빈 상태 = 안내 한 상자
     renderNeed();
     var cl = changedLine();
     SK.el.recChanged.hidden = !cl; SK.el.recChanged.textContent = cl;
     var sc = SK.el.recScroll; sc.innerHTML = '';
     var t = buildTable(mainTable || {}, false);
-    sc.appendChild(t || h('p', { class: 'rec-empty', text: '아직 저장한 실험이 없어요. ▶ 실행한 뒤 기록하기 버튼을 누르면 여기에 쌓여요.' }));
+    sc.appendChild(t || SK.iconify(h('p', { class: 'rec-empty', text: '아직 저장한 실험이 없어요. ▶ 실행한 뒤 기록하기 버튼을 누르면 여기에 쌓여요.' }), { all: true }));
     SK.el.recMoreCols.hidden = !t || (!hiddenCols && !showAllCols);
-    SK.el.recMoreCols.textContent = showAllCols ? '열 줄이기 ▴' : '열 더 보기 ▾ (' + hiddenCols + ')';
+    setText(SK.el.recMoreCols, showAllCols ? '열 줄이기 ▴' : '열 더 보기 (' + hiddenCols + ') ▾');
     var vs = SK.el.recVs; vs.innerHTML = '';
     var v = buildVs(mainTable || {});
     if (v) vs.appendChild(v);
@@ -1633,7 +2002,7 @@
       title.textContent = '저장한 실험 ' + SK.records.length + '/' + MAX_RECORDS;
       scroll.innerHTML = '';
       var t = buildTable(opts, true);
-      scroll.appendChild(t || h('p', { class: 'rec-empty', text: '▶ 실행한 뒤 기록하기 버튼을 누르면 여기에 쌓여요.' }));
+      scroll.appendChild(t || SK.iconify(h('p', { class: 'rec-empty', text: '▶ 실행한 뒤 기록하기 버튼을 누르면 여기에 쌓여요.' }), { all: true }));
     }
     var obj = { el: box, render: render };
     smallTables.push(obj);
@@ -1688,7 +2057,7 @@
     var zone = SK.el.notices; if (!zone) return;
     var flat = tidyMsg(text).replace(/\s+/g, ' ').trim();
     if (!flat) return;
-    if (flat.length > NOTICE_MAX) {
+    if (plainMath(flat).length > NOTICE_MAX) {
       console.warn('SimKit(R2): 토스트는 ' + NOTICE_MAX + '자 이내로 — 띠 문장으로 보냄 (' + flat.length + '자): ' + flat);
       SK.say(flat, Math.max(ms || 0, 5000));
       return;
@@ -1698,11 +2067,13 @@
     noticeLast[flat] = now;
     var kind = type && type !== 'info' ? type : 'info';
     // R3(팀장): 글 속 원문자('카드 ①')도 .circ 배지로
-    var body = h('span', null, flat.split(/([①-⑳])/).map(function (s) { return CIRC_RE.test(s) ? circ(s) : s; }));
-    var kids = [kind === 'ok' ? h('span', { class: 'notice__mark', 'aria-hidden': 'true', text: '✓' }) : kind === 'warn' ? h('span', { class: 'notice__mark', 'aria-hidden': 'true', text: '!' }) : null, body];
+    var bodyKids = [];
+    flat.split(/([①-⑳])/).forEach(function (s) { if (CIRC_RE.test(s)) bodyKids.push(circ(s)); else bodyKids.push.apply(bodyKids, mathNodes(s)); });
+    var body = SK.iconify(h('span', null, bodyKids), { all: true });   // R4: 글 속 ▶·↻ 아이콘 · $v_0$ 수식
+    var kids = [kind === 'ok' ? h('span', { class: 'notice__mark', 'aria-hidden': 'true' }, ico('check', '✓')) : kind === 'warn' ? h('span', { class: 'notice__mark', 'aria-hidden': 'true', text: '!' }) : null, body];
     var n = h('div', { class: 'notice notice--' + kind, role: 'status' }, kids);
     if (action) {
-      var ab = h('button', { class: 'notice__act', type: 'button' }, action.label);
+      var ab = SK.iconify(h('button', { class: 'notice__act', type: 'button' }, action.label));
       ab.addEventListener('click', function (e) { blurOnMouse(e); n.remove(); action.onClick(); });
       n.appendChild(ab);
     }
@@ -1887,7 +2258,7 @@
         fig || btns.length ? h('div', { class: 'predict__mid' }, [fig, btns.length ? h('div', { class: 'predict__choices' }, btns) : null]) : null,
         numBox,
         h('div', { class: 'predict__foot' }, [
-          h('span', { class: 'predict__hint', text: o.numeric && !choices.length ? '적은 다음 ▶ 실행으로 확인해요' : '고른 다음 ▶ 실행으로 확인해요' }),
+          SK.iconify(h('span', { class: 'predict__hint', text: o.numeric && !choices.length ? '적은 다음 ▶ 실행으로 확인해요' : '고른 다음 ▶ 실행으로 확인해요' }), { all: true }),
           skip, okBtn
         ])
       ]);
@@ -1960,7 +2331,7 @@
     var pop = h('div', { class: 'note-pop', hidden: true, role: 'region', 'aria-label': '실험 결과 해설' });
     var b = btn('해설 보기 ▾', 'btn--outline btn--sm note-chip', function () {
       pop.hidden = !pop.hidden;
-      b.textContent = pop.hidden ? '해설 보기 ▾' : '해설 닫기 ▴';
+      setText(b, pop.hidden ? '해설 보기 ▾' : '해설 닫기 ▴');
       if (!pop.hidden) { pop.innerHTML = ''; noteContent().forEach(function (n) { pop.appendChild(n); }); }
     });
     b.hidden = true;
@@ -1980,7 +2351,7 @@
       if (v.numeric) {
         var u = withUnit('', v.numeric.unit);
         out.push(h('div', { class: 'note-verdict note-verdict--num verdict--' + v.kind }, [
-          h('span', { class: 'verdict__mark', text: v.kind === 'hit' ? '✓ 가까워요' : '△ 차이 있어요' }),
+          SK.iconify(h('span', { class: 'verdict__mark', text: v.kind === 'hit' ? '✓ 가까워요' : '△ 차이 있어요' })),
           h('div', { class: 'note-nums' }, [
             h('span', { class: 'note-num' }, [h('small', { text: '예측' }), h('b', { class: 'num', text: v.numeric.pred + u })]),
             h('span', { class: 'note-num is-actual' }, [h('small', { text: '실제' }), h('b', { class: 'num', text: v.numeric.actual + u })]),
@@ -1989,13 +2360,13 @@
         ]));
       } else if (v.mine !== undefined) {
         out.push(h('p', { class: 'note-verdict verdict--' + v.kind }, [
-          h('span', { class: 'verdict__mark', text: v.kind === 'hit' ? '✓' : '✗' }),
+          SK.iconify(h('span', { class: 'verdict__mark', text: v.kind === 'hit' ? '✓' : '✗' })),
           h('span', null, ['내 예측: ', h('b', { text: v.mine }), ' → ',
             v.kind === 'hit' ? h('b', { class: 'verdict__res', text: '맞았어요' }) : h('span', null, ['아니에요. 실제는 ', h('b', { class: 'verdict__res', text: v.right })])])
         ]));
       } else if (v.text !== undefined) {
         out.push(h('p', { class: 'note-verdict verdict--' + (v.kind || 'info') }, [
-          h('span', { class: 'verdict__mark', text: v.kind === 'hit' ? '✓' : v.kind === 'miss' ? '✗' : 'ⓘ' }), h('span', null, rich(v.text))
+          SK.iconify(h('span', { class: 'verdict__mark', text: v.kind === 'hit' ? '✓' : v.kind === 'miss' ? '✗' : 'ⓘ' })), h('span', null, rich(v.text))
         ]));
       }
     }
@@ -2014,11 +2385,11 @@
     if (on) noteContent().forEach(function (n) { noteEls.body.appendChild(n); });
     noteEls.root.classList.toggle('is-folded', noteCollapsed);
     noteEls.body.hidden = noteCollapsed;
-    noteEls.tog.textContent = noteCollapsed ? '펼치기 ▾' : '접기 ▴';
+    setText(noteEls.tog, noteCollapsed ? '펼치기 ▾' : '접기 ▴');
     noteEls.tog.setAttribute('aria-expanded', String(!noteCollapsed));
     (SK.el.noteChips || []).forEach(function (c) {
       c.btn.hidden = !on;
-      if (!on) { c.pop.hidden = true; c.btn.textContent = '해설 보기 ▾'; }
+      if (!on) { c.pop.hidden = true; setText(c.btn, '해설 보기 ▾'); }
       else if (!c.pop.hidden) { c.pop.innerHTML = ''; noteContent().forEach(function (n) { c.pop.appendChild(n); }); }
     });
     if (on && SK.el.panel) SK.el.panel.scrollTop = SK.el.panel.scrollTop;   // 패널 높이 바뀜 → '아래에 더' 다시 계산
@@ -2151,22 +2522,23 @@
   SK.guide = function (o) {
     o = o || {};
     var body = h('div', { class: 'drawer__body' });
+    function gtext(tag, cls, text) { return SK.iconify(h(tag, cls ? { class: cls } : null, rich(text)), { all: true }); }   // R4: 수식 $v_0$ + 글 속 ↻ ⚡ 아이콘
     if (o.rows && o.rows.length) {
       body.appendChild(h('h3', { text: '변수·상황과 성취기준' }));
       o.rows.forEach(function (r) {
         body.appendChild(h('div', { class: 'guide-card' }, [
-          h('p', { class: 'guide-card__t', text: r.target || '' }),
+          gtext('p', 'guide-card__t', r.target || ''),
           h('dl', null, [
-            h('dt', { text: '성취기준·탐구' }), h('dd', { text: r.standard || '—' }),
-            h('dt', { text: '학생이 발견할 것' }), h('dd', { text: r.discover || '—' }),
-            h('dt', { text: '깨는 오개념' }), h('dd', { text: r.misconception || '—' })
+            h('dt', { text: '성취기준·탐구' }), gtext('dd', null, r.standard || '—'),
+            h('dt', { text: '학생이 발견할 것' }), gtext('dd', null, r.discover || '—'),
+            h('dt', { text: '깨는 오개념' }), gtext('dd', null, r.misconception || '—')
           ])
         ]));
       });
     }
     (o.sections || []).forEach(function (s) {
       body.appendChild(h('h3', { text: s.title }));
-      body.appendChild(h('ul', { style: 'display:grid;gap:var(--space-2);padding-left:var(--space-5);list-style:disc' }, (s.items || []).map(function (t) { return h('li', { text: t }); })));
+      body.appendChild(h('ul', { style: 'display:grid;gap:var(--space-2);padding-left:var(--space-5);list-style:disc' }, (s.items || []).map(function (t) { return gtext('li', null, t); })));
     });
     function toggleRow(text, get, set) {
       var b = h('button', { class: 'check', type: 'button' }, [h('span', { class: 'check__box' }), h('span', { class: 'check__text', text: text }), h('span', { class: 'check__state' })]);
@@ -2245,15 +2617,15 @@
     if (c.symbols && c.symbols.length) {
       sym = h('table', { class: 'concept__symbols' }, [
         h('thead', null, h('tr', null, [h('th', { text: '기호' }), h('th', { text: '뜻' }), h('th', { text: '단위' })])),
-        h('tbody', null, c.symbols.map(function (s) { return h('tr', null, [h('td', { class: 'concept__sym', text: s.s }), h('td', null, rich(s.meaning || '')), h('td', { text: s.unit || '–' })]); }))
+        h('tbody', null, c.symbols.map(function (s) { return h('tr', null, [h('td', { class: 'concept__sym' }, rich(s.s)), h('td', null, rich(s.meaning || '')), h('td', { text: s.unit || '–' })]); }))
       ]);
     }
     var isNew = !!(c.summary || c.symbols || c.why || c.figure || c.example);
     function lines(v) { return typeof v === 'string' ? v.split('\n').map(function (ln) { return h('p', null, rich(ln)); }) : [v]; }   // 요소를 주면 그대로
-    var plainEl = c.plain ? h('div', { class: 'concept__plain' }, lines(c.plain)) : null;
-    var formulaBox = c.formula ? h('p', { class: 'concept__formula', text: c.formula }) : null;
+    var plainEl = c.plain ? SK.iconify(h('div', { class: 'concept__plain' }, lines(c.plain)), { all: true }) : null;   // R4: 문장 속 ✗ ✓ ↓ 도 아이콘
+    var formulaBox = c.formula ? SK.iconify(h('p', { class: 'concept__formula' }, rich(c.formula)), { all: true }) : null;   // R4: 식도 수식 표기
     var kids = [
-      h('h3', { class: 'concept__title', text: c.title || '' }),
+      h('h3', { class: 'concept__title' }, rich(c.title || '')),
       c.summary ? h('p', { class: 'concept__summary' }, rich(c.summary)) : null,
       plainEl,
       c.example ? h('p', { class: 'concept__example' }, [h('b', { text: '예) ' })].concat(rich(c.example))) : null,
@@ -2280,7 +2652,7 @@
       helpTabs[id] = t; helpPanes[id] = p;
     }
     addTab('how', '이렇게 해요', h('ol', { class: 'help-how' }, (o.how && o.how.length ? o.how : DEFAULT_HOW).map(function (s, i) {
-      return h('li', { class: 'help-step' }, [h('span', { class: 'help-step__num', 'aria-hidden': 'true', text: String(i + 1) }), h('div', { class: 'help-step__body' }, rich(tidyMsg(s)))]);
+      return h('li', { class: 'help-step' }, [h('span', { class: 'help-step__num', 'aria-hidden': 'true', text: String(i + 1) }), SK.iconify(h('div', { class: 'help-step__body' }, rich(tidyMsg(s))), { all: true })]);   // R4: 문장 속 ▶·↻ 아이콘
     })));
     if (o.concepts && o.concepts.length) addTab('concepts', '개념', o.concepts.map(concept));
     var names = Object.keys(termDict);
@@ -2288,8 +2660,8 @@
       var dl = h('dl', { class: 'term-list' });
       names.forEach(function (n) {
         dl.appendChild(h('dt', { text: n }));
-        var al = termAliasList[n] && termAliasList[n].length ? h('span', { class: 'term-list__alias', text: ' (같은 말: ' + termAliasList[n].join(', ') + ')' }) : null;
-        dl.appendChild(h('dd', null, [termDict[n], al]));
+        var al = termAliasList[n] && termAliasList[n].length ? h('span', { class: 'term-list__alias' }, rich(' (같은 말: ' + termAliasList[n].join(', ') + ')')) : null;
+        dl.appendChild(h('dd', null, rich(termDict[n]).concat([al])));   // R4: 용어 뜻의 v₀·$v_x$ 도 수식 표기
       });
       addTab('terms', '용어', dl);
     }
@@ -2321,7 +2693,7 @@
     refreshLive();
   }
   function refreshLive() {
-    helpLive.forEach(function (l) { try { l.el.textContent = l.fn(SK.params) || ''; } catch (e) { l.el.textContent = ''; } });
+    helpLive.forEach(function (l) { try { setText(l.el, l.fn(SK.params) || ''); } catch (e) { l.el.textContent = ''; } });   // R4: '지금 값으로: $v_x$ = …' 수식 표기
   }
   SK.toggleHelp = function (on, tab) {
     if (!helpEl) buildHelp();
@@ -2355,7 +2727,7 @@
     function show(t) {
       var name = t.getAttribute('data-term'), txt = termDict[name];
       if (!txt) return;
-      tipEl.innerHTML = ''; tipEl.appendChild(h('b', { text: name })); tipEl.appendChild(document.createTextNode(txt));
+      tipEl.innerHTML = ''; tipEl.appendChild(h('b', { text: name })); rich(txt).forEach(function (nd) { tipEl.appendChild(typeof nd === 'string' ? document.createTextNode(nd) : nd); });   // R4: 용어 뜻의 v₀ 도 수식 표기
       tipEl.hidden = false;
       var r = t.getBoundingClientRect(), tw = tipEl.offsetWidth, th = tipEl.offsetHeight;
       var x = clamp(r.left + r.width / 2 - tw / 2, 8, window.innerWidth - tw - 8);
@@ -2408,7 +2780,7 @@
           b.classList.add(hit ? 'is-right' : 'is-wrong');
           if (!hit) bs[o.answer - 1].classList.add('is-right');
           fb.className = 'think-card__fb ' + (hit ? 'is-hit' : 'is-miss');
-          fb.appendChild(h('p', { class: 'think-card__res' }, hit ? '✓ 맞았어요' : ['✗ 아니에요. 답은 ', h('b', { text: plain(o.choices[o.answer - 1]) })]));
+          fb.appendChild(SK.iconify(h('p', { class: 'think-card__res' }, hit ? '✓ 맞았어요' : ['✗ 아니에요. 답은 ', h('b', { text: plain(o.choices[o.answer - 1]) })])));
           if (o.why) fb.appendChild(h('p', { class: 'think-card__why' }, [h('b', { text: '이유 ' })].concat(rich(o.why))));
         });
         bs.push(b);
@@ -2462,7 +2834,7 @@
   SK.empty = function (container, what) {
     var host = resolveWhere(container);
     if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
-    var el = h('p', { class: 'empty', text: '▶ 실행하면 여기에 ' + what + josa(what, '이', '가') + ' 나와요' });
+    var el = h('p', { class: 'empty' }, SK.iconify(h('span', { text: '▶ 실행하면 여기에 ' + what + josa(what, '이', '가') + ' 나와요' })));   // R4: .empty 는 grid — 아이콘+글을 한 줄(span)로
     host.appendChild(el);
     return { el: el, show: function (on) { el.hidden = !on; } };
   };
@@ -2471,6 +2843,7 @@
    * A18: 캔버스 라벨 겹침 피하기. items = [{x, y, text, anchor:'left'|'center'|'right', color, font, bg:false}]
    * 겹치면 위/아래로 8u 씩 밀고, 종이색 반투명 칩(--color-paper-label, 모서리 4u, 패딩 2u 6u)을 깔아 그린다. 반환: 그려진 상자 목록
    * 항목 옵션(R3): leaderColor('--색 토큰' — 보조선 색, 기본 line-strong), radius(모서리, 기본 4)
+   * R4: text 에 $v_0$ 수식 표기 가능(SK.text 규칙). 굵기 기본 500(weight 로 바꿈), 글꼴은 에스코어.
    */
   SK.placeLabel = function (ctx, items, opts) {
     opts = opts || {};
@@ -2479,8 +2852,9 @@
     (items || []).forEach(function (it) {
       if (!it || !it.text) return;
       ctx.save();
-      ctx.font = it.font || opts.font || ('600 ' + (it.size || opts.size || 22) + 'px ' + (cssVar('--font-sans') || 'sans-serif'));
-      var w = ctx.measureText(it.text).width + padX * 2, hgt = (it.size || opts.size || 22) * 1.2 + padY * 2;
+      var size = it.size || opts.size || 22;
+      var to = { size: size, weight: it.weight || opts.weight || 500, font: it.font || opts.font || null };
+      var w = SK.measure(ctx, it.text, to).w + padX * 2, hgt = size * 1.2 + padY * 2;
       var a = it.anchor || 'center';
       var x0 = a === 'left' ? it.x : a === 'right' ? it.x - w : it.x - w / 2;
       var y0 = it.y - hgt / 2, dy = 0, tries = 0;
@@ -2501,9 +2875,8 @@
         ctx.moveTo(box.x + r, box.y); ctx.arcTo(box.x + w, box.y, box.x + w, box.y + hgt, r); ctx.arcTo(box.x + w, box.y + hgt, box.x, box.y + hgt, r);
         ctx.arcTo(box.x, box.y + hgt, box.x, box.y, r); ctx.arcTo(box.x, box.y, box.x + w, box.y, r); ctx.closePath(); ctx.fill();
       }
-      ctx.fillStyle = SK.color(it.color || '--color-ink');
-      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-      ctx.fillText(it.text, box.x + padX, box.y + hgt / 2);
+      to.color = it.color || '--color-ink'; to.baseline = 'middle';
+      SK.text(ctx, it.text, box.x + padX, box.y + hgt / 2, to);
       ctx.restore();
     });
     return out;
@@ -2520,8 +2893,10 @@
     container.insertBefore(cv, container.firstChild);
     var ctx = cv.getContext('2d');
     var view = {
-      canvas: cv, ctx: ctx, w: o.w || 1250, h: o.h || 700, fit: o.fit !== false,
+      canvas: cv, ctx: ctx, w: o.w || 1250, h: o.h || 700, fit: o.fit !== false, grow: o.grow !== false,
       scale: 1, ox: 0, oy: 0, dpr: 1, onResize: null,
+      // R4: 세로 여유 — hFull = 캔버스 논리 높이 전체, extra = hFull − h (16:9 = 0), offsetY = sim 이 onResize 에서 정하는 아래로 밀기
+      hFull: o.h || 700, wFull: o.w || 1250, extra: 0, offsetY: 0,
       bg: o.bg === undefined ? '--color-paper-raised' : o.bg
     };
     function resize() {
@@ -2530,16 +2905,27 @@
       var dpr = Math.min(window.devicePixelRatio || 1, 3);
       cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
       view.dpr = dpr;
+      view.offsetY = 0;
       if (view.fit) {
+        // 축척은 예전 그대로(min). R4: 위에 붙이고(oy 0) 남는 세로는 extra 로 — grow:false 면 예전처럼 가운데
         var s = Math.min(cw / view.w, ch / view.h);
-        view.scale = s; view.ox = (cw - view.w * s) / 2; view.oy = (ch - view.h * s) / 2;
+        view.scale = s; view.ox = (cw - view.w * s) / 2;
+        view.wFull = cw / s; view.hFull = ch / s;
+        if (view.grow) { view.oy = 0; view.extra = Math.max(0, view.hFull - view.h); }
+        else { view.oy = (ch - view.h * s) / 2; view.extra = 0; }
       } else {
         var u = SK.px(1) || 1;
         view.scale = u; view.ox = 0; view.oy = 0; view.w = cw / u; view.h = ch / u;
+        view.wFull = view.w; view.hFull = view.h; view.extra = 0;
       }
-      ctx.setTransform(dpr * view.scale, 0, 0, dpr * view.scale, dpr * view.ox, dpr * view.oy);
       dirty = true;
+      setTf();
       if (view.onResize) view.onResize(view);
+      setTf();   // onResize 가 offsetY 를 정했으면 반영
+    }
+    function setTf() {
+      var s = view.scale, d = view.dpr;
+      ctx.setTransform(d * s, 0, 0, d * s, d * view.ox, d * (view.oy + (view.offsetY || 0) * s));
     }
     view.resize = resize;
     view.clear = function () {
@@ -2547,13 +2933,15 @@
       if (view.bg) { ctx.fillStyle = SK.color(view.bg); ctx.fillRect(0, 0, cv.width, cv.height); }
       else ctx.clearRect(0, 0, cv.width, cv.height);
       ctx.restore();
-      ctx.setTransform(view.dpr * view.scale, 0, 0, view.dpr * view.scale, view.dpr * view.ox, view.dpr * view.oy);
+      setTf();   // R4: offsetY 만큼 아래로 (논리 단위)
       ctx.setLineDash([]); ctx.globalAlpha = 1;
     };
     view.toLogical = function (e) {
       var r = cv.getBoundingClientRect();
-      return { x: (e.clientX - r.left - view.ox) / view.scale, y: (e.clientY - r.top - view.oy) / view.scale };
+      return { x: (e.clientX - r.left - view.ox) / view.scale, y: (e.clientY - r.top - view.oy) / view.scale - (view.offsetY || 0) };
     };
+    /** R4: 논리 좌표 → 캔버스 상자 기준 CSS px (무대 위 HTML 조각 배치용) */
+    view.toPx = function (x, y) { return { x: view.ox + x * view.scale, y: view.oy + (y + (view.offsetY || 0)) * view.scale }; };
     if (typeof ResizeObserver !== 'undefined') new ResizeObserver(resize).observe(container);
     else window.addEventListener('resize', resize);
     resize();
@@ -2577,11 +2965,8 @@
     ctx.lineTo(x2 - ux * head - uy * head * 0.55, y2 - uy * head + ux * head * 0.55);
     ctx.lineTo(x2 - ux * head + uy * head * 0.55, y2 - uy * head - ux * head * 0.55);
     ctx.closePath(); ctx.fill();
-    if (o.label) {
-      ctx.font = '700 ' + (o.fontSize || 24) + 'px ' + (cssVar('--font-sans') || 'sans-serif');
-      ctx.fillStyle = SK.color(o.labelColor || o.color || '--color-ink');
-      ctx.textBaseline = 'middle';
-      ctx.fillText(o.label, x2 + ux * 10 + 6, y2 + uy * 10);
+    if (o.label) {   // R4: SK.text — '$v_x$' 수식 표기 가능, 굵기 500
+      SK.text(ctx, o.label, x2 + ux * 10 + 6, y2 + uy * 10, { size: o.fontSize || 24, weight: o.labelWeight || 500, color: o.labelColor || o.color || '--color-ink', baseline: 'middle', bg: o.labelBg || false, halo: o.labelHalo || null });
     }
     ctx.restore();
   };
@@ -2594,7 +2979,7 @@
     items.forEach(function (it) {
       var val = h('span', { class: 'num', text: '–' });
       var lab = rich(it.label || '');
-      if (it.symbol) lab.push(' ', h('i', { text: it.symbol }));
+      if (it.symbol) { lab.push(' '); if (/[_^$]/.test(it.symbol)) lab.push.apply(lab, symNodes(it.symbol)); else lab.push(h('i', { text: it.symbol })); }   // R4: 'v_y'·'$v_y$' 도
       var card = h('div', { class: 'meter' + (it.hidden ? ' is-hidden-value' : ''), 'data-q': it.q || null, 'data-key': it.key }, [
         h('span', { class: 'meter__label' }, lab),
         h('span', { class: 'meter__value' + (it.size === 'md' ? ' meter__value--md' : '') }, [val, h('span', { class: 'meter__unit', 'data-unit': it.unit || null, text: it.unit || '' })])
@@ -2634,15 +3019,15 @@
     var series = o.series || [{ key: 'y', label: o.y && o.y.label, color: '--color-primary' }];
     var legend = h('span', { class: 'graph-box__legend' });
     if (series.length > 1) series.forEach(function (s) {
-      legend.appendChild(h('span', null, [swatchSVG({ color: SK.color(s.color || '--color-primary'), dash: s.dash || [], width: 4 }), s.label || s.key]));
+      legend.appendChild(h('span', null, [swatchSVG({ color: SK.color(s.color || '--color-primary'), dash: s.dash || [], width: 4 })].concat(rich(s.label || s.key))));
     });
     var area = h('div', { class: 'graph-box__canvas' });
     var what = o.empty || (o.title ? o.title + ' 그래프' : '그래프');
-    var emptyEl = h('p', { class: 'empty', text: '▶ 실행하면 여기에 ' + what + josa(what, '이', '가') + ' 나와요' });
+    var emptyEl = h('p', { class: 'empty' }, SK.iconify(h('span', { text: '▶ 실행하면 여기에 ' + what + josa(what, '이', '가') + ' 나와요' })));
     var axisTxt = h('span', { class: 'graph-box__axes' });
     var box = h('div', { class: 'graph-box' }, [h('div', { class: 'graph-box__title' }, [o.title || '', axisTxt, legend]), area]);
     function axisName(a) { return a && a.label ? a.label + (a.unit ? '(' + a.unit + ')' : '') : ''; }
-    function showAxes() { axisTxt.textContent = view.h < 100 && (X.label || Y.label) ? '세로 ' + axisName(Y) + ' · 가로 ' + axisName(X) : ''; }
+    function showAxes() { setText(axisTxt, view.h < 100 && (X.label || Y.label) ? '세로 ' + axisName(Y) + ' · 가로 ' + axisName(X) : ''); }
     area.appendChild(emptyEl);
     host.appendChild(box);
     var view = SK.canvas(area, { fit: false, bg: '--color-paper-raised' });
@@ -2687,7 +3072,7 @@
       if (pw < 10 || ph < 10) return;
       function mx(x) { return padL + (x - xr[0]) / (xr[1] - xr[0]) * pw; }
       function my(y) { return padT + ph - (y - yr[0]) / (yr[1] - yr[0]) * ph; }
-      ctx.font = '500 ' + fs + 'px ' + (cssVar('--font-num') || 'sans-serif');
+      ctx.font = SK.font(400, fs);   // R4: 눈금 숫자 에스코어 400
       ctx.lineWidth = 1; ctx.setLineDash([]);
       var xs = niceStep(xr[1] - xr[0], Math.max(2, Math.floor(pw / 110)));
       var ys = niceStep(yr[1] - yr[0], Math.max(1, Math.floor(ph / 34)));
@@ -2707,13 +3092,12 @@
       ctx.strokeStyle = SK.color('--color-line-strong'); ctx.lineWidth = 2;
       var y0 = (yr[0] <= 0 && yr[1] >= 0) ? my(0) : padT + ph;
       ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, padT + ph); ctx.moveTo(padL, y0); ctx.lineTo(padL + pw, y0); ctx.stroke();
-      ctx.fillStyle = SK.color('--color-ink');
-      ctx.font = '700 ' + fs + 'px ' + (cssVar('--font-sans') || 'sans-serif');
-      ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
-      if (!small) {
-        if (X.label) ctx.fillText(X.label + (X.unit ? ' (' + X.unit + ')' : ''), padL + pw, padT + ph - 4);
-        ctx.save(); ctx.translate(14, padT + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        if (Y.label) ctx.fillText(Y.label + (Y.unit ? ' (' + Y.unit + ')' : ''), 0, 0);
+      if (!small) {   // R4: 축 이름 SK.text (500, $…$ 수식 가능)
+        var axo = { size: fs, weight: 500, color: '--color-ink' };
+        if (X.label) SK.text(ctx, X.label + (X.unit ? ' (' + X.unit + ')' : ''), padL + pw, padT + ph - 4, { size: fs, weight: 500, color: '--color-ink', align: 'right', baseline: 'bottom' });
+        ctx.save(); ctx.translate(14, padT + ph / 2); ctx.rotate(-Math.PI / 2);
+        axo.align = 'center'; axo.baseline = 'middle';
+        if (Y.label) SK.text(ctx, Y.label + (Y.unit ? ' (' + Y.unit + ')' : ''), 0, 0, axo);
         ctx.restore();
       }
       ctx.save(); ctx.beginPath(); ctx.rect(padL, padT - 2, pw + 2, ph + 4); ctx.clip();
@@ -2722,6 +3106,7 @@
     }
     view.onResize = function () { showAxes(); draw(); };
     SK.onRecords(function () { draw(); });
+    redrawHooks.push(function () { draw(); });   // R4: 글꼴이 늦게 오면 다시
     draw({});
     showAxes();
     return { el: box, view: view, draw: draw, setAxis: function (ax, v) { if (ax === 'x') X = v; else Y = v; showAxes(); draw(); } };
@@ -2909,8 +3294,16 @@
       var r = c.getBoundingClientRect(); bottom = Math.max(bottom, sr.bottom - r.top);
     });
     var s = (SK.view && SK.view.scale) || 1, oy = (SK.view && SK.view.oy) || 0;
-    return { top: Math.max(0, (top - oy) / s), bottom: Math.max(0, (bottom - oy) / s), px: { top: top, bottom: bottom } };
+    var res = { top: Math.max(0, (top - oy) / s), bottom: Math.max(0, (bottom - oy) / s), px: { top: top, bottom: bottom } };
+    // R4: offsetY 를 반영한 그리기 좌표 — 칩에 안 가리는 y 범위 [yTop, yBottom]
+    var v = SK.view, off = (v && v.offsetY) || 0, hFull = (v && v.hFull) || (sr.height / s);
+    res.yTop = res.top - off;
+    res.yBottom = (sr.height - bottom - oy) / s - off;
+    if (!isFinite(res.yBottom)) res.yBottom = hFull - off;
+    return res;
   };
+  /** R4: 실험 화면 캔버스의 세로 여유(논리 단위). 16:9 화면 = 0, 1180×820 ≈ 254(660 기준 sim) */
+  SK.stageExtra = function () { return (SK.view && SK.view.extra) || 0; };
 
   global.SimKit = SK;
 })(window);

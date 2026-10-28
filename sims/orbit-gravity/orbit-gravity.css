@@ -132,7 +132,7 @@
 .og-view__btn:hover { border-color: var(--sim); }
 .og-view__hint { font-size: var(--fs-caption); }
 
-/* 패널 수치 칸 아래: 순서 칩 한 줄 [4][6][✓ 7.9][10][11.2] [다음: 10 km/s ▶] */
+/* 패널 수치 칸 아래: 순서 칩 한 줄 [4][6][(check) 7.9][10][11.2] [다음: 10 km/s (play)] — 기호는 SK.iconify 아이콘 */
 .og-seq { display: grid; gap: var(--space-1); margin-top: 0; padding-top: var(--space-2); border-top: 1px dashed var(--color-line); }
 .og-seq__title { font: var(--font-weight-semibold) var(--fs-caption)/1.3 var(--font-sans); color: var(--color-ink-muted); }
 .og-seq__row { display: flex; flex-wrap: wrap; align-items: center; gap: calc(6 * var(--u)); }
@@ -141,7 +141,10 @@
   border: calc(2 * var(--u)) solid var(--color-line-strong); border-radius: var(--radius-sm);
   background: var(--color-paper-raised); color: var(--color-ink); cursor: pointer;
   font: var(--font-weight-semibold) var(--fs-caption)/1 var(--font-num); font-variant-numeric: tabular-nums;
+  display: inline-flex; align-items: center; justify-content: center; gap: calc(4 * var(--u));
 }
+.og-seq__chip > .ico { width: 0.9em; height: 0.9em; }
+.og-seq__title > .ico, .og-seq__done > .ico { width: 1em; height: 1em; vertical-align: -0.14em; }
 .og-seq__chip:hover { border-color: var(--sim); }
 .og-seq__chip.is-done { border-color: var(--color-ok); color: var(--color-ok-text); }
 .og-seq__chip.is-now { background: var(--sim); border-color: var(--sim); color: var(--color-paper); }
@@ -157,13 +160,17 @@
 .og-band__title { color: var(--color-ink); font-weight: var(--font-weight-bold); }
 .og-band__legend { margin-left: calc(var(--space-4) - var(--space-3)); color: var(--color-ink-muted); }
 .og-band__sym { display: inline-block; font-size: 0.72em; line-height: 1; vertical-align: 0.12em; letter-spacing: 0.04em; }
+.og-band__now svg { width: 0.8em; height: 0.8em; vertical-align: -0.05em; color: var(--color-ink); }   /* R4 마무리: ▼ 지금 표식은 SVG */
 
 /* 케플러 3단계 안내 */
 .og-ksteps { display: grid; gap: var(--space-1); padding-left: calc(30 * var(--u)); list-style: decimal; font: var(--font-weight-semibold) var(--fs-caption)/1.35 var(--font-sans); color: var(--color-ink-muted); }
 .og-ksteps li { padding: calc(2 * var(--u)) var(--space-2); border-radius: var(--radius-sm); }
 .og-ksteps li.is-now { background: var(--sim-tint); color: var(--sim-text); font-weight: var(--font-weight-bold); }
 .og-ksteps li.is-done { color: var(--color-ink); }
-.og-ksteps li.is-done::after { content: " ✓"; color: var(--color-ok); }
+.og-ksteps li.is-done::after {   /* R4: 글자 ✓ → 마스크 아이콘 */
+  content: ""; display: inline-block; width: 1em; height: 1em; margin-left: 0.3em; vertical-align: -0.14em;
+  background-color: var(--color-ok); -webkit-mask: var(--ico-check) center/contain no-repeat; mask: var(--ico-check) center/contain no-repeat;
+}
 
 /* R3: 순서 칩이 붙은 발사 속력 칸은 아래 여백을 빼서 다음 섹션까지 공통 간격(24u)만 남긴다 */
 .og-var-v0:has(> .og-seq:not([hidden])), .var:has(> .og-seq:not([hidden])) { padding-bottom: 0; }

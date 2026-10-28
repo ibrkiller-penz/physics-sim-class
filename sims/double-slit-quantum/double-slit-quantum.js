@@ -116,8 +116,10 @@
      장치 그림은 x 20~800, 확대창·측정 칸은 x 830~1230. 캔버스 글자는 모두 22u 이상.
      ================================================================== */
   var SK = global.SimKit;
+  /* R4: 16:9 보다 세로가 긴 화면(view.extra = E > 0)에서는 스크린·확대창을 E 만큼 길게(layoutFor).
+     16:9(E = 0)에서는 아래 값 그대로 — 스크린 480u(8 u/mm) · 확대창 400×400u. 물리 범위(±30 mm·±15 mm)는 그대로. */
   var SCR_X = 640, SCR_W = 56, SCR_TOP = 100, SCR_H = 480, PX_MM = 8, Y0 = SCR_TOP + SCR_H / 2;   // 스크린 ±30 mm
-  var SCR_BOT = SCR_TOP + SCR_H;
+  var SCR_BOT = SCR_TOP + SCR_H, LAY_E = 0;
   var GH_X = 704, GH_W = 22;                       // 직전 실행 무늬 띠
   var RUL_X = 734;                                 // mm 눈금자
   var ZX = 830, ZY = 100, ZW = 400, ZH = 400, Z_RANGE = 15, ZPX = ZH / (2 * Z_RANGE);  // 확대창 (가운데 ±15 mm)
@@ -130,8 +132,7 @@
   var GOAL = 3000;                                 // 하나씩: 3,000개 쌓이면 '끝'
   var V_REF = 1000;                                // 전자 모형: 1000 V 일 때 화면 무늬 = 빛 650 nm 와 같은 크기
   var SNAP_MM = 1.5;                               // 밝은 줄 중심으로 끌어당기는 거리
-  var FS = 22;                                     // 캔버스 글자 최소 (u)
-  var FONT = '';
+  var FS = 22;                                     // 캔버스 글자 최소 (u) — 글꼴은 SK.text/SK.font (R4)
   var KIND_LABEL = { wave: '빛(레이저)', photon: '광자 하나씩', electron: '전자 하나씩', marble: '작은 구슬' };
   var SLIT_LABEL = { both: '둘 다', top: '위만', bottom: '아래만' };
   var RATE_LEVELS = [1, 20, 1000];
@@ -245,16 +246,18 @@
     count++; sinceFade++;
     var hb = Math.floor((y - Y_MIN) / HF_W); if (hb >= 0 && hb < NHF) histF[hb]++;
     var col = dotColor(cur.p);
-    dotsCtx.fillStyle = col;
+    dotsCtx.fillStyle = col; zoomCtx.fillStyle = col;
+    drawDot(y);
+    if (sinceFade >= DOT_CAP) fadeDots();
+    lastDot = { y: y, t: SK.time };
+  }
+  function drawDot(y) {
     var x = 5 + Math.random() * (SCR_W - 10), yy = (Y_MAX - y) * PX_MM;
     dotsCtx.beginPath(); dotsCtx.arc(x * DS, yy * DS, 2.6 * DS, 0, 6.2832); dotsCtx.fill();
     if (Math.abs(y) < Z_RANGE) {
-      zoomCtx.fillStyle = col;
       var zx = 5 + Math.random() * (ZW - 10), zy = (Z_RANGE - y) * ZPX;
       zoomCtx.beginPath(); zoomCtx.arc(zx * DS, zy * DS, 2.4 * DS, 0, 6.2832); zoomCtx.fill();
     }
-    if (sinceFade >= DOT_CAP) fadeDots();
-    lastDot = { y: y, t: SK.time };
   }
   function fadeDots() {
     sinceFade = 0;
@@ -331,13 +334,44 @@
     return { y: y, snap: false };
   }
   var N_MAX = 5;
-  var MY = ZY + ZH;   // 확대창 아래 측정 칸 시작 y (500)
+  var MY = ZY + ZH;   // 확대창 아래 측정 칸 시작 y (500 + E)
   var BTN = {
     minus: { x: ZX + 122, y: MY + 50, w: 56, h: 52 },
     plus: { x: ZX + 226, y: MY + 50, w: 56, h: 52 },
     clear: { x: ZX + ZW - 100, y: MY + 50, w: 100, h: 52 },
     how: { x: ZX + ZW - 150, y: ZY - 52, w: 150, h: 44 }      // R3: 알약 44u · 제목과 세로 가운데
   };
+  /** R4: 세로 여유 E(논리 u) 만큼 스크린·확대창을 늘린다. 16:9 는 E = 0 → R3 와 같은 좌표 */
+  function layoutFor(E) {
+    E = Math.max(0, Math.round(E || 0));
+    if (E === LAY_E && dotsCv) return false;
+    LAY_E = E;
+    SCR_H = 480 + E; PX_MM = SCR_H / (Y_MAX - Y_MIN); Y0 = SCR_TOP + SCR_H / 2; SCR_BOT = SCR_TOP + SCR_H;
+    ZH = 400 + E; ZPX = ZH / (2 * Z_RANGE);
+    MY = ZY + ZH;
+    BTN.minus.y = BTN.plus.y = BTN.clear.y = MY + 50;
+    return true;
+  }
+  /** 화면 크기가 바뀌면 오프스크린(점·무늬)을 새 크기로 만들고 쌓인 점을 히스토그램에서 다시 찍는다 */
+  function makeOffscreens() {
+    dotsCv = makeCanvas(SCR_W, SCR_H); dotsCtx = dotsCv.getContext('2d');
+    zoomCv = makeCanvas(ZW, ZH); zoomCtx = zoomCv.getContext('2d');
+    patCv = document.createElement('canvas'); patCv.width = 1; patCv.height = SCR_H;
+    zpatCv = document.createElement('canvas'); zpatCv.width = 1; zpatCv.height = ZH;
+    ghostPatRef = null;
+    if (!cur) return;
+    buildPattern();
+    if (!count) return;
+    var col = dotColor(cur.p), keep = Math.min(1, DOT_CAP / count);
+    dotsCtx.fillStyle = col; zoomCtx.fillStyle = col;
+    for (var i = 0; i < NHF; i++) {
+      for (var k = 0; k < histF[i]; k++) if (keep >= 1 || Math.random() < keep) drawDot(Y_MIN + (i + Math.random()) * HF_W);
+    }
+  }
+  function onStageResize(view) {
+    view.offsetY = 0;      // 늘어난 높이는 스크린·확대창이 차지(광축 Y0 가 가운데로 따라 내려감)
+    if (layoutFor(view.extra) && dotsCv) makeOffscreens();
+  }
   function inRect(pt, r) { return pt.x >= r.x && pt.x <= r.x + r.w && pt.y >= r.y && pt.y <= r.y + r.h; }
   function setN(n, quiet) {
     var nv = Math.max(1, Math.min(N_MAX, n));
@@ -351,8 +385,8 @@
     var mg = measuredGap();
     if (mg === null || !canSnap()) return;
     var r = mg / fringe(cur.g);
-    if (r >= 1.8) SK.notice('여러 칸을 잰 것 같아요. n 을 확인해요', 'warn');
-    else if (r <= 1 / 1.8) SK.notice('n 이 너무 큰 것 같아요. 다시 세어 봐요', 'warn');
+    if (r >= 1.8) SK.notice('여러 칸을 잰 것 같아요. $n$ 을 확인해요', 'warn');
+    else if (r <= 1 / 1.8) SK.notice('$n$ 이 너무 큰 것 같아요. 다시 세어 봐요', 'warn');
   }
   /** 두 점을 다 찍었을 때: 사이의 밝은 줄 칸 수를 세어 n 을 제안 */
   var suggesting = false;
@@ -381,7 +415,7 @@
     function inZoom(pt) { return pt.x >= ZX && pt.x <= ZX + ZW && pt.y >= ZY && pt.y <= ZY + ZH; }
     cv.addEventListener('pointerdown', function (e) {
       var pt = SK.view.toLogical(e);
-      if (inRect(pt, BTN.how)) { meas.guide = !meas.guide; SK.requestRender(); return; }
+      if (inRect(pt, BTN.how) && !howHidden()) { meas.guide = !meas.guide; SK.requestRender(); return; }
       meas.guide = false;                       // 손가락 안내는 첫 누름에 사라진다 (다시: '측정 방법 ?')
       if (SK.predicting()) { SK.requestRender(); return; }
       if (inZoom(pt)) {
@@ -466,12 +500,15 @@
   /* ==================================================================
      6. 그리기
      ================================================================== */
+  /** R4: 캔버스 글자는 모두 SK.text — 에스코어 드림 400(라벨)·500(강조), 기호는 $…$ 수식(기울임 + 아래첨자) */
   function txt(ctx, s, x, y, o) {
     o = o || {};
-    ctx.font = (o.w || 600) + ' ' + Math.max(FS, o.size || FS) + 'px ' + FONT;
-    ctx.fillStyle = o.raw || SK.color(o.color || '--color-ink');
-    ctx.textAlign = o.align || 'left'; ctx.textBaseline = o.base || 'middle';
-    ctx.fillText(s, x, y);
+    if (o.raw) ctx.fillStyle = o.raw;
+    return SK.text(ctx, s, x, y, {
+      size: Math.max(FS, o.size || FS), weight: (o.w || 400) >= 500 ? 500 : 400,
+      color: o.raw ? null : (o.color || '--color-ink'), align: o.align || 'left', baseline: o.base || 'middle',
+      halo: o.halo, haloWidth: o.haloWidth
+    });
   }
   function roundRect(ctx, x, y, w, h, r) {
     ctx.beginPath(); ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
@@ -482,7 +519,23 @@
     o = o || {};
     ctx.fillStyle = SK.color(o.fill || '--color-paper-raised'); ctx.strokeStyle = SK.color(o.off ? '--color-line' : '--color-line-strong'); ctx.lineWidth = o.lw || 3;
     roundRect(ctx, r.x, r.y, r.w, r.h, o.radius || 8); ctx.fill(); ctx.stroke();
-    txt(ctx, label, r.x + r.w / 2, r.y + r.h / 2 + 1, { align: 'center', size: o.size || FS, w: 700, color: o.off ? '--color-ink-muted' : (o.color || '--color-ink') });
+    var col = o.off ? '--color-ink-muted' : (o.color || '--color-ink'), cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+    if (o.glyph) {       // R4: − + 는 글꼴 대신 선으로 (글꼴마다 굵기·높이가 달라서)
+      var a = (o.size || FS) * 0.32;
+      ctx.strokeStyle = SK.color(col); ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(cx - a, cy); ctx.lineTo(cx + a, cy);
+      if (o.glyph === 'plus') { ctx.moveTo(cx, cy - a); ctx.lineTo(cx, cy + a); }
+      ctx.stroke(); ctx.lineCap = 'butt';
+      return;
+    }
+    var size = o.size || FS;
+    if (o.icon) {        // R4: 글 + SVG 아이콘 (가운데 맞춤, 간격 6u)
+      var isz = Math.round(size * 1.1), tw = SK.measure(ctx, label, { size: size, weight: 500 }).w, gap = 6, x0 = cx - (tw + gap + isz) / 2;
+      txt(ctx, label, x0, cy, { size: size, w: 500, color: col });
+      SK.drawIcon(ctx, o.icon, x0 + tw + gap + isz / 2, cy, isz, { color: col, width: 2.4 });
+      return;
+    }
+    txt(ctx, label, cx, cy, { align: 'center', size: size, w: 500, color: col });
   }
   /** R3: 캔버스 검은 면 — 순검정 대신 따뜻한 짙은 갈색 · 둥근 8u · 얇은 테두리 */
   var DARK_EDGE = 'rgba(60, 50, 40, 0.25)';
@@ -498,9 +551,7 @@
     var r = o.r || 13;
     ctx.strokeStyle = SK.color(o.color || '--color-ink'); ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.2832); ctx.stroke();
-    ctx.font = '700 ' + (o.size || 17) + 'px ' + FONT;
-    ctx.fillStyle = SK.color(o.color || '--color-ink'); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(String(n), cx, cy + 1);
+    SK.text(ctx, String(n), cx, cy, { size: o.size || 17, weight: 500, align: 'center', color: o.color || '--color-ink' });
   }
 
   function drawSource(ctx, p) {
@@ -522,8 +573,8 @@
       ctx.fillStyle = SK.color('--color-paper-raised'); ctx.fillRect(x + w - 10, Y0 - 8, 14, 16);
     }
     var name = { wave: '레이저', photon: '약한 빛', electron: '전자총', marble: '구슬 발사기' }[k];
-    txt(ctx, name, x + w / 2, y + h + 22, { align: 'center', w: 700 });
-    if (isQuantum(k) || k === 'marble') txt(ctx, '하나씩', x + w / 2, y + h + 50, { align: 'center', w: 500, color: '--color-ink-muted' });
+    txt(ctx, name, x + w / 2, y + h + 22, { align: 'center', w: 500 });
+    if (isQuantum(k) || k === 'marble') txt(ctx, '하나씩', x + w / 2, y + h + 50, { align: 'center', w: 400, color: '--color-ink-muted' });
   }
 
   function drawSlitPlate(ctx, p, g) {
@@ -543,10 +594,10 @@
       if (blocked) {
         ctx.fillStyle = SK.color('--color-copper');
         roundRect(ctx, sx - 14, ys[s] - oh / 2 - 12, 28, oh + 24, 4); ctx.fill();
-        txt(ctx, '막음', sx - 22, ys[s], { align: 'right', w: 700, color: '--color-copper-text' });
+        txt(ctx, '막음', sx - 22, ys[s], { align: 'right', w: 500, color: '--color-copper-text' });
       }
     });
-    txt(ctx, '이중 슬릿', sx, SCR_BOT + 22, { align: 'center', w: 700 });
+    txt(ctx, '이중 슬릿', sx, SCR_BOT + 22, { align: 'center', w: 500 });
     if (p.det && p.send !== 'wave') {
       ['top', 'bottom'].forEach(function (s) {
         if (p.slit !== 'both' && p.slit !== s) return;
@@ -555,19 +606,18 @@
         ctx.strokeStyle = SK.color('--color-copper'); ctx.lineWidth = 3;
         roundRect(ctx, sx + 12, ys[s] - (s === 'top' ? 44 : -16), 40, 28, 5); ctx.fill(); ctx.stroke();
       });
-      txt(ctx, '측정기', sx + 58, ys.top - 30, { w: 700, color: '--color-copper-text' });
+      txt(ctx, '측정기', sx + 58, ys.top - 30, { w: 500, color: '--color-copper-text' });
     }
     // 거리 L
     var yL = SCR_BOT + 54, flashL = SK.isFlashing('L') || SK.isFlashing('LR');
     var lc = flashL ? '--color-ok' : '--color-line-strong';
     SK.arrow(ctx, sx + 4, yL, SCR_X - 4, yL, { color: lc, width: flashL ? 4 : 2, head: 10 });
     SK.arrow(ctx, SCR_X - 4, yL, sx + 4, yL, { color: lc, width: flashL ? 4 : 2, head: 10 });
-    var Ltxt = p.send === 'electron' ? 'L = ' + p.LR + ' a.u.' : 'L = ' + SK.fmt(p.L, 1) + ' m (그림은 줄임)';
-    ctx.font = '600 ' + FS + 'px ' + FONT;
-    var tw = ctx.measureText(Ltxt).width + 20, cx = Math.max(SRC_R + tw / 2, (sx + SCR_X) / 2);
+    var Ltxt = p.send === 'electron' ? '$L$ = ' + p.LR + ' a.u.' : '$L$ = ' + SK.fmt(p.L, 1) + ' m (그림은 줄임)';
+    var tw = SK.measure(ctx, Ltxt, { size: FS }).w + 20, cx = Math.max(SRC_R + tw / 2, (sx + SCR_X) / 2);
     ctx.fillStyle = SK.color('--color-paper-raised');
     ctx.fillRect(cx - tw / 2, yL - 15, tw, 30);
-    txt(ctx, Ltxt, cx, yL, { align: 'center', w: 600, color: flashL ? '--color-ok' : '--color-ink-muted' });
+    txt(ctx, Ltxt, cx, yL, { align: 'center', w: 400, color: flashL ? '--color-ok' : '--color-ink-muted' });
     return { sx: sx, ys: ys };
   }
 
@@ -632,7 +682,7 @@
   function drawHidden(ctx, x, y, w, h) {
     darkFace(ctx, x, y, w, h);
     darkEdge(ctx, x, y, w, h);
-    txt(ctx, '?', x + w / 2, y + h / 2, { align: 'center', size: Math.min(64, w * 0.7), w: 800, color: '--color-ink-inverse' });
+    SK.drawIcon(ctx, 'help', x + w / 2, y + h / 2, Math.min(72, w * 0.8), { color: '--color-ink-inverse', width: 2.4 });
   }
   function drawScreen(ctx, p, hide) {
     if (hide) drawHidden(ctx, SCR_X, SCR_TOP, SCR_W, SCR_H);
@@ -644,7 +694,7 @@
       ctx.restore();
       darkEdge(ctx, SCR_X, SCR_TOP, SCR_W, SCR_H);
     }
-    txt(ctx, '스크린', SCR_X + SCR_W / 2, SCR_BOT + 22, { align: 'center', w: 700 });
+    txt(ctx, '스크린', SCR_X + SCR_W / 2, SCR_BOT + 22, { align: 'center', w: 500 });
     // 직전 실행 무늬 띠
     darkFace(ctx, GH_X, SCR_TOP, GH_W, SCR_H, 6);
     darkEdge(ctx, GH_X, SCR_TOP, GH_W, SCR_H, 6);
@@ -657,7 +707,7 @@
       }
       ctx.restore();
     }
-    txt(ctx, '직전', GH_X + GH_W / 2, SCR_TOP - 16, { align: 'center', w: 600, color: '--color-ink-muted' });
+    txt(ctx, '직전', GH_X + GH_W / 2, SCR_TOP - 16, { align: 'center', w: 400, color: '--color-ink-muted' });
   }
   function buildGhostPat(gh) {
     var pts = gh.series && gh.series.I; if (!pts) return null;
@@ -680,8 +730,8 @@
       ctx.lineWidth = big ? 2.5 : 1;
       ctx.beginPath(); ctx.moveTo(RUL_X, y); ctx.lineTo(RUL_X + (big ? 14 : 6), y); ctx.stroke();
     }
-    for (var m2 = -20; m2 <= 20; m2 += 10) txt(ctx, m2 === 0 ? '0' : SK.fmt(m2, 0), RUL_X + 17, yToScr(m2), { w: 600 });
-    txt(ctx, unitY(p), RUL_X + 4, SCR_BOT + 22, { w: 700, color: '--color-ink-muted' });
+    for (var m2 = -20; m2 <= 20; m2 += 10) txt(ctx, m2 === 0 ? '0' : SK.fmt(m2, 0), RUL_X + 17, yToScr(m2), { w: 400 });
+    txt(ctx, unitY(p), RUL_X + 4, SCR_BOT + 22, { w: 500, color: '--color-ink-muted' });
   }
 
   /** 스크린 왼쪽 밝기 곡선 (이론·쌓인 개수 막대·직전·기록) */
@@ -722,8 +772,9 @@
   function drawZoom(ctx, p, hide) {
     var u = unitY(p);
     // 머리: 이름 + '측정 방법 ?' 칩
-    txt(ctx, '확대창 · 가운데 ±' + Z_RANGE + ' ' + u, ZX, BTN.how.y + BTN.how.h / 2, { w: 700, color: '--color-sim-slit-text' });
-    canvasBtn(ctx, BTN.how, '측정 방법 ?', { fill: meas.guide && !hide ? '--color-sim-slit-tint' : '--color-paper-raised', radius: BTN.how.h / 2, lw: 1 });
+    txt(ctx, '확대창 · 가운데 ±' + Z_RANGE + ' ' + u, ZX, BTN.how.y + BTN.how.h / 2, { w: 500, color: '--color-sim-slit-text' });
+    // R3 §6-3: 예측·모드 창이 떠 있으면 '측정 방법' 버튼을 그리지 않는다(창 옆으로 비치지 않게)
+    if (!howHidden()) canvasBtn(ctx, BTN.how, '측정 방법', { fill: meas.guide ? '--color-sim-slit-tint' : '--color-paper-raised', radius: BTN.how.h / 2, lw: 1, icon: 'help' });
     if (hide) { drawHidden(ctx, ZX, ZY, ZW, ZH); drawMeasureRows(ctx, p, true); return; }
     darkFace(ctx, ZX, ZY, ZW, ZH);
     ctx.save(); roundRect(ctx, ZX, ZY, ZW, ZH, 8); ctx.clip();
@@ -737,17 +788,14 @@
       if (big && Math.abs(mm) < Z_RANGE) {
         // R3: 검은 칩 대신 밝은 글자 + 짙은 외곽선 (무늬 위에서도 읽힘)
         var tl = mm === 0 ? '0' : SK.fmt(mm, 0);
-        ctx.font = '700 ' + FS + 'px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = SK.color('--color-ink');
-        ctx.strokeText(tl, ZX + 30, y);
-        ctx.fillStyle = SK.color('--color-paper'); ctx.fillText(tl, ZX + 30, y);
+        txt(ctx, tl, ZX + 30, y, { w: 500, color: '--color-paper', halo: '--color-ink', haloWidth: 3 });
       }
     }
     function line(yv, lab, snap) {
       var py = yToZoom(yv);
       ctx.strokeStyle = SK.color('--color-focus-on-dark'); ctx.lineWidth = snap ? 4 : 3; ctx.setLineDash(snap ? [] : [10, 6]);
       ctx.beginPath(); ctx.moveTo(ZX + 70, py); ctx.lineTo(ZX + ZW, py); ctx.stroke(); ctx.setLineDash([]);
-      txt(ctx, lab, ZX + ZW - 12, py - 16, { align: 'right', w: 800, color: '--color-focus-on-dark' });
+      txt(ctx, lab, ZX + ZW - 12, py - 16, { align: 'right', w: 500, color: '--color-focus-on-dark' });
     }
     if (meas.a !== null) line(meas.a, 'A', meas.snapA);
     if (meas.b !== null) {
@@ -761,13 +809,13 @@
       ctx.fillStyle = SK.color('--color-paper-raised');
       roundRect(ctx, bx, by, bw, bh, 10); ctx.fill();
       ctx.strokeStyle = SK.color('--color-sim-slit'); ctx.lineWidth = 3; roundRect(ctx, bx, by, bw, bh, 10); ctx.stroke();
-      // R3: 컬러 이모지 대신 잉크색 '◀' · 번호는 .circ 와 같은 원 · 글자 22u 통일
+      // R4: '◀' 글자 대신 SVG 아이콘(arrow-left) · 번호는 .circ 와 같은 원 · 글자 22u 통일
       var bob = Math.sin(performance.now() / 260) * 4;
-      txt(ctx, '◀', bx + 22 + bob, by + 28, { align: 'center', w: 700 });
-      ['밝은 줄 가운데를 눌러요', '다른 밝은 줄을 눌러요', '사이 칸 수 n 을 맞춰요'].forEach(function (s, i) {
+      SK.drawIcon(ctx, 'arrow-left', bx + 22 + bob, by + 28, 26, { color: '--color-ink', width: 2.6 });
+      ['밝은 줄 가운데를 눌러요', '다른 밝은 줄을 눌러요', '사이 칸 수 $n$ 을 맞춰요'].forEach(function (s, i) {
         var ly = by + 28 + i * 38;
         circNo(ctx, i + 1, bx + 56, ly);
-        txt(ctx, s, bx + 78, ly, { w: 700 });
+        txt(ctx, s, bx + 78, ly, { w: 500 });
       });
       SK.requestRender();
     }
@@ -782,26 +830,28 @@
   /** 확대창 아래 측정 칸: 잰 길이 → ÷ 칸 수 n [−][+] → = 한 칸 간격 */
   function drawMeasureRows(ctx, p, hide) {
     // R3: 예측·모드 창이 떠 있으면 창 옆으로 '+'·'지우기' 조각이 비치지 않게 측정 칸을 그리지 않는다
-    if (hide || (SK.el.slide && SK.el.slide.classList.contains('is-modal'))) return;
+    if (hide || howHidden()) return;
     var u = unitY(p), dist = !hide && meas.a !== null && meas.b !== null && Math.abs(meas.a - meas.b) >= 0.05 ? Math.abs(meas.a - meas.b) : null;
     // R3: 세 줄 모두 왼쪽 이름(ink-muted 600 22u) · 오른쪽 끝 값 — 같은 y 에 한 줄씩
-    var LAB = { w: 600, color: '--color-ink-muted' };
+    var LAB = { w: 400, color: '--color-ink-muted' };
     txt(ctx, '잰 길이 A~B', ZX, MY + 24, LAB);
     txt(ctx, dist === null ? (meas.a === null || hide ? '–' : 'B 를 눌러요') : SK.fmt(dist, 1) + ' ' + u,
-      ZX + ZW, MY + 24, dist === null ? { align: 'right', w: 600, color: '--color-ink-muted' } : { align: 'right', size: 26, w: 800, color: '--color-ink' });
-    txt(ctx, '÷ 칸 수 n', ZX, BTN.minus.y + BTN.minus.h / 2, LAB);
-    canvasBtn(ctx, BTN.minus, '−', { size: 32, off: meas.n <= 1 });
-    canvasBtn(ctx, BTN.plus, '+', { size: 32, off: meas.n >= N_MAX });
-    txt(ctx, String(meas.n), (BTN.minus.x + BTN.minus.w + BTN.plus.x) / 2, BTN.minus.y + BTN.minus.h / 2, { align: 'center', size: 30, w: 800 });
+      ZX + ZW, MY + 24, dist === null ? { align: 'right', w: 400, color: '--color-ink-muted' } : { align: 'right', size: 26, w: 500, color: '--color-ink' });
+    txt(ctx, '÷ 칸 수 $n$', ZX, BTN.minus.y + BTN.minus.h / 2, LAB);
+    canvasBtn(ctx, BTN.minus, '−', { size: 32, off: meas.n <= 1, glyph: 'minus' });
+    canvasBtn(ctx, BTN.plus, '+', { size: 32, off: meas.n >= N_MAX, glyph: 'plus' });
+    txt(ctx, String(meas.n), (BTN.minus.x + BTN.minus.w + BTN.plus.x) / 2, BTN.minus.y + BTN.minus.h / 2, { align: 'center', size: 30, w: 500 });
     canvasBtn(ctx, BTN.clear, '지우기', { off: meas.a === null });
     var mg = hide ? null : measuredGap();
     txt(ctx, '= 한 칸 간격', ZX, MY + 134, LAB);
     txt(ctx, mg === null ? '아직 안 잼' : SK.fmt(mg, 2) + ' ' + u, ZX + ZW, MY + 134,
-      mg === null ? { align: 'right', w: 600, color: '--color-ink-muted' } : { align: 'right', size: 32, w: 800, color: '--color-sim-slit-text' });
+      mg === null ? { align: 'right', w: 400, color: '--color-ink-muted' } : { align: 'right', size: 32, w: 500, color: '--color-sim-slit-text' });
   }
 
   /** 예측 창·모드 고르기 창이 떠 있는 동안은 결과 층(무늬·점·곡선·직전 띠)을 숨긴다 (R2 A4) */
   function resultsHidden() { return SK.predicting() || !!SK.el.stage.querySelector('.mode-layer'); }
+  /** R4: 예측·모드·확인 창이 떠 있나 (캔버스 버튼·측정 칸을 그리지도 누르지도 않음) */
+  function howHidden() { return resultsHidden() || !!(SK.el.slide && SK.el.slide.classList.contains('is-modal')); }
   function render(view, p) {
     var ctx = view.ctx;
     if (!cur) return;
@@ -821,14 +871,14 @@
      7. 하단 띠: 왼쪽 = 측정 3단계(빛) 또는 계기판(하나씩) | 오른쪽 = 식 칸
      ================================================================== */
   var lastM = {};
-  function setText(el, key, s) { if (lastM[key] !== s) { el.textContent = s; lastM[key] = s; } }
+  function setText(el, key, s) { if (lastM[key] !== s) { SK.setText(el, s); lastM[key] = s; } }   // R4: ✓ 아이콘 · $n$ 수식
   function dot(cls) { return SK.h('span', { class: 'dsq-dot dsq-dot--' + cls, 'aria-hidden': 'true' }); }
   function updateSteps(p) {
     var st = measStage(), u = unitY(p), mg = measuredGap();
     var vals = [
       meas.a === null ? '확대창에서' : '✓ ' + SK.fmt(meas.a, 1),
       meas.b === null ? (st === 2 ? '다른 줄을' : '아직 없음') : '✓ ' + SK.fmt(meas.b, 1),
-      mg === null ? 'n = ' + meas.n + ' 맞추기' : SK.fmt(mg, 2) + ' ' + u
+      mg === null ? '$n$ = ' + meas.n + ' 맞추기' : SK.fmt(mg, 2) + ' ' + u
     ];
     ui.stepCells.forEach(function (c, i) {
       var state = i + 1 < st ? 'done' : i + 1 === st ? 'now' : 'next';
@@ -868,15 +918,15 @@
       return;
     }
     if (p.send === 'electron') {
-      add(l1, [SK.h('b', { text: 'λ = h ÷ p' }), val('lam', SK.fmt(pmOf(p.V), 1) + ' pm'), SK.h('span', { class: 'dsq-muted dsq-nowrap', text: 'pm = 10⁻¹² m' })]);
+      add(l1, [SK.h('b', null, SK.mathNodes('$λ$ = $h$ ÷ $p$')), val('lam', SK.fmt(pmOf(p.V), 1) + ' pm'), SK.h('span', { class: 'dsq-muted dsq-nowrap', text: 'pm = 10⁻¹² m' })]);
     } else {
-      add(l1, [SK.h('b', { text: 'Δy = λL ÷ d' }), val('lam', p.lam + ' nm'), val('L', SK.fmt(p.L, 1) + ' m'), val('d', SK.fmt(p.d, 2) + ' mm')]);
+      add(l1, [SK.h('b', null, SK.mathNodes('$Δy$ = $λL$ ÷ $d$')), val('lam', p.lam + ' nm'), val('L', SK.fmt(p.L, 1) + ' m'), val('d', SK.fmt(p.d, 2) + ' mm')]);
     }
     if (!fringeMode(g)) {
       add(l2, [SK.h('span', { class: 'dsq-muted', text: p.slit !== 'both' ? '슬릿이 하나라 → 줄무늬 없음' : '어느 슬릿인지 알면 → 줄무늬 없음' })]);
       return;
     }
-    add(l2, [SK.h('span', { class: 'dsq-muted', text: '이론 Δy' })]);
+    add(l2, [SK.h('span', { class: 'dsq-muted' }, SK.mathNodes('이론 $Δy$'))]);
     if (!SK.records.length) {
       add(l2, [SK.h('span', { class: 'dsq-muted', text: '— 기록하면 열 수 있어요' })]);
     } else if (!theoryOpen) {
@@ -907,7 +957,7 @@
       if (meas.a === null) return '밝은 줄 두 곳을 눌러 간격을 재요';
       if (meas.b === null) return '끝점이 될 밝은 줄을 눌러요';
       if (SK.running) return '빛이 다 켜질 때까지 기다려요';
-      if (recordedThisRun()) return '저장했어요. λ만 바꿔 다시 재요';
+      if (recordedThisRun()) return '저장했어요. $λ$만 바꿔 다시 재요';
       return '한 칸 ' + SK.fmt(measuredGap(), 2) + ' ' + unitY(p) + ' — 기록해요';
     }
     if (!SK.started) return presetHint || '아래 ▶ 실행으로 하나씩 보내요';
@@ -918,7 +968,7 @@
   }
   function taskCompare() {
     if (SK.records.length < 2) return null;
-    return entrance === 'physics' ? 'λ만 바꾼 기록으로 관계를 찾아요' : '측정기 끔·켬 무늬를 비교해요';
+    return entrance === 'physics' ? '$λ$만 바꾼 기록으로 관계를 찾아요' : '측정기 끔·켬 무늬를 비교해요';
   }
   /* 비교 체크리스트 판정 */
   function checkPhysics() {
@@ -960,6 +1010,7 @@
     dt: 1 / 240,
     stageFit: true,
     stageH: 660,
+    onResize: onStageResize,
     onStep: function () { refreshChecklist(); },
     onPredictOpen: function () { SK.requestRender(); },
     onPredictClose: function () { SK.requestRender(); },
@@ -995,10 +1046,10 @@
     capture: function () { if (!cur || suppressCapture) return null; return captureFrom(cur.p); },
     status: function (p) {
       var s = [KIND_LABEL[p.send]];
-      if (p.send === 'electron') s.push(fmtN(p.V) + ' V', 'd ' + p.dR + ' a.u.', 'L ' + p.LR + ' a.u.');
+      if (p.send === 'electron') s.push(fmtN(p.V) + ' V', '$d$ ' + p.dR + ' a.u.', '$L$ ' + p.LR + ' a.u.');   // R4 마무리: 칩 안 d·L 도 수식 표기
       else {
         if (p.send !== 'marble') s.push(p.lam + ' nm');
-        s.push('d ' + SK.fmt(p.d, 2) + ' mm', 'L ' + SK.fmt(p.L, 1) + ' m');
+        s.push('$d$ ' + SK.fmt(p.d, 2) + ' mm', '$L$ ' + SK.fmt(p.L, 1) + ' m');
       }
       if (p.slit !== 'both') s.push(p.slit === 'top' ? '위 슬릿만' : '아래 슬릿만');
       if (entrance === 'quantum' && p.send !== 'wave') s.push('측정기 ' + (p.det ? '켬' : '끔'));
@@ -1008,18 +1059,15 @@
     confirmPresetWithRecords: true
   });
 
-  FONT = getComputedStyle(document.documentElement).getPropertyValue('--font-sans').trim() || 'sans-serif';
-  dotsCv = makeCanvas(SCR_W, SCR_H); dotsCtx = dotsCv.getContext('2d');
-  zoomCv = makeCanvas(ZW, ZH); zoomCtx = zoomCv.getContext('2d');
-  patCv = document.createElement('canvas'); patCv.width = 1; patCv.height = SCR_H;
-  zpatCv = document.createElement('canvas'); zpatCv.width = 1; zpatCv.height = ZH;
+  layoutFor(SK.view.extra);
+  makeOffscreens();
 
   /* ---- 수치 바꾸기 (핵심 3개: λ 또는 V · d · L) — 긴 설명 대신 단위 칩 ---- */
   SK.addVar('values', { key: 'lam', label: '빛의 {{파장}}', symbol: 'λ', unit: 'nm', min: 400, max: 700, step: 10, value: 650, decimals: 0, precision: 0, ticks: [{ v: 400, label: '보라 400' }, { v: 550, label: '초록 550' }, { v: 700, label: '빨강 700' }], apply: 'live',
     hint: 'nm = 10⁻⁹ m' });
   SK.controls.lam.el.classList.add('dsq-rainbow');
   SK.addVar('values', { key: 'V', label: '전자 가속 전압', symbol: 'V', unit: 'V', min: 100, max: 5000, step: 100, value: 1000, decimals: 0, precision: 0, ticks: [100, 2500, 5000], apply: 'live',
-    hint: 'λ = 38.8 pm' });
+    hint: '$λ$ = 38.8 pm' });
   SK.addVar('values', { key: 'd', label: '{{슬릿}} 간격', symbol: 'd', unit: 'mm', min: 0.10, max: 0.50, step: 0.05, value: 0.25, decimals: 2, precision: 3, ticks: [0.1, 0.25, 0.5], apply: 'live',
     hint: 'mm = 10⁻³ m' });
   SK.addVar('values', { key: 'dR', label: '{{슬릿}} 간격', symbol: 'd', unit: 'a.u.', min: 2, max: 10, step: 1, value: 5, decimals: 0, precision: 0, ticks: [2, 5, 10], apply: 'live',
@@ -1044,7 +1092,7 @@
   ui.lamHint = SK.controls.lam.el.querySelector('.var__hint');
   function updateVHint() {
     if (!ui.vHint) return;
-    ui.vHint.textContent = '드브로이 파장 λ = ' + SK.fmt(pmOf(SK.get('V')), 1) + ' pm · pm = 10⁻¹² m';
+    SK.setText(ui.vHint, '드브로이 파장 $λ$ = ' + SK.fmt(pmOf(SK.get('V')), 1) + ' pm · pm = 10⁻¹² m');
   }
 
   // 보내는 빠르기: 3단 버튼 + 한꺼번에 보내기 (하나씩 보낼 때만)
@@ -1112,9 +1160,9 @@
     return SK.h('div', { class: 'dsq-meter' }, [l, SK.h('span', { class: 'dsq-mrow' }, [v])]);
   }
   ui.metersBox = SK.h('div', { class: 'dsq-meters' }, [meterCell(1), meterCell(2), meterCell(3)]);
-  ui.stepCells = ['시작점', '끝점', '칸 수 n'].map(function (t, i) {
+  ui.stepCells = ['시작점', '끝점', '칸 수 $n$'].map(function (t, i) {
     var v = SK.h('b', { class: 'dsq-step__val num' });
-    var nt = SK.h('span', { text: t });
+    var nt = SK.h('span'); SK.setText(nt, t);
     var nm = SK.h('span', { class: 'dsq-step__name' }, [SK.circ(i + 1), nt]);
     var c = SK.h('div', { class: 'dsq-step is-next' }, [nm, v]);
     c._val = v; c._name = nt;
@@ -1168,14 +1216,17 @@
     var n = SK.records.length, rows;
     if (entrance === 'physics') {
       var c = checkPhysics();
-      rows = [[n >= 3, '기록 3개 이상 (지금 ' + n + '개)'], [c.onlyLam, 'λ 만 바꿨어요 (d·L 은 그대로)'], [c.prop, 'Δy 가 λ 에 비례해요 — 내가 잰 Δy ÷ λ 가 거의 같아요']];
+      rows = [[n >= 3, '기록 3개 이상 (지금 ' + n + '개)'], [c.onlyLam, '$λ$ 만 바꿨어요 ($d$·$L$ 은 그대로)'], [c.prop, '$Δy$ 가 $λ$ 에 비례해요 — 내가 잰 $Δy$ ÷ $λ$ 가 거의 같아요']];
     } else {
       var q = checkQuantum();
       rows = [[q.off, '측정기를 끄고 전자(또는 광자)를 기록했어요'], [q.on, '측정기를 켜거나 구슬로 바꿔 기록했어요'], [false, '두 무늬가 어떻게 다른지 한 문장으로 말해 봐요']];
     }
     ui.check.innerHTML = '';
     ui.check.appendChild(SK.h('p', { class: 'dsq-check__t' }, ['비교 체크리스트', SK.h('span', { class: 'dsq-check__tip', text: '빠진 것은 값을 바꿔 실행한 뒤 기록하기 버튼으로 한 번 더 저장해요' })]));
-    rows.forEach(function (r) { ui.check.appendChild(SK.h('p', { class: 'dsq-check__row' + (r[0] ? ' is-ok' : '') }, [SK.h('span', { class: 'dsq-check__box', text: r[0] ? '✓' : '' }), r[1]])); });
+    rows.forEach(function (r) {
+      ui.check.appendChild(SK.h('p', { class: 'dsq-check__row' + (r[0] ? ' is-ok' : '') },
+        [SK.h('span', { class: 'dsq-check__box' }, r[0] ? SK.icon('check', { size: 'sm' }) : null), SK.h('span', null, SK.mathNodes(r[1]))]));
+    });
   }
   SK.onRecords(function () { refreshChecklist(); ui.eqKey = null; SK.requestRender(); });
 
@@ -1263,8 +1314,10 @@
   function svg(vb, body) { return '<svg viewBox="' + vb + '" xmlns="http://www.w3.org/2000/svg" role="img" style="font-family:inherit">' + body + '</svg>'; }
   function T(x, y, s, o) {
     o = o || {};
-    return '<text x="' + x + '" y="' + y + '" text-anchor="' + (o.a || 'middle') + '" style="font-size:' + (o.size || 22) + 'px;font-weight:' + (o.w || 700) + ';fill:' + (o.fill || INK) + '">' + s + '</text>';
+    return '<text x="' + x + '" y="' + y + '" text-anchor="' + (o.a || 'middle') + '" style="font-size:' + (o.size || 22) + 'px;font-weight:' + (o.w || 500) + ';fill:' + (o.fill || INK) + '">' + s + '</text>';
   }
+  /** R4: SVG 안 물리 기호 — HTML .sym 과 같은 수식 글꼴 이탤릭 */
+  function S(ch) { return '<tspan class="sym" style="font-family:var(--font-math);font-style:italic;font-weight:400">' + ch + '</tspan>'; }
   /** 예측 그림: 광원 → 틈 두 개(슬릿) → 스크린(?) */
   function predictFigure(kind) {
     var src = kind === 'electron' ? '전자총' : kind === 'marble' ? '구슬' : '레이저';
@@ -1277,8 +1330,8 @@
     return svg('0 0 300 180',
       '<rect x="6" y="70" width="50" height="32" rx="6" style="fill:' + MUT + '"/>' + T(31, 128, src) + beam + rays +
       '<rect x="150" y="24" width="8" height="46" style="fill:' + INK + '"/><rect x="150" y="80" width="8" height="12" style="fill:' + INK + '"/><rect x="150" y="102" width="8" height="46" style="fill:' + INK + '"/>' +
-      T(154, 18, '틈 두 개', { size: 20 }) + T(154, 172, '(슬릿)', { size: 20, w: 600, fill: MUT }) +
-      '<rect x="262" y="24" width="18" height="124" rx="3" style="fill:' + INK + '"/>' + T(271, 98, '?', { size: 30, w: 800, fill: PAPER }) +
+      T(154, 18, '틈 두 개', { size: 20 }) + T(154, 172, '(슬릿)', { size: 20, w: 400, fill: MUT }) +
+      '<rect x="262" y="24" width="18" height="124" rx="3" style="fill:' + INK + '"/>' + T(271, 98, '?', { size: 30, w: 400, fill: PAPER }) +
       T(262, 172, '스크린', { size: 20, a: 'middle' }));
   }
   /** 개념 그림 1: 두 슬릿에서 퍼진 물결과 스크린의 밝고 어두운 줄 */
@@ -1295,8 +1348,8 @@
     return svg('0 0 460 200',
       '<rect x="34" y="0" width="10" height="62" style="fill:' + INK + '"/><rect x="34" y="78" width="10" height="34" style="fill:' + INK + '"/><rect x="34" y="128" width="10" height="72" style="fill:' + INK + '"/>' +
       '<clipPath id="dsqc1"><rect x="44" y="0" width="282" height="200"/></clipPath><g clip-path="url(#dsqc1)">' + arcs + '</g>' + bands +
-      T(406, 30, '밝은 줄', { size: 20, fill: 'var(--color-ink)' }) + T(406, 52, '= 보강', { size: 20, w: 600, fill: MUT }) +
-      T(406, 125, '어두운 줄', { size: 20 }) + T(406, 147, '= 상쇄', { size: 20, w: 600, fill: MUT }));
+      T(406, 30, '밝은 줄', { size: 20, fill: 'var(--color-ink)' }) + T(406, 52, '= 보강', { size: 20, w: 400, fill: MUT }) +
+      T(406, 125, '어두운 줄', { size: 20 }) + T(406, 147, '= 상쇄', { size: 20, w: 400, fill: MUT }));
   }
   /** 개념 그림 2: d sinθ = 경로차, y 와 L */
   function figGeometry() {
@@ -1306,12 +1359,12 @@
       '<line x1="48" y1="105" x2="400" y2="105" style="stroke:' + MUT + ';stroke-width:2;stroke-dasharray:6 5"/>' +
       '<line x1="48" y1="86" x2="400" y2="34" style="stroke:' + RED + ';stroke-width:3"/><line x1="48" y1="124" x2="400" y2="34" style="stroke:' + RED + ';stroke-width:3"/>' +
       '<line x1="48" y1="86" x2="58" y2="122" style="stroke:' + SL + ';stroke-width:3"/>' +
-      T(100, 148, 'd sinθ = 경로차', { size: 20, a: 'start', fill: SL }) +
-      '<line x1="26" y1="86" x2="26" y2="124" style="stroke:var(--color-copper);stroke-width:3"/>' + T(14, 112, 'd', { size: 22, fill: 'var(--color-copper)' }) +
-      '<line x1="420" y1="34" x2="420" y2="105" style="stroke:' + INK + ';stroke-width:2"/>' + T(440, 76, 'y', { size: 22 }) +
-      '<path d="M 110 105 A 62 62 0 0 0 107 96" style="fill:none;stroke:' + INK + ';stroke-width:2"/>' + T(126, 100, 'θ', { size: 20 }) +
-      '<line x1="48" y1="212" x2="400" y2="212" style="stroke:var(--color-ok);stroke-width:2"/>' + T(224, 206, 'L (슬릿 → 스크린)', { size: 20, fill: 'var(--color-ok)' }) +
-      T(330, 26, 'm번째 밝은 줄', { size: 20, a: 'end' }));
+      T(100, 148, S('d') + ' sin' + S('θ') + ' = 경로차', { size: 20, a: 'start', fill: SL }) +
+      '<line x1="26" y1="86" x2="26" y2="124" style="stroke:var(--color-copper);stroke-width:3"/>' + T(14, 112, S('d'), { size: 24, fill: 'var(--color-copper)' }) +
+      '<line x1="420" y1="34" x2="420" y2="105" style="stroke:' + INK + ';stroke-width:2"/>' + T(440, 76, S('y'), { size: 24 }) +
+      '<path d="M 110 105 A 62 62 0 0 0 107 96" style="fill:none;stroke:' + INK + ';stroke-width:2"/>' + T(126, 100, S('θ'), { size: 22 }) +
+      '<line x1="48" y1="212" x2="400" y2="212" style="stroke:var(--color-ok);stroke-width:2"/>' + T(224, 206, S('L') + ' (슬릿 → 스크린)', { size: 20, fill: 'var(--color-ok)' }) +
+      T(330, 26, S('m') + '번째 밝은 줄', { size: 20, a: 'end' }));
   }
   /** 개념 그림 3: 점이 10개 → 200개 → 3,000개 쌓이며 줄무늬가 드러남 (고정된 난수로 매번 같은 그림) */
   function figDots() {
@@ -1356,17 +1409,17 @@
         values: withBase({ send: 'wave', lam: 450 }),
         predict: { question: '빨강(650 nm) 대신 파랑(450 nm) 빛을 비추면 무늬 간격은?', choices: ['넓어진다', '좁아진다', '그대로다'],
           info: '카드 ①에서 빨강을 재고 기록해 두면 두 무늬를 나란히 비교할 수 있어요.',
-          answer: 2, why: 'Δy = λL ÷ d 에서 λ 가 약 0.7배라 간격도 5.2 → 약 3.6 mm 로 좁아져요.' },
+          answer: 2, why: '$Δy$ = $λL$ ÷ $d$ 에서 $λ$ 가 약 0.7배라 간격도 5.2 → 약 3.6 mm 로 좁아져요.' },
         onApply: function () { presetHint = '▶ 실행 후 파란 무늬 간격을 재요'; } },
       { name: '슬릿 간격 2배', tag: '탐구 재현', changes: 'd 0.25 → 0.50', fixed: 'λ 650 nm · L 2.0 m',
         values: withBase({ send: 'wave', d: 0.5 }),
         predict: { question: '두 슬릿 사이를 두 배(0.50 mm)로 넓히면 무늬 간격은?', choices: ['두 배로 넓어진다', '반으로 좁아진다', '그대로다'],
-          answer: 2, why: 'd 는 식의 분모라서 두 배가 되면 Δy 는 ½배 — 5.2 → 2.6 mm 예요.' },
+          answer: 2, why: '$d$ 는 식의 분모라서 두 배가 되면 $Δy$ 는 ½배 — 5.2 → 2.6 mm 예요.' },
         onApply: function () { presetHint = '▶ 실행 후 촘촘한 줄을 여러 칸 재요'; } },
       { name: '스크린을 멀리', tag: '탐구 재현', changes: 'L 2.0 → 3.0 m', fixed: 'λ 650 nm · d 0.25 mm',
         values: withBase({ send: 'wave', L: 3.0 }),
         predict: { question: '스크린을 2.0 m 에서 3.0 m 로 멀리 두면 무늬 간격은?', choices: ['1.5배로 넓어진다', '좁아진다', '그대로다'],
-          answer: 1, why: 'Δy 는 L 에 비례해요. L 이 1.5배라 5.2 → 7.8 mm 가 돼요.' },
+          answer: 1, why: '$Δy$ 는 $L$ 에 비례해요. $L$ 이 1.5배라 5.2 → 7.8 mm 가 돼요.' },
         onApply: function () { presetHint = '▶ 실행 후 넓어진 줄 사이를 재요'; } },
       { name: '슬릿 하나만?', tag: '오개념', changes: '슬릿 둘 → 위만', fixed: 'λ 650 nm · d 0.25 mm · L 2.0 m',
         values: withBase({ send: 'wave', slit: 'top' }),
@@ -1414,28 +1467,28 @@
     if (p.det && p.send !== 'wave') return { line: '어느 길인지 알게 되자 줄무늬가 사라졌어요',
       more: '측정기가 지나간 슬릿을 기록하면 두 길이 겹칠 수 없어 간섭이 사라져요. 사람이 보는지와는 상관없어요. 이 화면에서는 슬릿 간격이 좁아 두 띠가 겹쳐 하나로 보여요 — 핵심은 줄무늬가 사라진다는 것이에요.' };
     if (p.send === 'wave') return { line: '밝은 줄(보강)과 어두운 줄(상쇄)이 번갈아 생겼어요',
-      more: '두 틈에서 나온 빛이 스크린의 한 점까지 가는 길이의 차(경로차)가 파장의 정수배면 보강(같은 방향이 겹쳐 더 밝아짐), 반 파장의 홀수배면 상쇄(반대 방향이 겹쳐 지워짐)예요. 이웃한 밝은 줄 사이는 Δy = λL ÷ d 로 계산해요. 확대창에서 재어 비교해 보세요.' };
+      more: '두 틈에서 나온 빛이 스크린의 한 점까지 가는 길이의 차(경로차)가 파장의 정수배면 보강(같은 방향이 겹쳐 더 밝아짐), 반 파장의 홀수배면 상쇄(반대 방향이 겹쳐 지워짐)예요. 이웃한 밝은 줄 사이는 $Δy$ = $λL$ ÷ $d$ 로 계산해요. 확대창에서 재어 비교해 보세요.' };
     var who = p.send === 'electron' ? '전자' : '광자';
     return { line: who + '를 하나씩 보내도 쌓이면 줄무늬가 돼요',
       more: '점 하나가 어디에 찍힐지는 예측할 수 없지만, 수천 개가 쌓이면 늘 같은 줄무늬가 돼요. 줄무늬는 점이 닿을 확률의 모양이에요 — ' + who + '는 입자로 도착하고, 어디에 도착할지는 파동처럼 간섭해서 정해져요. (줄 간격 단위: ' + u + ')' };
   });
 
   var THINKS = [
-    { id: 'p-narrow', mode: 'physics', q: '무늬 간격 Δy 를 좁게 만들려면 어떻게 해야 할까?', choices: ['파장을 더 길게', '슬릿 간격을 더 넓게', '스크린을 더 멀리'], answer: 2,
-      why: 'Δy = λL ÷ d 에서 d 는 분모라 키우면 Δy 가 작아져요. 파장을 길게 하거나 스크린을 멀리하면 오히려 넓어져요.' },
-    { id: 'p-calc', mode: 'physics', q: '초록 빛(λ 500 nm), 슬릿 간격 d 0.20 mm, 스크린 거리 L 1.6 m 이면 무늬 간격 Δy 는?', choices: ['2.0 mm', '4.0 mm', '6.4 mm'], answer: 2,
-      hint: 'Δy = λ × L ÷ d (모두 m 로 바꿔 넣어요)', hintFold: true,
+    { id: 'p-narrow', mode: 'physics', q: '무늬 간격 $Δy$ 를 좁게 만들려면 어떻게 해야 할까?', choices: ['파장을 더 길게', '슬릿 간격을 더 넓게', '스크린을 더 멀리'], answer: 2,
+      why: '$Δy$ = $λL$ ÷ $d$ 에서 $d$ 는 분모라 키우면 $Δy$ 가 작아져요. 파장을 길게 하거나 스크린을 멀리하면 오히려 넓어져요.' },
+    { id: 'p-calc', mode: 'physics', q: '초록 빛($λ$ 500 nm), 슬릿 간격 $d$ 0.20 mm, 스크린 거리 $L$ 1.6 m 이면 무늬 간격 $Δy$ 는?', choices: ['2.0 mm', '4.0 mm', '6.4 mm'], answer: 2,
+      hint: '$Δy$ = $λ$ × $L$ ÷ $d$ (모두 m 로 바꿔 넣어요)', hintFold: true,
       why: '500×10⁻⁹ m × 1.6 m ÷ (0.20×10⁻³ m) = 4.0×10⁻³ m = 4.0 mm. 패널에 값을 직접 넣어 재 보며 확인해 봐요.' },
     { id: 'p-half', mode: 'physics', q: '5.2 mm 였던 무늬에서 스크린 거리만 2.0 m → 1.0 m 로 줄이면 간격은 몇 mm 가 될까? 이유도 써 봐요.',
-      hint: 'Δy 는 L 에 비례해요',
+      hint: '$Δy$ 는 $L$ 에 비례해요',
       reveal: '<b>모범 답: 2.6 mm</b><br>Δy = λL ÷ d 에서 L 이 ½배면 Δy 도 ½배예요.<br>같은 2.6 mm 는 슬릿 간격을 0.25 → 0.50 mm 로 두 배 넓혀도 나와요(d 는 분모라 두 배면 ½배).' },
     { id: 'p-two', mode: 'physics', q: '친구가 "밝은 줄은 슬릿 수만큼, 그러니까 2개 생겨"라고 했어요. 맞을까?',
       reveal: '<b>아니에요.</b><br>밝은 줄은 두 빛의 경로차가 0, λ, 2λ … 인 곳(보강)마다 생겨서 여러 개예요.<br>줄이 2개뿐인 건 구슬처럼 간섭하지 않는 알갱이를 보낼 때예요.' },
     { id: 'q-first', mode: 'quantum', q: '전자를 한 개씩 보내면 처음 몇 개의 점은 어떻게 찍힐까?', choices: ['처음부터 줄무늬 모양으로', '아무 데나 흩어진 것처럼', '두 슬릿 바로 뒤 두 곳에만'], answer: 2,
       why: '점 하나가 어디에 닿을지는 예측할 수 없어 처음엔 흩어져 보여요. 수천 개가 쌓이면 확률이 큰 곳(밝은 줄)에 몰려 늘 같은 줄무늬가 드러나요.' },
-    { id: 'q-volt', mode: 'quantum', q: '가속 전압 V 를 4배로 높이면 무늬 간격은?', choices: ['2배로 넓어진다', '½로 좁아진다', '¼로 좁아진다'], answer: 2,
-      hint: 'p = √(2meV), λ = h ÷ p', hintFold: true,
-      why: 'V 4배 → p 2배(√4 = 2) → λ = h ÷ p 는 ½ → 무늬 간격도 ½이에요. ¼을 골랐다면 제곱근을 빠뜨렸는지 확인해요.' },
+    { id: 'q-volt', mode: 'quantum', q: '가속 전압 $V$ 를 4배로 높이면 무늬 간격은?', choices: ['2배로 넓어진다', '½로 좁아진다', '¼로 좁아진다'], answer: 2,
+      hint: '$p$ = √(2$meV$), $λ$ = $h$ ÷ $p$', hintFold: true,
+      why: '$V$ 4배 → $p$ 2배(√4 = 2) → $λ$ = $h$ ÷ $p$ 는 ½ → 무늬 간격도 ½이에요. ¼을 골랐다면 제곱근을 빠뜨렸는지 확인해요.' },
     { id: 'q-which', mode: 'quantum', q: '전자 하나는 어느 슬릿을 지났을까? 측정기를 켰을 때와 껐을 때의 무늬를 근거로 이야기해 봐요.',
       reveal: '<b>생각해 볼 점</b><br>측정기를 끄면 줄무늬가 생기므로, 전자는 두 길의 가능성을 함께 지닌 파동처럼 행동해요.<br>어느 슬릿인지 알아내면 줄무늬가 사라져요 — "어느 쪽"이 정해지면 간섭이 없어지는 것이 양자 세계의 특징이에요.' },
     { id: 'q-human', mode: 'quantum', q: '"측정기를 켜면 사람이 지켜봐서 무늬가 사라진다"는 말은 맞을까?',
@@ -1470,9 +1523,9 @@
       how: ['아래 실험 카드를 누르면 값이 바뀌고 예측 질문이 나와요. 답을 골라 예측하기를 눌러요.',
         '아래 ▶ 실행을 누르면 빛이 켜지고 스크린에 밝고 어두운 줄이 생겨요.',
         '오른쪽 {{확대창}}에서 밝은 줄 가운데를 한 번, 다른 밝은 줄을 한 번 눌러요. 가까이 누르면 줄 가운데로 저절로 맞춰져요.',
-        '두 점 사이 칸 수를 세어 {{칸 수 n}}을 맞추면 한 칸 간격 Δy 가 나와요. 여러 칸을 재고 나누면 더 정확해요.',
-        '기록하기 버튼으로 저장하고, 파장 λ 하나만 바꿔 다시 재고 기록해요.',
-        '비교 단계 표에서 λ 와 Δy 의 관계를 찾아요. 기록한 뒤에는 아래 식 칸의 답 확인하기로 이론값을 볼 수 있어요.']
+        '두 점 사이 칸 수를 세어 {{칸 수 n}}을 맞추면 한 칸 간격 $Δy$ 가 나와요. 여러 칸을 재고 나누면 더 정확해요.',
+        '기록하기 버튼으로 저장하고, 파장 $λ$ 하나만 바꿔 다시 재고 기록해요.',
+        '비교 단계 표에서 $λ$ 와 $Δy$ 의 관계를 찾아요. 기록한 뒤에는 아래 식 칸의 답 확인하기로 이론값을 볼 수 있어요.']
     },
     quantum: {
       how: ['아래 실험 카드를 누르면 값이 바뀌고 예측 질문이 나와요. 답을 골라 예측하기를 눌러요.',
@@ -1492,8 +1545,8 @@
     why: '스크린 한가운데는 두 슬릿까지 거리가 같아(경로차 0) 마루와 마루가 함께 도착해 밝아요.\n조금 옆으로 가면 한쪽 길이 반 파장 더 길어져 마루와 골이 만나 어두워요.\n더 가면 한 파장 차이가 되어 다시 밝아져요. 그래서 밝고 어두운 줄이 번갈아 생겨요.' };
   var C_SPACING = { title: '무늬 간격 Δy = λL ÷ d',
     summary: '파장이 길수록·슬릿 간격이 좁을수록 줄 간격이 넓어요',
-    plain: '이웃한 밝은 줄 사이 거리 Δy 는 세 값으로 정해져요.\n파장 λ 가 길수록(빨강 쪽) → 넓어요\n스크린 거리 L 이 멀수록 → 넓어요\n슬릿 간격 d 가 넓을수록 → 좁아요',
-    example: '650 nm, L 2.0 m, d 0.25 mm → Δy = 650×10⁻⁹ × 2.0 ÷ (0.25×10⁻³) = 5.2×10⁻³ m = 5.2 mm',
+    plain: '이웃한 밝은 줄 사이 거리 $Δy$ 는 세 값으로 정해져요.\n파장 $λ$ 가 길수록(빨강 쪽) → 넓어요\n스크린 거리 $L$ 이 멀수록 → 넓어요\n슬릿 간격 $d$ 가 넓을수록 → 좁아요',
+    example: '650 nm, $L$ 2.0 m, $d$ 0.25 mm → $Δy$ = 650×10⁻⁹ × 2.0 ÷ (0.25×10⁻³) = 5.2×10⁻³ m = 5.2 mm',
     figure: figGeometry(),
     formula: 'Δy = λL ÷ d',
     symbols: [
@@ -1502,7 +1555,7 @@
       { s: 'L', meaning: '슬릿에서 스크린까지 거리', unit: 'm' },
       { s: 'd', meaning: '두 슬릿 가운데 사이 거리', unit: 'm (1 mm = 10⁻³ m)' },
       { s: 'm', meaning: '밝은 줄 번호 (가운데 0, 1, 2 …)', unit: '없음' }],
-    why: '① m번째 밝은 줄에서 두 빛의 경로차는 d sinθ 이고, 밝으려면 d sinθ = mλ 여야 해요.\n② 스크린이 아주 멀어(L ≫ y) 각 θ 가 작으면 sinθ ≈ tanθ = y ÷ L 이에요.\n③ 두 식을 합치면 y = mλL ÷ d → 이웃한 줄(m 과 m + 1) 사이는 Δy = λL ÷ d.\n그래서 Δy 는 λ·L 에 비례하고 d 에 반비례해요.',
+    why: '① $m$번째 밝은 줄에서 두 빛의 경로차는 $d$ sin $θ$ 이고, 밝으려면 $d$ sin $θ$ = $mλ$ 여야 해요.\n② 스크린이 아주 멀어($L$ ≫ $y$) 각 $θ$ 가 작으면 sin $θ$ ≈ tan $θ$ = $y$ ÷ $L$ 이에요.\n③ 두 식을 합치면 $y$ = $mλL$ ÷ $d$ → 이웃한 줄($m$ 과 $m$ + 1) 사이는 $Δy$ = $λL$ ÷ $d$.\n그래서 $Δy$ 는 $λ$·$L$ 에 비례하고 $d$ 에 반비례해요.',
     live: function (p) {
       if (p.send === 'electron') return '(모형) 무늬 간격 = ' + SK.fmt(fringe(geomOf(p)), 1) + ' a.u.';
       if (p.send === 'marble') return '구슬은 간섭하지 않아 줄무늬가 없어요.';
@@ -1521,7 +1574,7 @@
       { s: 'm', meaning: '전자의 질량 9.11×10⁻³¹', unit: 'kg' },
       { s: 'e', meaning: '전자의 전하량 1.60×10⁻¹⁹', unit: 'C' },
       { s: 'V', meaning: '가속 전압', unit: 'V' }],
-    why: '전압 V 로 가속한 전자의 운동 에너지는 eV = p² ÷ 2m 이라서 p = √(2meV) 예요.\nV 4배 → p 2배 → λ = h ÷ p 는 ½ → 무늬 간격도 ½.\n실제 전자 파장은 너무 짧아, 이 화면은 줄무늬가 보이도록 키운 모형 단위(a.u.)로 그렸어요. 식과 비례 관계는 똑같아요.',
+    why: '전압 $V$ 로 가속한 전자의 운동 에너지는 $eV$ = $p^2$ ÷ 2$m$ 이라서 $p$ = √(2$meV$) 예요.\nV 4배 → $p$ 2배 → $λ$ = $h$ ÷ $p$ 는 ½ → 무늬 간격도 ½.\n실제 전자 파장은 너무 짧아, 이 화면은 줄무늬가 보이도록 키운 모형 단위(a.u.)로 그렸어요. 식과 비례 관계는 똑같아요.',
     live: function (p) { return fmtN(p.V) + ' V → λ = ' + SK.fmt(pmOf(p.V), 1) + ' pm'; } };
   var C_DETECT = { title: '측정기 — 어느 길인지 알면',
     summary: '어느 틈인지 알면 줄무늬가 사라져요',

@@ -3,7 +3,8 @@
    색은 토큰 이름만, 크기는 u 단위, 움직임 0.3초 이하
    ===================================================================== */
 
-/* 빛의 길 보기: 광선 칩 3개 (R2) — 높이 --tap, 켜짐 = 광선 색 채움 + '✓ 켜짐', 꺼짐 = 윤곽선 + '꺼짐'.
+
+/* 빛의 길 보기: 광선 칩 3개 (R2) — 높이 --tap, 켜짐 = 광선 색 채움 + (check 아이콘) 켜짐, 꺼짐 = 윤곽선 + '꺼짐'.
    선 견본(색·점선 모양)은 늘 흰 알약 위에 그려 색약에서도 구분 */
 .lens-rays { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
 .lens-rays > .ctl { min-width: 0; }
@@ -57,9 +58,12 @@
 }
 .lens-opt:hover { border-color: var(--color-primary); }
 .lens-opt.is-right { background: var(--color-ok-tint); border-color: var(--color-ok); color: var(--color-ok); font-weight: var(--font-weight-bold); }
-.lens-opt.is-right::before { content: "✓ "; }
+/* R4: 글자 ✓ ✗ → 마스크 아이콘 (--ico-check · --ico-close 공통 토큰, tokens.css) */
+.lens-opt.is-right, .lens-opt.is-wrong { display: inline-flex; align-items: center; gap: calc(6 * var(--u)); }
+.lens-opt.is-right::before, .lens-opt.is-wrong::before { content: ""; flex: none; width: 1em; height: 1em; background-color: currentColor; -webkit-mask: var(--ico) center/contain no-repeat; mask: var(--ico) center/contain no-repeat; }
+.lens-opt.is-right::before { --ico: var(--ico-check); }
 .lens-opt.is-wrong { background: var(--color-warn-tint); border-color: var(--color-warn); color: var(--color-warn); }
-.lens-opt.is-wrong::before { content: "✗ "; }
+.lens-opt.is-wrong::before { --ico: var(--ico-close); }
 .lens-hint { font: var(--font-weight-medium) var(--fs-meta)/1.4 var(--font-sans); color: var(--color-ink-muted); word-break: keep-all; }
 
 /* 도움말 개념 카드: 그림 · 표 · 오해 바로잡기 */
@@ -101,4 +105,7 @@
 .lens-pinfo b { color: var(--color-ink); font-weight: var(--font-weight-semibold); }
 .lens-figcap { margin: var(--space-1) 0 0; text-align: center; font: var(--font-weight-semibold) var(--fs-caption)/1.35 var(--font-sans); color: var(--color-ink-muted); word-break: keep-all; }
 .lens-rays .check[aria-pressed="true"] .check__state { color: var(--color-paper); }
+/* R4: 켜짐 앞 ✓ (글자 대신 마스크 아이콘) */
+.lens-rays .check__state { display: inline-flex; align-items: center; gap: calc(4 * var(--u)); }
+.lens-rays .check[aria-pressed="true"] .check__state::before { content: ""; flex: none; width: 1em; height: 1em; --ico: var(--ico-check); background-color: currentColor; -webkit-mask: var(--ico) center/contain no-repeat; mask: var(--ico) center/contain no-repeat; }
 .lens-rays .check[aria-pressed="true"] { border-color: var(--ray, var(--color-primary)); }

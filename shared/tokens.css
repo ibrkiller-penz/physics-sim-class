@@ -28,6 +28,10 @@
   /* ---------- 0. 비례 단위 --------------------------------------------- */
   /* 1920×1080 화면에서 1px. 1280×720 → 0.667px. 하한 없음(통째로 줄어듦). */
   --u: min(calc(100vw / 1920), calc(100vh / 1080));
+  /* R4: 세로 여유(px 길이값). 16:9 보다 세로가 긴 화면(4:3 태블릿 등)에서만 0 보다 크다 — 아래 @media.
+     실험 화면·오른쪽 칸이 이만큼 길어지고, 하단 띠·막대는 이만큼 아래로 내려간다(shell.css). */
+  --extra: 0px;
+  --extra-max: calc(440 * var(--u));   /* 무대 최대 1080+440 = 1520u */
   --design-w: 1920;
   --design-h: 1080;
 
@@ -116,16 +120,20 @@
   --sim-tint: var(--color-primary-tint);
   --sim-text: var(--color-primary-text);
 
-  /* ---------- 7. 글꼴 ------------------------------------------------ */
-  --font-serif: "Noto Serif KR", "Nanum Myeongjo", "Batang", serif;      /* 제목·질문 */
-  --font-sans:  "Pretendard", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
-  --font-num:   "Pretendard", system-ui, sans-serif; /* 숫자 — tabular-nums 함께 */
+  /* ---------- 7. 글꼴 (R4: 에스코어 드림 3·4·5 — fonts.css) ------------- */
+  --font-sans:  "S-Core Dream", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif;
+  --font-serif: var(--font-sans);   /* R4: 제목·질문도 에스코어 500 (명조 제거). 이름은 예전 코드 호환용 */
+  --font-num:   var(--font-sans);   /* R4: 에스코어는 같은 굵기 안에서 숫자 10개 폭이 같다(tnum 불필요) */
+  /* R4: 물리 기호 전용 — 이탤릭 세리프(시스템 글꼴, 파일 없음). .var__sym · .sym · 캔버스 SK.text 의 $…$ */
+  --font-math:  "Times New Roman", "Cambria", "Batang", "AppleMyungjo", serif;
 
+  /* R4 굵기 규칙: 본문 400 · 24u 이상 보조 글 300 · 제목·버튼·숫자·강조 500. 500 보다 굵게 쓰지 않는다(위계는 크기·색) */
+  --font-weight-light:    300;
   --font-weight-regular:  400;
   --font-weight-medium:   500;
-  --font-weight-semibold: 600;
-  --font-weight-bold:     700;
-  --font-weight-black:    900;
+  --font-weight-semibold: 500;   /* R4: 600 → 500 */
+  --font-weight-bold:     500;   /* R4: 700 → 500 */
+  --font-weight-black:    500;   /* R4: 900 → 500 */
 
   --font-lh-tight: 1.2;
   --font-lh-snug:  1.4;
@@ -166,7 +174,7 @@
 
   /* 화면 뼈대 (결정서 §2-3) */
   --space-slide-w: calc(1920 * var(--u));
-  --space-slide-h: calc(1080 * var(--u));
+  --space-slide-h: calc(1080 * var(--u) + var(--extra));   /* R4: 세로 여유만큼 길어짐 (16:9 = 1080u) */
   --space-btn-h:    calc(72 * var(--u)); /* 버튼 최소 높이(터치) */
   --space-btn-h-lg: calc(88 * var(--u));
   --space-thumb:    calc(56 * var(--u)); /* 슬라이더 손잡이 (R1 48→56) */
@@ -194,9 +202,29 @@
   --dur-ease:    cubic-bezier(0.2, 0, 0, 1);
   --dur-cursor-hide: 3000ms; /* 커서 숨김 대기 (sim.js 가 읽음) */
   --dur-notice:      2500ms; /* 안내 토스트 유지 (R2 3.0→2.5초) */
+
+  /* ---------- 13. 아이콘 마스크 (R4) ------------------------------------- */
+  /* CSS content 로 쓰던 ▾ ▴ ▸ ✓ ⚡ 자리 — mask-image 로 쓰고 background-color: currentColor 로 칠한다.
+     모양은 shared/icons.js 의 같은 이름 아이콘과 같다(24×24). file:// 에서도 동작(데이터 URI). */
+  --ico-chev-down: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9.5l6 6 6-6'/%3E%3C/svg%3E");
+  --ico-chev-up: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 14.5l6-6 6 6'/%3E%3C/svg%3E");
+  --ico-chev-right: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 6l6 6-6 6'/%3E%3C/svg%3E");
+  --ico-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4.5 12.5l5 5L19.5 7'/%3E%3C/svg%3E");
+  --ico-close: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E");
+  --ico-bolt: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23000' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M13 2.5L5 13.5h6l-1 8 8-11h-6z'/%3E%3C/svg%3E");
 }
 
-/* 세로 화면 배치는 2차(R2). R1 에서는 세로에서도 1920×1080 무대가 통째로 줄어든다(폭 600px 이하는 안내 띠 — shell.css). */
+/* R4 태블릿 배치: 16:9 보다 세로가 긴 화면(1180×820·1024×768·세로 화면)은 --u 를 가로 기준으로 두고,
+   남는 세로(최대 440u)를 --extra 로 실험 화면·오른쪽 칸에 준다. 1920×1080·1280×720 은 --extra 0 → 지금과 같다.
+   더 넓은 화면(21:9)은 이 규칙 밖 → 예전처럼 양옆 띠. 세로 화면은 440u 를 넘는 나머지가 위아래 띠(깨지지만 않게). */
+@media (max-aspect-ratio: 16/9) {
+  :root {
+    --u: calc(100vw / 1920);
+    --extra: clamp(0px, calc(100vh - 1080 * var(--u)), var(--extra-max));
+  }
+}
+
+/* 세로 휴대전화(폭 600px 이하)는 안내 띠 — shell.css. */
 
 @media (prefers-reduced-motion: reduce) {
   :root { --dur-fast: 0ms; --dur-base: 0ms; --dur-slow: 0ms; }

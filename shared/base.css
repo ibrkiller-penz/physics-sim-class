@@ -894,7 +894,7 @@ html.reveal-locked:not(.is-teacher) .reveal .reveal__body { display: none; }
   font: 500 max(13px, calc(22 * var(--u)))/1.45 var(--font-sans); word-break: keep-all;
   box-shadow: var(--shadow-lg); pointer-events: none;
 }
-.term-tip b { display: block; font-weight: 700; }
+.term-tip b { display: block; font-weight: var(--font-weight-medium); }
 .term-tip[hidden] { display: none; }
 
 /* ---------- 28. 모드 고르기 창 (처음 한 번) -------------------------------- */
@@ -1269,3 +1269,87 @@ html:not(.cursor-hidden) .mode-opt:hover { border-color: var(--color-primary); b
 .btn--run .btn__key { position: absolute; right: var(--space-2); bottom: var(--space-1); }
 /* 빈 기록 안내 한 상자 */
 .rec-need.is-empty p { color: var(--color-ink-muted); }
+
+/* =====================================================================
+   R4 (고도화 4차, docs/개선/R4_계획.md) — 위의 같은 이름 규칙을 덮어쓴다
+   41 글꼴(에스코어 드림 3·4·5 · 굵기 500 상한 · 물리 기호 이탤릭 세리프)
+   42 SVG 아이콘 .ico (SimKit.icon · shared/icons.js)   43 CSS 글자 기호 → 마스크 아이콘
+   ===================================================================== */
+
+/* ---------- 41. 글꼴 ------------------------------------------------------ */
+/* 에스코어는 300/400/500 세 파일뿐 — 브라우저가 굵게(가짜 볼드)를 만들지 않게. 위계는 크기·색으로 */
+html { font-synthesis: style; }
+b, strong, th, h1, h2, h3, h4, h5, h6 { font-weight: var(--font-weight-medium); }
+/* 물리 기호: HTML 패널·계기판·토스트·캔버스(SK.text) 공통 = 이탤릭 세리프(시스템 글꼴) + 마크업 아래첨자 */
+.var__sym, .meter__label i, .sym, .concept__sym {
+  font-family: var(--font-math); font-style: italic; font-weight: var(--font-weight-regular);
+  letter-spacing: 0;
+}
+.sym { font-size: 1.1em; line-height: 1; white-space: nowrap; }
+.sym sub, .sym sup { font-size: 0.7em; line-height: 0; position: relative; vertical-align: baseline; }
+.sym sub { top: 0.22em; }
+.sym sup { top: -0.45em; }
+.sym .up, .sym sub.up, .sym sup.up { font-style: normal; }     /* 정체: Δ·Σ·숫자·여러 글자 첨자(esc) */
+.concept__sym { font-size: var(--fs-meta); line-height: 1.3; }
+/* R4: 300(Light) 은 24u 이상 보조 글에만 — 22u 이하는 400 (전자칠판에서 흐려짐) */
+.info-pop dd, .help-step__body, .concept__plain, .concept__more-body, .note-why__body { font-weight: var(--font-weight-light); }
+.var__ticks { font-weight: var(--font-weight-regular); }
+
+/* ---------- 42. SVG 아이콘 (.ico) ------------------------------------------ */
+/* 글자 옆 아이콘은 크기를 안 주면 부모 글자 크기 1em. 범례·칩 안 sm, 캔버스 안 버튼·주 버튼 lg */
+.ico {
+  display: inline-block; flex: none;
+  width: 1em; height: 1em; vertical-align: -0.12em;
+  overflow: visible;
+  stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  pointer-events: none;
+}
+.ico--sm { width: calc(20 * var(--u)); height: calc(20 * var(--u)); }
+.ico--md { width: calc(24 * var(--u)); height: calc(24 * var(--u)); }
+.ico--lg { width: calc(32 * var(--u)); height: calc(32 * var(--u)); }
+.ico.is-fill { fill: currentColor; stroke: none; }
+/* 버튼·칩 안: 이미 inline-flex 가운데 정렬. 버튼 gap 12u 에서 4u 를 빼 글자와 간격 8u */
+.btn > .ico--lead { margin-right: calc(-4 * var(--u)); }
+.btn > .ico--trail { margin-left: calc(-4 * var(--u)); }
+.btn > .ico, .chip > .ico, .notice__act > .ico, .panel-more > .ico, .pop-menu button > .ico { vertical-align: 0; }
+.sim-top__hub > .ico { width: 0.9em; height: 0.9em; }
+.apply-ico > .ico { width: calc(20 * var(--u)); height: calc(20 * var(--u)); vertical-align: 0; }
+.task-step__num > .ico { width: calc(22 * var(--u)); height: calc(22 * var(--u)); stroke-width: 2.6; }
+.notice__mark > .ico { width: 0.8em; height: 0.8em; vertical-align: 0; stroke-width: 2.6; }
+.rec-del > .ico, .predict__close > .ico, .mode-card__close > .ico { width: calc(28 * var(--u)); height: calc(28 * var(--u)); }
+.verdict__mark { grid-auto-flow: column; gap: 0.25em; }   /* inline-grid: 아이콘과 글을 가로로 */
+.verdict__mark > .ico { stroke-width: 2.6; }
+.think-card__res > .ico { margin-right: 0.2em; stroke-width: 2.6; }
+.btn--run > .ico { width: 0.9em; height: 0.9em; }
+/* 문장 속 아이콘(띠 문장 '아래 ▶ 실행을 눌러요' 등): 글자 높이에 맞춤 */
+.task-now__text > .ico, .empty > span > .ico, .rec-empty > .ico, .predict__hint > .ico, .var__hint > .ico, .help-step__body > .ico, .notice > span > .ico { width: 0.85em; height: 0.85em; margin: 0 0.08em; vertical-align: -0.08em; }
+
+/* ---------- 43. CSS 글자 기호(▾ ▴ ▸ ✓) → 마스크 아이콘 (색 = currentColor) -------- */
+.panel-deep > summary::before,
+.pop-menu button[aria-checked="true"]::after,
+.reveal > summary::before,
+.note-why > summary::after,
+.concept__more > summary::after,
+.think-card__hintbox > summary::before,
+.preset-card[aria-pressed="true"] .preset-card__changes::before,
+.mode-opt[aria-pressed="true"] .mode-opt__no::before {
+  content: ""; display: inline-block; flex: none;
+  width: 1em; height: 1em; vertical-align: -0.12em;
+  background-color: currentColor;
+  -webkit-mask: var(--ico-chev-down) center / contain no-repeat;
+          mask: var(--ico-chev-down) center / contain no-repeat;
+}
+/* 더 많은 설정: [펼치기 ▾]/[접기 ▴] — 아이콘(::before)을 글자(::after) 앞, 오른쪽 끝에 */
+.panel-deep > summary::before { order: 1; margin-left: auto; color: var(--color-primary); width: calc(22 * var(--u)); height: calc(22 * var(--u)); }
+.panel-deep[open] > summary::before { -webkit-mask-image: var(--ico-chev-up); mask-image: var(--ico-chev-up); }
+.pop-menu button[aria-checked="true"]::after { margin-left: auto; -webkit-mask-image: var(--ico-check); mask-image: var(--ico-check); }
+.reveal > summary::before { -webkit-mask-image: var(--ico-chev-right); mask-image: var(--ico-chev-right); }
+.reveal[open] > summary::before { -webkit-mask-image: var(--ico-chev-down); mask-image: var(--ico-chev-down); }
+html.reveal-locked:not(.is-teacher) .reveal > summary::before { width: auto; height: auto; background: none; -webkit-mask: none; mask: none; content: "잠김"; }
+.note-why[open] > summary::after, .concept__more[open] > summary::after { -webkit-mask-image: var(--ico-chev-up); mask-image: var(--ico-chev-up); }
+.think-card__hintbox > summary::before { margin-right: var(--space-1); -webkit-mask-image: var(--ico-chev-right); mask-image: var(--ico-chev-right); }
+.think-card__hintbox[open] > summary::before { -webkit-mask-image: var(--ico-chev-down); mask-image: var(--ico-chev-down); }
+.preset-card[aria-pressed="true"] .preset-card__changes::before { color: var(--color-primary); width: 0.9em; height: 0.9em; align-self: center; -webkit-mask-image: var(--ico-check); mask-image: var(--ico-check); }
+.preset-card[aria-pressed="true"] .preset-card__tag::before { content: "고름 · "; }
+.mode-opt[aria-pressed="true"] .mode-opt__no::before { order: 1; color: var(--color-primary); width: calc(26 * var(--u)); height: calc(26 * var(--u)); margin-left: var(--space-2); -webkit-mask-image: var(--ico-check); mask-image: var(--ico-check); }
+.mode-opt[aria-pressed="true"] .mode-opt__no::after { order: 2; content: "고름"; }

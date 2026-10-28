@@ -37,10 +37,15 @@
 }
 .pe-meters .meter { padding: calc(2 * var(--u)) var(--space-2); gap: 0; align-content: center; }
 .pe-meters .meter__label { white-space: nowrap; line-height: 1.15; }
+/* R4 마무리: 라벨 길이에 맞춰 칸 폭 배분 — '수직 속도 v_y · 음수면 아래' 가 잘리지 않게 */
+.pe-meters .meter[data-key="t"] { flex-grow: 0.72; }
+.pe-meters .meter[data-key="x"] { flex-grow: 0.82; }
+.pe-meters .meter[data-key="vx"] { flex-grow: 0.98; }
+.pe-meters .meter[data-key="vy"] { flex-grow: 1.6; }
 .pe-meters .meter__value { font-size: calc(36 * var(--u)); }
 .pe-meters .meter__unit { font-size: var(--fs-caption); }
 .pe-meters .meter__label sub { font-size: 0.75em; vertical-align: -0.25em; line-height: 0; }
-.pe-meter-note { display: inline; width: auto; white-space: nowrap; margin-left: var(--space-2); vertical-align: baseline; font: var(--font-weight-medium) var(--fs-caption)/1.15 var(--font-sans); color: var(--color-ink-muted); }
+.pe-meter-note { display: inline; width: auto; white-space: nowrap; margin-left: var(--space-1); vertical-align: baseline; font: var(--font-weight-medium) calc(19 * var(--u))/1.15 var(--font-sans); color: var(--color-ink-muted); }   /* R4 마무리: 19u·간격 4u — 1280 에서도 칸 안에 */
 
 /* 하단 띠: 에너지 막대 */
 .pe-energy {

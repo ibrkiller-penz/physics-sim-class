@@ -89,7 +89,7 @@
     kepler: [
       '먼 행성의 1년이 어떨지 골라요',
       '자료 넣기 버튼으로 표를 채워요',
-      'T² – a³ 그래프로 바꿔 봐요',
+      '$T^2$ – $a^3$ 그래프로 바꿔 봐요',
       null
     ]
   };
@@ -100,8 +100,7 @@
   var SAT_SCREEN_T = 10;           // 위성 한 바퀴 = 화면 10초
   var VIEW_NAME = { near: '산 근처 확대', earth: '지구 전체', far: '타원까지 전체' };
   var NEAR_K = 0.75;               // 산 근처: 1 km = 0.75u (화면 가로 ≈ 1,670 km)
-  var FONT = '"Pretendard", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif';
-  var SERIF = '"Noto Serif KR", "Nanum Myeongjo", serif';
+  // R4: 글꼴 상수 없음 — 캔버스 글자는 모두 SK.text / SK.font (에스코어 드림 + 기호 $…$ 수식 표기)
 
   /* ------------------------------------------------------------------
      1. 작은 도구
@@ -143,14 +142,15 @@
     return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p;
   }
   function niceMax(v) { if (!(v > 0)) return 1; var s = niceStep(v, 4); return Math.ceil(v * 1.05 / s) * s; }
+  /** R4: 캔버스 글자 한 줄 = SK.text (기호는 $…$, 굵기 400 기본 · 강조 500) */
   function text(ctx, s, x, y, o) {
     o = o || {};
-    ctx.font = (o.weight || 600) + ' ' + (o.size || 22) + 'px ' + (o.serif ? SERIF : FONT);
-    ctx.textAlign = o.align || 'left'; ctx.textBaseline = o.base || 'middle';
-    if (o.halo) { ctx.lineWidth = 6; ctx.strokeStyle = col('--color-paper-raised'); ctx.lineJoin = 'round'; ctx.strokeText(s, x, y); }
-    ctx.fillStyle = col(o.color || '--color-ink');
-    ctx.fillText(s, x, y);
+    return SK.text(ctx, s, x, y, { size: o.size || 22, weight: Math.min(500, o.weight || 400), align: o.align || 'left', baseline: o.base || 'middle',
+      color: o.color || '--color-ink', halo: o.halo ? '--color-paper-raised' : null, haloWidth: 6 });
   }
+  /** R4: 실험 화면에서 보이는 세로 범위 (논리 좌표). 16:9 = [0, 700], 태블릿은 위아래로 extra/2 씩 넓어짐 */
+  function vTop() { return -((SK.view && SK.view.offsetY) || 0); }
+  function vBot() { var v = SK.view; return v ? v.hFull - (v.offsetY || 0) : 700; }
   function roundRect(ctx, x, y, w, hh, r) {
     ctx.beginPath();
     ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
@@ -177,22 +177,19 @@
     ctx.save();
     ctx.lineWidth = 1; ctx.setLineDash([]);
     ctx.strokeStyle = col('--color-grid');
-    ctx.font = '500 ' + fs + 'px ' + FONT; ctx.fillStyle = col('--color-ink-muted');
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    var tick = { size: fs, weight: 400, color: '--color-ink-muted' };   // R4: 눈금 400
     if (!o.noX) for (var x = Math.ceil(xr[0] / xs - 1e-9) * xs; x <= xr[1] + xs * 1e-6; x += xs) {
       ctx.beginPath(); ctx.moveTo(mx(x), box.y); ctx.lineTo(mx(x), box.y + box.h); ctx.stroke();
-      ctx.fillText(comma(x, dx), mx(x), box.y + box.h + 4);
+      SK.text(ctx, comma(x, dx), mx(x), box.y + box.h + 4, { size: fs, weight: 400, color: '--color-ink-muted', align: 'center', baseline: 'top' });
     }
-    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
     for (var y = Math.ceil(yr[0] / ys - 1e-9) * ys; y <= yr[1] + ys * 1e-6; y += ys) {
       ctx.beginPath(); ctx.moveTo(box.x, my(y)); ctx.lineTo(box.x + box.w, my(y)); ctx.stroke();
-      ctx.fillText(comma(y, dy), box.x - 6, my(y));
+      SK.text(ctx, comma(y, dy), box.x - 6, my(y), { size: tick.size, weight: tick.weight, color: tick.color, align: 'right' });
     }
     ctx.strokeStyle = col('--color-line-strong'); ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(box.x, box.y); ctx.lineTo(box.x, box.y + box.h); ctx.lineTo(box.x + box.w, box.y + box.h); ctx.stroke();
-    ctx.fillStyle = col('--color-ink'); ctx.font = '700 ' + fs + 'px ' + FONT;
-    if (o.xl) { ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText(o.xl, box.x + box.w, box.y + box.h - 4); }
-    if (o.yl) { ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(o.yl, box.x + 6, box.y + 2); }
+    if (o.xl) SK.text(ctx, o.xl, box.x + box.w, box.y + box.h - 4, { size: fs, weight: 500, color: '--color-ink', align: 'right', baseline: 'bottom' });
+    if (o.yl) SK.text(ctx, o.yl, box.x + 6, box.y + 2, { size: fs, weight: 500, color: '--color-ink', align: 'left', baseline: 'top' });
     ctx.restore();
     return { mx: mx, my: my };
   }
@@ -389,7 +386,7 @@
         return TASKS[m][i];
       } };
       if (m === 'kepler' && i === 1) t.action = { label: '자료 카드 보기', onClick: function () { showDataCard(); } };
-      if (m === 'kepler' && i === 2) t.action = { label: 'T² – a³ 그래프로', onClick: function () { SK.set('gaxis', 'sq'); } };
+      if (m === 'kepler' && i === 2) t.action = { label: '$T^2$ – $a^3$ 그래프로', onClick: function () { SK.set('gaxis', 'sq'); } };
       return t;
     });
   }
@@ -424,8 +421,8 @@
     if (g) {
       var opts = g.el.querySelectorAll('.seg__opt');
       var sym = newM === 'sat' ? 'r' : 'a';
-      if (opts[0]) opts[0].firstChild.textContent = 'T – ' + sym + ' (휘어진 선)';
-      if (opts[1]) opts[1].firstChild.textContent = 'T² – ' + sym + '³ (곧은 선?)';
+      if (opts[0]) SK.setText(opts[0], '$T$ – $' + sym + '$ (휘어진 선)');
+      if (opts[1]) SK.setText(opts[1], '$T^2$ – $' + sym + '^3$ (곧은 선?)');
     }
     // 오늘 알아볼 것 · 지금 할 일
     var today = SK.el.top.querySelector('.sim-today');
@@ -450,6 +447,7 @@
     stepTasks: tasksFor('cannon'),
     dt: SK_DT,                      // 화면 1/120 초마다 한 단계 (대포 기본: 1 단계 = 1 s → 화면 1초 = 2분)
     stageFit: true,
+    onResize: function (view) { view.offsetY = view.extra / 2; },   // R4: 태블릿 세로 여유는 위아래 반씩 — 중심 천체가 가운데, 궤도가 위아래로 더 보임
     autoPredict: true,
     onPredictOpen: function () { SK.requestRender(); },    // 예측 창이 떠 있는 동안 궤적·기록을 숨긴다(render 에서 hideResults())
     onPredictClose: function () { SK.requestRender(); },
@@ -562,7 +560,7 @@
     if (SK.get('tscale') !== ts) SK.set('tscale', ts);
   }
   SK.addVar('values', {
-    key: 'v0', label: '{{발사 속력}}', symbol: 'v₀', unit: 'km/s',
+    key: 'v0', label: '{{발사 속력}}', symbol: 'v_0', unit: 'km/s',
     min: 0, max: 12, step: 0.1, value: 6.0, decimals: 1, precision: 2,
     ticks: [{ v: 7.9, label: '지구 돌기' }, { v: 11.2, label: '탈출' }], apply: 'restart',
     hint: '지구에서 7.9 km/s면 지구를 돌고, 11.2 km/s 이상이면 돌아오지 않아요',
@@ -637,6 +635,7 @@
     });
   })();
   compareBtn = h('button', { class: 'og-link', type: 'button', onclick: function (e) { if (e.detail) e.currentTarget.blur(); showCompare(); } }, '천체 비교 표 — 왜 탈출 속도가 다를까? ▸');
+  SK.iconify(compareBtn);   // R4: ▸ → 아이콘
   bodyCtl.el.appendChild(compareBtn);
 
   /* ------------------------------------------------------------------
@@ -646,14 +645,14 @@
   SK.addToggle('tools', { key: 'trail', label: '지나간 길(궤적) 남기기', value: true, apply: 'live', record: false });
   SK.addChoice('tools', {
     key: 'gaxis', label: '그래프 축', apply: 'live', value: 'lin', record: false,
-    options: [{ value: 'lin', label: 'T – a' }, { value: 'sq', label: 'T² – a³' }],
+    options: [{ value: 'lin', label: '$T$ – $a$' }, { value: 'sq', label: '$T^2$ – $a^3$' }],
     onChange: function () { kCheck(); }
   });
   SK.addChoice('tools', {
     key: 'kzoom', label: '그래프 보는 범위', apply: 'live', value: 'all', record: false,
     options: [{ value: 'all', label: '행성 6개 전체' }, { value: 'inner', label: '안쪽 4개 확대' }]
   });
-  SK.addToggle('tools', { key: 'kguide', label: '기울기 1 보조선 (T² = a³)', value: true, apply: 'live', record: false });
+  SK.addToggle('tools', { key: 'kguide', label: '기울기 1 보조선 ($T^2$ = $a^3$)', value: true, apply: 'live', record: false });
   SK.addChoice('tools', {
     key: 'cview', label: '보는 범위', apply: 'live', value: 'near', record: false,
     options: [{ value: 'near', label: '산 근처' }, { value: 'earth', label: '지구 전체' }, { value: 'far', label: '타원까지' }]
@@ -715,7 +714,7 @@
     var to = off ? (cur === 'near' ? 'earth' : cur === 'earth' ? 'far' : null) : null;
     viewHint.hidden = !to; viewHint._to = to;
     var t = to ? '화면 밖으로 나갔어요 — ' + (to === 'earth' ? '지구 전체로 보기' : '타원까지 넓게 보기') + ' ▸' : '';
-    if (viewHint.textContent !== t) viewHint.textContent = t;
+    SK.setText(viewHint, t);   // R4: ▸ → 아이콘 (같은 글이면 그대로)
   }
 
   /* ------------------------------------------------------------------
@@ -744,8 +743,8 @@
           '<path d="M340 55 L390 75 L340 95 Z" style="fill:var(--color-sim-orbit)"/>' +
           '<path d="M190 62 L120 50 M190 75 L100 75 M190 88 L120 100" style="stroke:var(--color-q-energy-heat);stroke-width:5;stroke-linecap:round;fill:none"/>' +
           '<path d="M400 75 L480 75" style="stroke:var(--color-q-velocity);stroke-width:6"/><path d="M480 63 L500 75 L480 87 Z" style="fill:var(--color-q-velocity)"/>' +
-          '<text x="60" y="130" style="fill:var(--color-ink-muted);font:600 20px sans-serif">가스를 뒤로 밀어냄</text>' +
-          '<text x="360" y="130" style="fill:var(--color-ink-muted);font:600 20px sans-serif">로켓은 앞으로</text>'),
+          '<text x="60" y="130" style="fill:var(--color-ink-muted);font:500 20px var(--font-sans)">가스를 뒤로 밀어냄</text>' +
+          '<text x="360" y="130" style="fill:var(--color-ink-muted);font:500 20px var(--font-sans)">로켓은 앞으로</text>'),
       h('p', null, ['로켓이 가스를 뒤로 세게 밀어내면 가스도 로켓을 앞으로 밀어요(', h('b', { text: '운동량 보존' }), '). 이렇게 속력을 높여 원 궤도 속력(7.9 km/s)이나 탈출 속도(11.2 km/s)에 이르러요.'])
     ]));
     var rs = 2 * EARTH.GM / (3e8 * 3e8) * 1000;  // mm
@@ -754,8 +753,8 @@
       svg('<circle cx="130" cy="75" r="40" style="fill:var(--color-ink)"/>' +
           '<circle cx="130" cy="75" r="62" style="fill:none;stroke:var(--color-line-strong);stroke-width:2;stroke-dasharray:6 6"/>' +
           '<path d="M20 30 Q130 20 175 62" style="fill:none;stroke:var(--color-sim-lens);stroke-width:4"/>' +
-          '<text x="250" y="60" style="fill:var(--color-ink);font:700 22px sans-serif">탈출 속도 = 빛의 속력</text>' +
-          '<text x="250" y="95" style="fill:var(--color-ink-muted);font:600 20px sans-serif">R = 2GM / c²</text>'),
+          '<text x="250" y="60" style="fill:var(--color-ink);font:500 22px var(--font-sans)">탈출 속도 = 빛의 속력</text>' +
+          '<text x="250" y="95" style="fill:var(--color-ink-muted);font:500 20px var(--font-sans)">R = 2GM / c²</text>'),
       h('p', null, ['탈출 속도 √(2GM/R) 가 빛의 속력보다 커지면 빛도 빠져나오지 못해요. 지구를 블랙홀로 만들려면 반지름을 약 ', h('b', { text: SK.fmt(rs, 0) + ' mm' }), ' 로 줄여야 해요(그림으로만 다뤄요).'])
     ]));
   })();
@@ -767,8 +766,8 @@
     deepView.clear();
     var ctx = deepView.ctx;
     var ax = axes(ctx, { x: 64, y: 44, w: 436, h: 192 }, [0, 36000], [0, 100], { fs: 22, nx: 3, ny: 2 });
-    text(ctx, '세로: 중력 (지표 = 100%)', 8, 16, { size: 22, weight: 700 });
-    text(ctx, '가로: 고도 km', 512, 16, { size: 22, weight: 700, align: 'right', color: '--color-ink-muted' });
+    text(ctx, '세로: 중력 (지표 = 100%)', 8, 16, { size: 22, weight: 500 });
+    text(ctx, '가로: 고도 km', 512, 16, { size: 22, weight: 500, align: 'right', color: '--color-ink-muted' });
     ctx.save();
     ctx.beginPath();
     for (var i = 0; i <= 120; i++) {
@@ -803,7 +802,7 @@
     { key: 'g', label: '지표 중력 대비', unit: '%', q: 'force', size: 'md' }
   ]);
   meterSets.kepler = SK.meters(null, [
-    { key: 'ratio', label: '평균 T²/a³', unit: '', decimals: 2 },
+    { key: 'ratio', label: '평균 $T^2$/$a^3$', unit: '', decimals: 2 },
     { key: 'n', label: '입력한 행성', unit: '개', decimals: 0 }
   ]);
   for (var mk in meterSets) meterSets[mk].el.hidden = true;
@@ -859,12 +858,13 @@
     else bandKepler(ctx, W, H);
   }
   function setBandTitle(t, legend) {
-    if (bandTitle.textContent !== t) bandTitle.textContent = t;
+    SK.setText(bandTitle, t);   // R4: $v_0$ 수식 표기
     legend = legend || '';
     if (bandLegend.dataset.t === legend) return;
     bandLegend.dataset.t = legend; bandLegend.innerHTML = '';
-    legend.split(/([▼●▲■◆★]+)/).forEach(function (part) {   // 기호는 작은 글자로 x-height 가운데에
+    legend.split(/([▼●▲■◆★]+)/).forEach(function (part) {   // 기록 기호(●▲■◆★)는 작은 글자로 x-height 가운데에, '지금' 표식 ▼ 는 SVG 삼각형(막대의 표식과 같은 모양)
       if (!part) return;
+      if (part === '▼') { var sv = h('span', { class: 'og-band__sym og-band__now', 'aria-hidden': 'true' }); sv.innerHTML = '<svg viewBox="0 0 24 24" focusable="false"><path d="M3 5h18L12 20z" fill="currentColor"/></svg>'; bandLegend.appendChild(sv); return; }
       bandLegend.appendChild(/^[▼●▲■◆★]+$/.test(part) ? h('span', { class: 'og-band__sym', 'aria-hidden': 'true', text: part }) : document.createTextNode(part));
     });
   }
@@ -876,29 +876,28 @@
     var ry = Math.max(NUM / 2, by - GAP - NUM / 2);              // 숫자 줄 가운데
     function X(v) { return x0 + (x1 - x0) * Math.max(0, Math.min(1, v / o.max)); }
     ctx.save();
-    ctx.font = '700 22px ' + FONT;
+    var ZL = { size: 22, weight: 500 };
     var nx = o.now !== null && o.now !== undefined ? X(o.now) : null;
     (o.zones || []).forEach(function (z) {
       var a = X(z.from), b = X(z.to);
       ctx.fillStyle = col(z.color); ctx.fillRect(a, by, b - a, bh);
       if (!z.label) return;
-      var tw = ctx.measureText(z.label).width, cx = (a + b) / 2;
+      var tw = SK.measure(ctx, z.label, ZL).w, cx = (a + b) / 2;
       if (b - a < tw + 12) return;
       // ▼ 지금 선과 겹치면 구간 안의 빈 쪽으로 옮긴다
       if (nx !== null && Math.abs(nx - cx) < tw / 2 + 10) {
         var left = nx - a, right = b - nx;
         if (left >= tw + 20) cx = a + left / 2; else if (right >= tw + 20) cx = nx + right / 2;
       }
-      text(ctx, z.label, cx, by + bh / 2 + 1, { size: 22, weight: 700, align: 'center', color: z.text || '--color-ink' });
+      text(ctx, z.label, cx, by + bh / 2 + 1, { size: 22, weight: 500, align: 'center', color: z.text || '--color-ink' });
     });
     ctx.strokeStyle = col('--color-line-strong'); ctx.lineWidth = 1; ctx.strokeRect(x0, by, x1 - x0, bh);
     var mk = (o.marks || []).slice().sort(function (a, b) { return a.v - b.v; });
     for (var mi = 1; mi < mk.length; mi++) {   // 경계 숫자 둘이 가까우면(달·화성) 왼쪽 것은 오른쪽 맞춤, 오른쪽 것은 왼쪽 맞춤
       if (X(mk[mi].v) - X(mk[mi - 1].v) < 60) { mk[mi - 1] = Object.assign({}, mk[mi - 1], { align: 'right' }); mk[mi] = Object.assign({}, mk[mi], { align: 'left' }); }
     }
-    ctx.font = '700 ' + NUM + 'px ' + FONT;
     mk.forEach(function (m) {
-      var mx = X(m.v), tw = ctx.measureText(m.text).width;
+      var mx = X(m.v), tw = SK.measure(ctx, m.text, { size: NUM, weight: 500 }).w;
       ctx.beginPath(); ctx.moveTo(mx, by); ctx.lineTo(mx, by + bh); ctx.strokeStyle = col('--color-ink'); ctx.lineWidth = 2.5; ctx.stroke();
       var al = m.align || 'center', tx = mx;
       if (al === 'left') tx = mx + 4; else if (al === 'right') tx = mx - 4;
@@ -907,10 +906,10 @@
       if (nx !== null && nx > l - 12 && nx < l + tw + 12) {
         if (nx >= mx) { al = 'right'; tx = Math.min(mx, nx) - 12; } else { al = 'left'; tx = Math.max(mx, nx) + 12; }
       }
-      text(ctx, m.text, tx, ry, { size: NUM, weight: 700, align: al, color: '--color-ink' });
+      text(ctx, m.text, tx, ry, { size: NUM, weight: 500, align: al, color: '--color-ink' });
     });
     (o.dots || []).forEach(function (d) {
-      text(ctx, d.mark, X(d.v), by + bh / 2 + 1, { size: 22, weight: 800, align: 'center', color: d.color, halo: true });
+      text(ctx, d.mark, X(d.v), by + bh / 2 + 1, { size: 22, weight: 500, align: 'center', color: d.color, halo: true });
     });
     if (nx !== null) {
       ctx.fillStyle = col('--color-sim-orbit');
@@ -933,7 +932,7 @@
     var b = BODIES[SK.params.body] || EARTH;
     if (b.key === 'jupiter') { setBandTitle('목성 탈출 속도 59.5 km/s — 범위 밖', ''); return; }
     var hid = hideResults();
-    setBandTitle('발사 속력 v₀, 어느 구간?', hid ? '예측한 뒤에 보여요' : '▼ 지금 · ●▲ 기록');
+    setBandTitle('발사 속력 $v_0$, 어느 구간?', hid ? '예측한 뒤에 보여요' : '▼ 지금 · ●▲ 기록');
     var vc = +b.vCirc.toFixed(1), ve = +b.vEsc.toFixed(1), MAX = 13;
     speedBar(ctx, W, H, {
       max: MAX,
@@ -949,7 +948,7 @@
   }
   function bandSat(ctx, W, H) {
     var s = satCalc(SK.params.alt), hid = hideResults();
-    setBandTitle('위성 속력 v' + (hid ? '' : ' ' + SK.fmt(s.v, 2) + ' km/s'), hid ? '예측한 뒤에 보여요' : '▼ 지금 · ●▲ 기록');
+    setBandTitle('위성 속력 $v$' + (hid ? '' : ' ' + SK.fmt(s.v, 2) + ' km/s'), hid ? '예측한 뒤에 보여요' : '▼ 지금 · ●▲ 기록');
     speedBar(ctx, W, H, {
       max: 8.5,
       zones: [{ from: 0, to: 8.5, color: '--color-paper-sunk', label: '' }],
@@ -959,7 +958,7 @@
     });
   }
   function bandKepler(ctx, W, H) {
-    setBandTitle('행성마다 T²/a³ — 모두 1(점선)에 가까울까?', '');
+    setBandTitle('행성마다 $T^2$/$a^3$ — 모두 1(점선)에 가까울까?', '');
     var box = { x: 30, y: 4, w: W - 38, h: H - 30 };
     var n = PLANETS.length, bw = box.w / n;
     var my = function (v) { return box.y + box.h - v / 1.5 * box.h; };
@@ -986,15 +985,16 @@
      ------------------------------------------------------------------ */
   function edgeArrow(ctx, x, y, label, labels, cx0, cy0) {
     // 화면 밖 점(x, y)을 향하는 가장자리 화살표 (글자는 placeLabel 로). cx0, cy0: 천체 중심(화면)
-    var ccx = Math.min(1150, Math.max(100, cx0)), ccy = Math.min(600, Math.max(100, cy0));
+    var T0 = vTop(), B0 = vBot();   // R4: 태블릿에서 넓어진 위아래까지
+    var ccx = Math.min(1150, Math.max(100, cx0)), ccy = Math.min(B0 - 100, Math.max(T0 + 100, cy0));
     var m = 40, dx = x - ccx, dy = y - ccy;
     var tx = dx > 0 ? (1250 - m - ccx) / dx : dx < 0 ? (m - ccx) / dx : Infinity;
-    var ty = dy > 0 ? (700 - m - ccy) / dy : dy < 0 ? (m - ccy) / dy : Infinity;
+    var ty = dy > 0 ? (B0 - m - ccy) / dy : dy < 0 ? (T0 + m - ccy) / dy : Infinity;
     var t = Math.min(Math.abs(tx), Math.abs(ty));
     var ex = ccx + dx * t, ey = ccy + dy * t, len = Math.sqrt(dx * dx + dy * dy);
     SK.arrow(ctx, ex - dx / len * 60, ey - dy / len * 60, ex, ey, { color: '--color-sim-orbit', width: 6 });
     var lx = ex - dx / len * 80, ly = ey - dy / len * 80 + (dy > 0 ? -26 : 26);
-    labels.push({ x: Math.min(1230, Math.max(20, lx)), y: Math.min(670, Math.max(30, ly)), text: label, anchor: lx > 625 ? 'right' : 'left', size: 22 });
+    labels.push({ x: Math.min(1230, Math.max(20, lx)), y: Math.min(B0 - 30, Math.max(T0 + 30, ly)), text: label, anchor: lx > 625 ? 'right' : 'left', size: 22 });
   }
   /** 라벨이 화면 밖으로 나가지 않게: 글자 폭을 재서 anchor 와 x 를 고친다 */
   /** R3: '중력' 라벨 — 화살표 끝에서 12u 더 바깥, 화살표 방향 쪽으로 정렬(궤도 선·화살표 위에 얹히지 않게) */
@@ -1004,12 +1004,11 @@
     return { x: x + fu[0] * d, y: ly, text: '중력', anchor: an, size: 22, color: '--color-copper-text' };
   }
   function keepIn(ctx, l) {
-    ctx.font = '600 ' + (l.size || 22) + 'px ' + FONT;
-    var w = ctx.measureText(l.text).width + 16, a = l.anchor || 'center';
+    var w = SK.measure(ctx, l.text, { size: l.size || 22, weight: 500 }).w + 16, a = l.anchor || 'center';
     var left = a === 'left' ? l.x : a === 'right' ? l.x - w : l.x - w / 2;
     if (left < 8) { l.anchor = 'left'; l.x = 8; }
     else if (left + w > 1242) { l.anchor = 'right'; l.x = 1242; }
-    l.y = Math.min(684, Math.max(16, l.y));
+    l.y = Math.min(vBot() - 16, Math.max(vTop() + 16, l.y));
     return l;
   }
   function renderCannon(ctx, p) {
@@ -1030,7 +1029,7 @@
       drawCannon(ctx, peak[0], peak[1] - 2, 1);
       labels.push({ x: peak[0] - 40, y: peak[1] + 56, text: '대포 (산 높이 20 km)', anchor: 'left', size: 22 });
     } else {
-      text(ctx, b.name, V.cx, V.cy + 10, { size: flashB ? 34 : 28, weight: 700, align: 'center', serif: true, color: flashB ? '--color-sim-orbit-text' : '--color-ink' });
+      text(ctx, b.name, V.cx, V.cy + 10, { size: flashB ? 34 : 28, weight: 500, align: 'center', color: flashB ? '--color-sim-orbit-text' : '--color-ink' });
       // 산은 보이도록 크게 그린 그림 (실제 20 km 는 이 축척에서 3u)
       var tp = top[1];
       ctx.beginPath(); ctx.moveTo(V.cx - 44, tp + 8); ctx.lineTo(V.cx, tp - 22); ctx.lineTo(V.cx + 40, tp + 8); ctx.closePath();
@@ -1040,7 +1039,7 @@
     }
 
     if (b.key === 'jupiter') {
-      text(ctx, '목성 탈출 속도 59.5 km/s', V.cx, V.cy + V.s + 40, { size: 26, weight: 700, align: 'center', serif: true, halo: true });
+      text(ctx, '목성 탈출 속도 59.5 km/s', V.cx, V.cy + V.s + 40, { size: 26, weight: 500, align: 'center', halo: true });
       text(ctx, '발사 속력 범위(최대 12 km/s) 밖이에요', V.cx, V.cy + V.s + 76, { size: 22, align: 'center', color: '--color-ink-muted', halo: true });
       updateViewBtns(V.key, false);
       SK.placeLabel(ctx, labels.map(function (l) { return keepIn(ctx, l); }));
@@ -1060,17 +1059,17 @@
       // 이름표 자리: 추락은 떨어진 곳, 궤도·탈출은 궤적 중간(끝점이 대포 자리라 겹치므로)
       var sp = r.series.path, e = r.values.lx !== null && r.values.lx !== undefined ? sp[sp.length - 1] : sp[Math.min(sp.length - 1, Math.floor(sp.length * (r.values.res === '탈출' || r.values.res === '먼 타원' ? 0.7 : 0.375)))];
       var eq = map(e[0], e[1]);
-      if (eq[0] > 10 && eq[0] < 1240 && eq[1] > 10 && eq[1] < 690) labels.push({ x: eq[0] + 12, y: eq[1] - 16, text: (st.mark ? st.mark + ' ' : '') + SK.fmt(r.params.v0, 1) + ' km/s', anchor: 'left', size: 22, color: st.color });
+      if (eq[0] > 10 && eq[0] < 1240 && eq[1] > vTop() + 10 && eq[1] < vBot() - 10) labels.push({ x: eq[0] + 12, y: eq[1] - 16, text: (st.mark ? st.mark + ' ' : '') + SK.fmt(r.params.v0, 1) + ' km/s', anchor: 'left', size: 22, color: st.color });
     });
     if (!hid && SK.ghost && SK.ghost.series.path && (SK.ghost.values.bk || SK.ghost.params.body) === b.key) SK.drawPath(ctx, SK.ghost.series.path, SK.ghostStyle(), map);
-    if (other && !hid) labels.push({ x: 24, y: 664, text: '다른 천체 기록 ' + other + '개는 표에서 비교해요', anchor: 'left', size: 22, color: '--color-ink-muted' });
+    if (other && !hid) labels.push({ x: 24, y: vBot() - 36, text: '다른 천체 기록 ' + other + '개는 표에서 비교해요', anchor: 'left', size: 22, color: '--color-ink-muted' });
     // 지금 궤적
     var pts = p.trail ? c.path : c.path.slice(-10);
     var cur = pts.concat([[c.x / R, c.y / R]]);
     if (!hid) SK.drawPath(ctx, cur, { color: col('--color-sim-orbit'), dash: [], width: 4 }, map);
     // 포탄
     var bp = map(c.x / R, c.y / R);
-    var off = bp[0] < 0 || bp[0] > 1250 || bp[1] < 0 || bp[1] > 700;
+    var off = bp[0] < 0 || bp[0] > 1250 || bp[1] < vTop() || bp[1] > vBot();   // R4: 화면 밖 판정은 보이는 높이 전체(hFull) 기준
     var r = Math.sqrt(c.x * c.x + c.y * c.y);
     if (off) {
       edgeArrow(ctx, bp[0], bp[1], V.key === 'near' ? '포탄 고도 ' + comma((r - R) / 1000) + ' km' : '포탄: 중심에서 ' + SK.fmt(r / R, 1) + ' R', labels, V.cx, V.cy);
@@ -1123,7 +1122,7 @@
   var SAT_COL = { x: 900, w: 334 };   // 오른쪽 칸 (우주인 · 그래프)
   function drawAstronaut(ctx, x, y, w, hh, g, t) {
     panelBox(ctx, x, y, w, hh);
-    text(ctx, '위성 안의 우주인', x + 16, y + 24, { size: 22, weight: 700, color: '--color-ink' });
+    text(ctx, '위성 안의 우주인', x + 16, y + 24, { size: 22, weight: 500, color: '--color-ink' });
     // 창
     var wh = hh - 120;
     ctx.save();
@@ -1139,15 +1138,15 @@
     ctx.moveTo(0, 10); ctx.lineTo(-11, 26); ctx.moveTo(0, 10); ctx.lineTo(12, 24); ctx.stroke();
     ctx.restore();
     dot(ctx, x + w * 0.8, y + 66 - bob, 7, '--color-copper');
-    text(ctx, '둥둥 = 함께 떨어지는 중', x + w / 2, y + hh - 54, { size: 22, align: 'center', weight: 700, color: '--color-sim-orbit-text' });
-    text(ctx, '중력: 지표의 ' + pctText(g) + '%', x + w / 2, y + hh - 22, { size: 22, align: 'center', weight: 800, color: '--color-copper-text' });
+    text(ctx, '둥둥 = 함께 떨어지는 중', x + w / 2, y + hh - 54, { size: 22, align: 'center', weight: 500, color: '--color-sim-orbit-text' });
+    text(ctx, '중력: 지표의 ' + pctText(g) + '%', x + w / 2, y + hh - 22, { size: 22, align: 'center', weight: 500, color: '--color-copper-text' });
   }
   /** 실험 화면 오른쪽 아래: 기록한 위성의 T – r (또는 T² – r³) 그래프 */
   function satGraph(ctx, p, y0, y1) {
     var sq = p.gaxis === 'sq', hid = hideResults();
     var bx = SAT_COL.x, by = y0, bw = SAT_COL.w, bh = y1 - y0;
     panelBox(ctx, bx, by, bw, bh);
-    text(ctx, sq ? 'T² – r³ 그래프' : 'T – r 그래프', bx + 16, by + 24, { size: 22, weight: 700 });
+    text(ctx, sq ? '$T^2$ – $r^3$ 그래프' : '$T$ – $r$ 그래프', bx + 16, by + 24, { size: 22, weight: 500 });
     function X(rR) { return sq ? rR * rR * rR : rR; }
     function Y(Th) { return sq ? Th * Th : Th; }
     var pts = [];
@@ -1158,7 +1157,7 @@
     pts.forEach(function (q) { if (q.x > xm) xm = q.x; if (q.y > ym) ym = q.y; });
     var box = { x: bx + 62, y: by + 50, w: bw - 82, h: bh - 112 };
     var ax = axes(ctx, box, [0, niceMax(xm)], [0, niceMax(ym)], { fs: 22, nx: 2, ny: 2 });
-    text(ctx, sq ? '가로 r³ · 세로 T²' : '가로 r (R) · 세로 T (시간)', bx + bw / 2, by + bh - 18, { size: 22, align: 'center', color: '--color-ink' });
+    text(ctx, sq ? '가로 $r^3$ · 세로 $T^2$' : '가로 $r$ (R) · 세로 $T$ (시간)', bx + bw / 2, by + bh - 18, { size: 22, align: 'center', color: '--color-ink' });
     if (sq && SK.records.length >= 2 && !hid) {
       var k = 4 * Math.PI * Math.PI * Math.pow(EARTH.R, 3) / (EARTH.GM * 3600 * 3600), xe = niceMax(xm);
       ctx.save(); ctx.beginPath(); ctx.rect(box.x, box.y, box.w, box.h); ctx.clip();
@@ -1169,14 +1168,14 @@
     pts.forEach(function (q) {
       var x = ax.mx(q.x), y = ax.my(q.y);
       if (q.now) { dot(ctx, x, y, 7, null, '--color-sim-orbit', 3); return; }
-      text(ctx, q.st.mark || '●', x, y, { size: 22, weight: 800, align: 'center', color: q.st.color, halo: true });
+      text(ctx, q.st.mark || '●', x, y, { size: 22, weight: 500, align: 'center', color: q.st.color, halo: true });
     });
   }
   function renderSat(ctx, p) {
     var s = satCalc(p.alt), S = satScale(p), CX = 480, CY = 370, hid = hideResults();
     var labels = [];
     drawBody(ctx, 'earth', CX, CY, S);
-    if (S > 60) text(ctx, '지구', CX, CY, { size: 26, weight: 700, align: 'center', serif: true, color: '--color-ink' });
+    if (S > 60) text(ctx, '지구', CX, CY, { size: 26, weight: 500, align: 'center', color: '--color-ink' });
     function circ(rR, st, lab) {
       ctx.save(); SK.applyStroke(ctx, st);
       ctx.beginPath(); ctx.arc(CX, CY, rR * S, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
@@ -1212,10 +1211,11 @@
       labels.push(forceLabel(x, y, fu, fl));
       angleMark(ctx, x, y, vu, fu);
     }
-    var top = Math.max(110, (SK.stageInset ? SK.stageInset().top : 0) + 12);
+    // R4: 오른쪽 칸은 보이는 위 끝에 붙이고(−offsetY), 그래프는 넓어진 아래까지 길게
+    var top = Math.max(110, (SK.stageInset ? SK.stageInset().top : 0) + 12) + vTop(), bot = vBot() - 14;
     drawAstronaut(ctx, SAT_COL.x, top, SAT_COL.w, 250, s.g, SK.time * 3);
-    satGraph(ctx, p, top + 264, 686);
-    SK.placeLabel(ctx, labels.map(function (l) { return keepIn(ctx, l); }), { avoid: [{ x: SAT_COL.x, y: top, w: SAT_COL.w, h: 686 - top }] });
+    satGraph(ctx, p, top + 264, bot);
+    SK.placeLabel(ctx, labels.map(function (l) { return keepIn(ctx, l); }), { avoid: [{ x: SAT_COL.x, y: top, w: SAT_COL.w, h: bot - top }] });
   }
 
   /* ------------------------------------------------------------------
@@ -1290,7 +1290,7 @@
     r.ela.classList.remove('is-invalid'); r.elT.classList.remove('is-invalid');
     kUpdateRow(i);
   }
-  function kFill() { PLANETS.forEach(function (p, i) { kSet(i, p.a, p.T); }); kCheck(); SK.requestRender(); SK.notice('자료를 넣었어요 — T² – a³ 로 바꿔 봐요', 'ok'); }
+  function kFill() { PLANETS.forEach(function (p, i) { kSet(i, p.a, p.T); }); kCheck(); SK.requestRender(); SK.notice('자료를 넣었어요 — $T^2$ – $a^3$ 로 바꿔 봐요', 'ok'); }
   function kClear() { PLANETS.forEach(function (p, i) { kSet(i, null, null); }); kDone = false; kCheck(); SK.hideNote(); SK.requestRender(); }
   /** 케플러 3단계 안내: 지금 단계 강조, 표가 다 차고 T² – a³ 이면 결론(정리 문장·예측 판정) */
   function kCheck() {
@@ -1320,13 +1320,15 @@
   }
   function renderKepler(ctx, p) {
     var sq = p.gaxis === 'sq', inner = p.kzoom === 'inner';
-    var box = { x: 730, y: 124, w: 480, h: 480 };
-    text(ctx, sq ? 'T² – a³ 그래프' : 'T – a 그래프', box.x + box.w, 40, { size: 30, weight: 700, serif: true, align: 'right' });
-    text(ctx, sq ? '점들이 한 직선 위에 있을까?' : '거리가 멀수록 주기는 어떻게 늘까?', box.x + box.w, 76, { size: 22, color: '--color-ink-muted', align: 'right' });
+    // R4: 왼쪽 표(HTML)가 위에 붙어 있으니 그래프도 보이는 위 끝 기준, 넓어진 세로는 그래프 높이로
+    var T0 = vTop(), ex = SK.view ? SK.view.extra : 0;
+    var box = { x: 730, y: 124 + T0, w: 480, h: 480 + ex };
+    text(ctx, sq ? '$T^2$ – $a^3$ 그래프' : '$T$ – $a$ 그래프', box.x + box.w, 40 + T0, { size: 30, weight: 500, align: 'right' });
+    text(ctx, sq ? '점들이 한 직선 위에 있을까?' : '거리가 멀수록 주기는 어떻게 늘까?', box.x + box.w, 76 + T0, { size: 22, color: '--color-ink-muted', align: 'right' });
     var pts = [];
     kRows.forEach(function (r) { if (r.a && r.T) pts.push({ x: sq ? r.a * r.a * r.a : r.a, y: sq ? r.T * r.T : r.T, name: r.name }); });
     var xm = inner ? (sq ? 4 : 2) : (sq ? 900 : 10), ym = inner ? (sq ? 4 : 2) : (sq ? 900 : 30);
-    var ax = axes(ctx, box, [0, xm], [0, ym], { fs: 22, xl: sq ? 'a³ (AU³)' : 'a (AU)', yl: sq ? 'T² (년²)' : 'T (년)', nx: 4, ny: 4 });
+    var ax = axes(ctx, box, [0, xm], [0, ym], { fs: 22, xl: sq ? '$a^3$ (AU³)' : '$a$ (AU)', yl: sq ? '$T^2$ (년²)' : '$T$ (년)', nx: 4, ny: 4 });
     ctx.save(); ctx.beginPath(); ctx.rect(box.x - 2, box.y - 2, box.w + 4, box.h + 4); ctx.clip();
     if (sq && p.kguide) {
       SK.drawPath(ctx, [[0, 0], [Math.max(xm, ym), Math.max(xm, ym)]], { color: col('--color-q-force'), dash: [10, 7], width: 3 }, function (a, b) { return [ax.mx(a), ax.my(b)]; });
@@ -1351,9 +1353,9 @@
     });
     ctx.restore();
     if (names.length) SK.placeLabel(ctx, names);
-    if (sq && p.kguide) text(ctx, '기울기 1 (T² = a³)', box.x + box.w - 8, box.y + 26, { size: 22, align: 'right', color: '--color-copper-text', halo: true });
+    if (sq && p.kguide) text(ctx, '기울기 1 ($T^2$ = $a^3$)', box.x + box.w - 8, box.y + 26, { size: 22, align: 'right', color: '--color-copper-text', halo: true });
     if (hidden) text(ctx, '그래프 밖 ' + hidden + '개 — 보는 범위를 전체로', box.x + box.w, box.y + box.h + 50, { size: 22, align: 'right', color: '--color-ink-muted' });
-    if (!pts.length) text(ctx, '왼쪽 표에 a와 T를 넣어 보세요', box.x + box.w / 2, box.y + box.h / 2, { size: 24, weight: 700, align: 'center', color: '--color-ink-muted', halo: true });
+    if (!pts.length) text(ctx, '왼쪽 표에 a와 T를 넣어 보세요', box.x + box.w / 2, box.y + box.h / 2, { size: 24, weight: 500, align: 'center', color: '--color-ink-muted', halo: true });
   }
 
   /* ------------------------------------------------------------------
@@ -1495,6 +1497,7 @@
       if (!done) all = false;
       var b = h('button', { class: 'og-seq__chip' + (i === idx ? ' is-now' : '') + (done ? ' is-done' : ''), type: 'button', 'aria-pressed': String(i === idx),
         title: (seq.tip ? seq.tip(v) + ' · ' : '') + (done ? '기록했어요' : '아직 기록 안 함') }, (done ? '✓ ' : '') + seq.label(v));
+      SK.iconify(b);   // R4: ✓ → 아이콘
       b.addEventListener('click', function (e) { if (e.detail) b.blur(); goSeq(v); });
       row.appendChild(b);
     });
@@ -1504,10 +1507,11 @@
       var why = SK.running ? '실행이 끝난 뒤에 넘어가요' : (SK.finished && !recd && idx >= 0 ? '먼저 위 기록하기를 눌러요' : '');
       var nb = h('button', { class: 'btn btn--secondary btn--sm og-seq__next' + (why ? ' is-blocked' : ''), type: 'button', 'aria-disabled': why ? 'true' : 'false',
         title: why || ('다음 값으로 바꿔요 — ' + (seq.tip ? seq.tip(next) : seq.label(next) + seq.unit)) }, '다음: ' + seq.label(next) + seq.unit + ' ▶');
+      SK.iconify(nb);
       nb.addEventListener('click', function (e) { if (e.detail) nb.blur(); if (why) { SK.notice(why, 'info'); return; } goSeq(next); });
       row.appendChild(nb);
-    } else if (all) row.appendChild(h('span', { class: 'og-seq__done', text: '모두 기록했어요 ✓' }));
-    seqEl.appendChild(h('p', { class: 'og-seq__title', text: '순서대로 바꿔 쏘기 · ✓ = 기록함' }));
+    } else if (all) row.appendChild(SK.iconify(h('span', { class: 'og-seq__done', text: '모두 기록했어요 ✓' })));
+    seqEl.appendChild(SK.iconify(h('p', { class: 'og-seq__title', text: '순서대로 바꿔 쏘기 · ✓ = 기록함' }), { all: true }));
     seqEl.appendChild(row);
   }
   function goSeq(v) {
@@ -1530,30 +1534,30 @@
     '<path d="M262 114 Q320 112 344 150" style="fill:none;stroke:var(--color-warn);stroke-width:4"/>' +
     '<path d="M262 114 Q380 106 410 196" style="fill:none;stroke:var(--color-warn);stroke-width:4;stroke-dasharray:10 6"/>' +
     '<path d="M262 114 Q400 84 512 76" style="fill:none;stroke:var(--color-primary);stroke-width:4;stroke-dasharray:3 6"/>' +
-    '<text x="300" y="250" style="fill:var(--color-ink);font:700 22px sans-serif">느리면 떨어짐</text>' +
-    '<text x="12" y="104" style="fill:var(--color-sim-orbit);font:700 22px sans-serif">7.9 km/s: 한 바퀴</text>' +
-    '<text x="508" y="44" text-anchor="end" style="fill:var(--color-primary);font:700 22px sans-serif">11.2 km/s 이상: 탈출</text>' +
+    '<text x="300" y="250" style="fill:var(--color-ink);font:500 22px var(--font-sans)">느리면 떨어짐</text>' +
+    '<text x="12" y="104" style="fill:var(--color-sim-orbit);font:500 22px var(--font-sans)">7.9 km/s: 한 바퀴</text>' +
+    '<text x="508" y="44" text-anchor="end" style="fill:var(--color-primary);font:500 22px var(--font-sans)">11.2 km/s 이상: 탈출</text>' +
     '</svg>';
   var SVG_GRAV = '<svg viewBox="0 0 520 200" xmlns="http://www.w3.org/2000/svg">' +
     '<circle cx="80" cy="100" r="46" style="fill:var(--color-primary-tint);stroke:var(--color-primary);stroke-width:3"/>' +
-    '<text x="80" y="108" text-anchor="middle" style="fill:var(--color-ink);font:700 22px sans-serif">지구</text>' +
+    '<text x="80" y="108" text-anchor="middle" style="fill:var(--color-ink);font:500 22px var(--font-sans)">지구</text>' +
     '<path d="M80 168 H480" style="stroke:var(--color-line-strong);stroke-width:2"/>' +
-    '<text x="80" y="194" text-anchor="middle" style="fill:var(--color-ink-muted);font:600 22px sans-serif">0</text>' +
+    '<text x="80" y="194" text-anchor="middle" style="fill:var(--color-ink-muted);font:500 22px var(--font-sans)">0</text>' +
     '<circle cx="180" cy="100" r="10" style="fill:var(--color-ink)"/><path d="M168 100 H132" style="stroke:var(--color-q-force);stroke-width:8"/>' +
-    '<text x="180" y="194" text-anchor="middle" style="fill:var(--color-ink-muted);font:600 22px sans-serif">r</text><text x="180" y="66" text-anchor="middle" style="fill:var(--color-copper-text);font:700 22px sans-serif">F</text>' +
+    '<text x="180" y="194" text-anchor="middle" style="fill:var(--color-ink-muted);font:italic 400 24px var(--font-math)">r</text><text x="180" y="66" text-anchor="middle" style="fill:var(--color-copper-text);font:italic 400 24px var(--font-math)">F</text>' +
     '<circle cx="280" cy="100" r="10" style="fill:var(--color-ink)"/><path d="M268 100 H256" style="stroke:var(--color-q-force);stroke-width:8"/>' +
-    '<text x="280" y="194" text-anchor="middle" style="fill:var(--color-ink-muted);font:600 22px sans-serif">2r</text><text x="280" y="66" text-anchor="middle" style="fill:var(--color-copper-text);font:700 22px sans-serif">F/4</text>' +
+    '<text x="280" y="194" text-anchor="middle" style="fill:var(--color-ink-muted);font:italic 400 24px var(--font-math)">2r</text><text x="280" y="66" text-anchor="middle" style="fill:var(--color-copper-text);font:italic 400 24px var(--font-math)">F/4</text>' +
     '<circle cx="380" cy="100" r="10" style="fill:var(--color-ink)"/><path d="M368 100 H362" style="stroke:var(--color-q-force);stroke-width:8"/>' +
-    '<text x="380" y="194" text-anchor="middle" style="fill:var(--color-ink-muted);font:600 22px sans-serif">3r</text><text x="380" y="66" text-anchor="middle" style="fill:var(--color-copper-text);font:700 22px sans-serif">F/9</text>' +
+    '<text x="380" y="194" text-anchor="middle" style="fill:var(--color-ink-muted);font:italic 400 24px var(--font-math)">3r</text><text x="380" y="66" text-anchor="middle" style="fill:var(--color-copper-text);font:italic 400 24px var(--font-math)">F/9</text>' +
     '</svg>';
   var SVG_RADIUS = '<svg viewBox="0 0 520 200" xmlns="http://www.w3.org/2000/svg">' +
     '<circle cx="130" cy="110" r="70" style="fill:var(--color-primary-tint);stroke:var(--color-primary);stroke-width:3"/>' +
     '<circle cx="130" cy="110" r="100" style="fill:none;stroke:var(--color-sim-orbit);stroke-width:3;stroke-dasharray:6 6"/>' +
     '<path d="M130 110 L200 110" style="stroke:var(--color-ink);stroke-width:3"/><path d="M200 110 L230 110" style="stroke:var(--color-copper);stroke-width:5"/>' +
     '<circle cx="230" cy="110" r="8" style="fill:var(--color-sim-orbit)"/>' +
-    '<text x="250" y="70" style="fill:var(--color-ink);font:700 22px sans-serif">r = 지구 반지름 + 고도</text>' +
-    '<text x="250" y="110" style="fill:var(--color-ink-muted);font:600 22px sans-serif">검은 선: 지구 반지름 6,371 km</text>' +
-    '<text x="250" y="148" style="fill:var(--color-copper-text);font:700 22px sans-serif">주황 선: 고도 h</text>' +
+    '<text x="250" y="70" style="fill:var(--color-ink);font:500 22px var(--font-sans)">r = 지구 반지름 + 고도</text>' +
+    '<text x="250" y="110" style="fill:var(--color-ink-muted);font:500 22px var(--font-sans)">검은 선: 지구 반지름 6,371 km</text>' +
+    '<text x="250" y="148" style="fill:var(--color-copper-text);font:500 22px var(--font-sans)">주황 선: 고도 h</text>' +
     '</svg>';
 
   SK.help({
@@ -1795,7 +1799,7 @@
       { title: '수업 단계', items: [
         '예측: 실험을 고르면 첫 카드의 예측 질문이 저절로 떠요 (교사 모드에서 끌 수 있어요)',
         '실행: 대포는 패널 순서 칩으로 4 → 11.2 km/s 차례로 / 위성은 고도·질량을 하나씩 바꿔 기록',
-        '비교: 기록 표에서 고도↑ 속력↓ 주기↑, 케플러는 T²–a³ 직선',
+        '비교: 기록 표에서 고도가 높을수록 속력은 작고 주기는 길다, 케플러는 T²–a³ 직선',
         '정리: "높이 올라가면 중력이 0?"(심화 거리–중력 그래프), "정지궤도는 왜 같은 높이?"'
       ] },
       { title: '모델·축척 (확인용)', items: [

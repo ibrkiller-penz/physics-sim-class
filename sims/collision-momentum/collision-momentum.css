@@ -73,6 +73,7 @@
   width: calc(22 * var(--u)); height: calc(22 * var(--u));
   font: var(--font-weight-black) calc(22 * var(--u))/1 var(--font-sans); color: var(--color-ok-text, var(--color-ok));
 }
+.cm-tab__mark .ico { width: calc(20 * var(--u)); height: calc(20 * var(--u)); }   /* R4: ✓ → 아이콘 */
 .cm-tab__mark[data-state="new"]::before {
   content: ""; width: calc(8 * var(--u)); height: calc(8 * var(--u)); border-radius: 50%;
   background: var(--color-warn); box-shadow: 0 0 0 calc(3 * var(--u)) var(--color-warn-tint);
@@ -93,11 +94,12 @@
 /* 도움말 › 개념: 그림(figure 글) · 흔한 오해 목록 — 나머지는 공통 .concept__* */
 .cm-fig { padding: 0; }
 .cm-fig svg { display: block; width: 100%; max-width: calc(620 * var(--u)); height: auto; overflow: visible; }
-.cm-fig text { font: 600 18px var(--font-sans); fill: var(--color-ink); }
-.cm-fig .cm-fig__inv { fill: var(--color-ink-inverse); font-weight: 800; }
-.cm-fig .cm-fig__v { fill: var(--color-q-velocity); font-weight: 800; }
-.cm-fig .cm-fig__f { fill: var(--color-copper-text); font-weight: 800; }
-.cm-fig .cm-fig__b, .cm-fig tspan.cm-fig__b { font-weight: 800; }
+.cm-fig text { font: 400 18px var(--font-sans); fill: var(--color-ink); }   /* R4: 에스코어 400 · 강조 500 */
+.cm-fig .cm-fig__inv { fill: var(--color-ink-inverse); font-weight: 500; }
+.cm-fig .cm-fig__v { fill: var(--color-q-velocity); font-weight: 500; }
+.cm-fig .cm-fig__f { fill: var(--color-copper-text); font-weight: 500; }
+.cm-fig .cm-fig__b, .cm-fig tspan.cm-fig__b { font-weight: 500; }
+.cm-fig tspan.sym { font-family: var(--font-math); font-style: italic; font-weight: 400; }
 .cm-mis { list-style: none; display: grid; gap: var(--space-3); padding: 0; margin: 0; }
 .cm-mis li { display: grid; gap: var(--space-1); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--color-paper-raised); border: 1px solid var(--color-line); }
 .cm-mis__x, .cm-mis__o { font: var(--font-weight-medium) var(--fs-meta)/1.5 var(--font-sans); word-break: keep-all; }
@@ -112,5 +114,5 @@
 
 /* R3: 계기판 '처음 → 지금' 두 값이면 한 단계 작게 — 속도 칸(좁음)에서 단위가 칸 밖으로 안 나가게 */
 .cm-band .meter[data-key="v1"] .meter__value.cm-pair,
-.cm-band .meter[data-key="v2"] .meter__value.cm-pair { font-size: calc(28 * var(--u)); }
+.cm-band .meter[data-key="v2"] .meter__value.cm-pair { font-size: calc(26 * var(--u)); }   /* R4 마무리: 에스코어 숫자 폭 — '+2.0→+1.6 m/s' 가 칸 안에 */
 .cm-band .meter__value .arrow { margin: 0 .2em; }

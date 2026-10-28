@@ -1,9 +1,137 @@
-# SimKit — 공통 틀 사용 설명서 (개발자용, R2 고도화 2차 + R3 디테일)
+# SimKit — 공통 틀 사용 설명서 (개발자용, R2 고도화 2차 + R3 디테일 + R4 태블릿·글꼴·아이콘)
 
 > 작성: 에듀테크1(디자인 리드) · 2026-10-28
 > 근거: `docs/개선/R1_계획.md` §2(디자인 방향)·§3(A1~A18, H1~H2) · 이전 판: `docs/04_팀장결정서.md`
 > 다섯 시뮬레이터는 이 틀 **위에서만** 만든다. `shared/` 를 고칠 일이 생기면 디자인 리드에게 요청한다.
 > 바로 동작하는 예제: `sims/_template/index.html` (= `shared/TEMPLATE.html`) — R2 새 API 를 모두 씀.
+
+---
+
+## 0R4. R4 에서 바뀐 것 (2026-10-28, 개발자1) — 먼저 읽기
+
+> 근거: `docs/개선/R4_계획.md` §1~§4. 바뀐 것 네 가지: **태블릿 세로 여유** · **캔버스 수식 글자(SK.text)** · **SVG 아이콘** · **글꼴 에스코어 드림 3·4·5**.
+> 하위 호환: 아직 새 API 를 안 쓰는 시뮬레이터도 깨지지 않는다(아래 0R4-6). 예제: `sims/_template/index.html`.
+
+### 0R4-1. 불러오는 순서 (icons.js 추가)
+```html
+<link rel="stylesheet" href="../../shared/fonts.css">   <!-- 에스코어 드림 OTF 3개 -->
+<link rel="stylesheet" href="../../shared/tokens.css">
+<link rel="stylesheet" href="../../shared/base.css">
+<link rel="stylesheet" href="../../shared/shell.css">
+<script src="../../shared/icons.js"></script>          <!-- R4: window.SimIcons (sim.js 보다 앞) -->
+<script src="../../shared/sim.js"></script>
+<script src="sim.js"></script>
+```
+`icons.js` 줄이 없으면 `sim.js` 가 읽는 중에 스스로 끼워 넣는다(임시 호환). 각 시뮬레이터는 줄을 직접 넣는다.
+
+### 0R4-2. 태블릿 배치 — `--extra` (16:9 보다 세로가 긴 화면)
+- `tokens.css`: `@media (max-aspect-ratio: 16/9)` 에서 `--u = 100vw/1920`, `--extra = clamp(0px, 100vh − 1080u, 440u)`. **1920×1080·1280×720 은 `--extra: 0` → 예전과 픽셀까지 같다.** 1180×820 ≈ 254u, 1024×768 ≈ 360u, 세로 화면은 440u 에서 멈추고 나머지는 위아래 띠.
+- §2 그림의 각주: **실험 화면 높이 660u+extra · 오른쪽 칸 760u+extra · 하단 띠·기록 칩 `y812+extra` · 하단 막대 `y916+extra`.** 띠·막대 높이는 그대로. 접힌 화면(T) 760u+extra. 허브는 카드 칸(1fr)이 늘어난다.
+- 무대 안 HTML 조각(stage-corner·예측 창·모드 창·토스트)은 무대 상자 기준이라 손댈 것 없음.
+- 시뮬레이터 css 에서 무대 높이 기준 숫자(`660 * var(--u)`)를 직접 썼다면 `+ var(--extra)` 를 붙인다.
+
+**캔버스(`SK.view`, stageFit)** — 축척은 그대로(`min`), 그림은 위에 붙고(`oy = 0`) 남는 세로는 알려 주기만 한다.
+
+| 값 | 뜻 (논리 단위) | 16:9 |
+|---|---|---|
+| `view.w`·`view.h` | 설계값 그대로 (1250×660 또는 ×700) — 바닥·중심선 계산은 지금처럼 | 같음 |
+| `view.hFull` | 캔버스 논리 높이 전체 = `ch / scale` | `= h` |
+| `view.extra` | `hFull − h` (세로 여유) · `SK.stageExtra()` 와 같음 | 0 |
+| `view.offsetY` | **시뮬레이터가 `onResize` 에서 정한다.** 그리기 전체와 `toLogical` 이 이만큼 아래로 | 0 |
+| `view.toPx(x, y)` | 논리 좌표 → 무대 상자 기준 CSS px (offsetY 반영 — 무대 위 HTML 조각 위치용) | |
+
+```js
+SK.init({ …, onResize: function (view) { view.offsetY = view.extra; } });     // 바닥을 아래에 붙임(포물선) — 하늘이 y = −extra 까지
+SK.init({ …, onResize: function (view) { view.offsetY = view.extra / 2; } }); // 광축·트랙·중심 천체를 가운데로
+// 그리기: 넓어진 부분은 y 범위 [−offsetY, h + extra − offsetY]. 모눈은 for (y = GY; y >= −view.offsetY; y -= step)
+// 칩에 안 가리는 범위: var ins = SK.stageInset(); ins.yTop ~ ins.yBottom (offsetY 반영된 그리기 좌표, 예전 top/bottom 그대로 있음)
+// 예전 가운데 맞춤이 필요하면 SK.init({ stageGrow: false }) (또는 SK.canvas(el, {grow:false}))
+```
+- `view.onResize` 를 직접 넣었다면 그 안에서 `offsetY` 를 정하면 된다(resize 뒤 다시 적용됨). `view.oy` 를 써서 HTML 을 붙이던 곳은 `view.toPx()` 로.
+- 하단 띠·패널 캔버스(`SK.graph`, 자체 띠 캔버스)는 크기가 그대로라 손댈 것 없음.
+
+### 0R4-3. 캔버스 글자 — `SK.text` (수식 표기 `$…$`)
+
+```js
+SK.font(weight, size, kind)          // ctx.font 문자열. weight 300|400|500(그 이상은 500), kind 'sans'(에스코어) | 'math' | 'math-italic'
+SK.text(ctx, str, x, y, o)           // 한 줄. 반환 = 폭. o: {size:22, weight:400, color:'--토큰'(없으면 지금 fillStyle), align:'left|center|right',
+                                     //   baseline:'middle'(기본)|'alphabetic'|'top'|'bottom', bg:true|'--토큰'(라벨 칩), halo:'--토큰', tabular:false, font:'원래 ctx.font'}
+SK.measure(ctx, str, o)              // {w, h} — 같은 규칙으로 폭만
+SK.sym(ctx, 'v_0', x, y, o)          // = SK.text(ctx, '$v_0$', …)
+SK.num(ctx, '14.1', x, y, {tabular:true})   // '0' 폭 칸에 한 자씩 (에스코어는 숫자 폭이 같아 보통 불필요 — 대체 글꼴 대비)
+SK.drawIcon(ctx, 'help', x, y, 28, {color:'--color-primary'})   // 캔버스 안 아이콘(가운데 기준)
+// 예: SK.text(ctx, '처음 속력 $v_0$ = ' + v + ' m/s', 40, 60, {size: 24, weight: 500});  SK.sym(ctx, 'Δy', x, y, {size: 22, align: 'center', bg: true});
+```
+**마크업 규칙** (캔버스·HTML 공통 — HTML 은 `rich()`/라벨·토스트·상태 칩·계기판·변수 symbol 이 같은 표기를 받음)
+
+| 쓰기 | 그려짐 | 규칙 |
+|---|---|---|
+| `$v_0$` `$v_x$` `$v_y$` `$m_1$` `$E_k$` | v₀ vₓ v_y m₁ Eₖ | `_` 다음 한 글자 또는 `{…}` 가 아래첨자(0.7배, 기준선 +0.22em). 숫자 첨자는 정체, 한 글자 첨자(x·y·k)는 이탤릭 |
+| `$v_{esc}$` `$v_{max}$` | v_esc | 여러 글자 첨자는 정체 |
+| `$T^2$` `$a^3$` `$s'$` | T² a³ s′ | `^` 위첨자(0.7배, −0.45em). `'` 는 프라임 |
+| `$λ$` `$θ$` `$ω$` | 이탤릭 | 그리스 소문자 = 변수 → 이탤릭 |
+| `$Δy$` `$Δp$` | Δ 정체 + y 이탤릭 | 그리스 대문자(Δ Σ)는 정체 |
+| `$v_0$ = 20 m/s` | | `$` 밖은 에스코어. 숫자·단위(m, s, kg, N, J, cm, nm)·`=` `+` `−` `×` `½` 는 `$` 밖에 |
+| `● 기록 1` | 그대로 | 기록 기호 ●▲■◆★ 는 글자 |
+
+- 수식 글꼴: `--font-math`(Times New Roman → Cambria → … serif, 시스템 글꼴) 이탤릭 400, 에스코어보다 1.1배. 이탤릭 다음 정체 사이 0.06em 자동.
+- **금지: 유니코드 아래첨자(`₀ ₁ ₂ ₓ ᵧ`) 를 캔버스·라벨 문자열에 직접 쓰지 않는다** → `$v_0$`. 에스코어에 `ₓ ᵧ` 글리프가 없어 다른 글꼴로 섞인다. (HTML 의 예전 `v₀` 는 동작은 하지만 새로 쓰지 말 것.)
+- `SK.arrow(…, {label:'$v_x$'})` · `SK.placeLabel(ctx, [{text:'$v_0$ 20 m/s'}])` · `SK.graph` 축 이름·범례도 같은 표기를 받는다(겉 API 그대로, 라벨 굵기 500).
+- 변수·계기판 기호: `addVar({symbol:'v_0'})` · `meters([{symbol:'v_y'}])` — `_`·`^` 가 있으면 수식으로(`'$v_0$'` 도 됨). 표 머리·aria 에는 `v₀` 글자로 바뀌어 들어간다(`SK.plainMath`).
+- 글꼴 준비: `SK.fontsReady`(Promise) — 첫 프레임은 글꼴이 준비된 뒤(최대 1.5초) 시작, 늦게 오면 `SK.redraw()` 가 한 번 더 그린다. 시뮬레이터 자체 캔버스(띠·패널)는 `SK.fontsReady.then(draw)` 또는 `SK.redraw` 뒤 다시 그리기.
+- 5종의 글꼴 상수(`FONT`·`SERIF`·`FS/FN`·`font()`·`fontNum()`, `'Pretendard'`·`'Noto Serif KR'` 이름)는 **모두 `SK.font()`/`SK.text()` 로 바꾼다** — Pretendard·Noto Serif KR 파일은 지웠다.
+
+### 0R4-4. SVG 아이콘 — `shared/icons.js`
+목록(24×24, 선 2, round, currentColor): `play ▶` `pause ⏸` `replay ↻` `reset ↺` `step-back ◀` `step-fwd` `chev-right ▸` `chev-left` `chev-down ▾` `chev-up ▴` `arrow-left ←` `arrow-right` `arrow-down ↓` `arrow-up ↑` `arrow-ne ↗` `close ✕ ✗` `check ✓` `bolt ⚡` `help ?` `expand ⤢` `more ⋯` `warn` `info`.
+글자로 남기는 것: `→`(값 변화·문장) · `×`(곱셈·속도 ×2) · `● ▲ ■ ◆ ★`(기록 기호) · `½ ² ³ °` · `△ ⓘ ✋`.
+
+```js
+SK.icon('play', {size:'sm'|'md'|'lg', cls:'', label:'실행'})   // SVG 요소 (label 없으면 aria-hidden). h() 의 자식으로 바로
+SK.iconHTML('chev-right')                                        // 문자열 (innerHTML·템플릿)
+SK.iconPath('help')                                              // 캔버스 Path2D 용 d 문자열 · SK.drawIcon(ctx, name, x, y, size, {color})
+SK.iconify(el)               // el 안 텍스트의 맨 앞/맨 뒤 글자 기호만 아이콘으로 ('? 도움말' '다음 ▸' '✕'). 가운데 '10 → 20' 은 그대로
+SK.iconify(el, {all:true})   // 문장 가운데 ▶·↻ 도 (→ × ? 제외) — '아래 ▶ 실행을 눌러요'
+SK.setText(el, '해설 보기 ▾') // textContent 대신 — 글 + $수식$ + 아이콘, 같은 글이면 건드리지 않음
+SK.btn(label, cls, onClick, attrs)   // 공통 버튼 (label 의 글자 기호는 자동 아이콘)
+SimIcons.html('chev-right')  // SimKit 없는 페이지(허브)
+```
+- **크기**: 글자 옆 아이콘은 크기를 안 주면 **부모 글자 1em**. 범례·칩 안 `sm`(20u), 보통 `md`(24u), 캔버스 안 버튼·주 버튼 `lg`(32u).
+- **정렬**: 버튼·칩은 이미 `inline-flex; align-items:center`. 버튼 안 아이콘과 글 간격 8u(`ico--lead`/`ico--trail` 이 gap 12u 에서 4u 뺌). 본문 글 속은 `vertical-align: -0.12em`. **아이콘만 있는 버튼(✕)은 `aria-label` 필수.** `display:grid` 상자 안에서는 아이콘+글을 `<span>` 하나로 묶는다(그리드 칸이 갈라짐).
+- **CSS `content:` 기호**: 글자 대신 마스크 — `content:""; width:1em; height:1em; background-color: currentColor; mask: var(--ico-chev-down) center/contain no-repeat`. 토큰 `--ico-chev-down` `--ico-chev-up` `--ico-chev-right` `--ico-check` `--ico-bolt`(tokens.css, 데이터 URI — file:// 동작). 공통의 펼치기/접기·해설 보기·힌트·메뉴 ✓·고른 카드 ✓ 는 이미 바꿨다.
+- 외부 SVG 파일·fetch 금지(JS 문자열 내장).
+
+### 0R4-5. 글꼴 — 에스코어 드림 3·4·5 (S-Core Dream)
+- `fonts.css`: `font-family: 'S-Core Dream'` 300(`SCDream3.otf`)·400(`SCDream4.otf`)·500(`SCDream5.otf`), `format('opentype')`. **라이선스: 공식 OTF 원본 그대로 — woff/woff2 변환·subset·글꼴 이름 수정 금지.** 원문 `shared/fonts/LICENSE_SCDream.txt`. 출처 표기: 허브 아래 '글꼴: 에스코어 드림 (S-Core)' · README.
+- 토큰: `--font-sans` = 에스코어 → 맑은 고딕 → …, `--font-serif`·`--font-num` = `var(--font-sans)`(명조 없음), **`--font-math`** = 물리 기호 이탤릭 세리프(시스템).
+
+| 쓰임 | 굵기 | 비고 |
+|---|---|---|
+| 본문·표 셀·변수 라벨·설명 | 400 | `body` 기본 |
+| 24u 이상 보조 글: 허브 부제 small · 도움말 본문 · 수업 정보 dd · 해설 '왜 그럴까?' 본문 | 300 (`--font-weight-light`) | **22u 이하 글은 300 금지**(눈금 라벨 등 400) |
+| 제목·버튼·칩·지금 할 일·계기판 숫자·강조 `b` | 500 | `--font-weight-semibold/bold/black` 은 모두 500 으로 바뀜 — 위계는 크기·색 |
+| 캔버스 | 라벨 400 · 강조/제목 500 · 눈금 400 | `SK.font(400|500, 22|24|26)` 만 |
+| 물리 기호 `.var__sym` `.meter__label i` `.sym` | `--font-math` italic 400 | `<i class="sym">v<sub>0</sub></i>` (rich 가 `$v_0$` 를 바꿔 줌) |
+
+- **600·700·800·900 을 숫자로 쓰지 않는다**(가짜 굵게가 생김 → `html { font-synthesis: style }` 로 막아 둠). 검사: `grep -nE "font(-weight)?: *[6-9]00|'[6-9]00 |font\([6-9]00" sims` = 0.
+- 에스코어는 Pretendard 보다 글자 폭이 넓다(숫자 0.61em). 넘치면 **문구를 줄이지 말고** 7단계 안에서 한 단계 내리거나 폭을 조정, 그래도 안 되면 팀장과 상의. 공통에서는 하단 막대 버튼 좌우 여백 16→12u 로 실험 카드 폭을 지켰다. 패널 범례(⚡·↻)는 두 줄이 된다.
+
+### 0R4-6. 하위 호환 · 시뮬레이터가 할 일 (개발자2·3 · 개발자1 projectile)
+- 그대로 동작: 예전 `ctx.font='700 …Pretendard'` 는 맑은 고딕으로 보일 뿐 깨지지 않는다 · `view.w/h` · `stageInset().top/bottom` · `SK.px` · `toLogical`(offsetY 0 이면 예전과 같음) · 유니코드 `v₀` · 글자 기호 버튼.
+- 할 일 체크리스트
+  1. `index.html` 에 `<script src="../../shared/icons.js">` (sim.js 앞).
+  2. `onResize` 에서 `view.offsetY` (R4_계획 §1-4 표: projectile `extra` · slit/collision/orbit/lens `extra/2`) + 넓어진 부분 그리기(모눈·스크린·화면 밖 판정 `hFull`) + `view.oy` 로 붙인 HTML 은 `view.toPx`.
+  3. 캔버스 글자 전부 `SK.text`/`SK.font` — 기호는 `$…$`, 유니코드 아래첨자 0건, 굵기 500 이하.
+  4. 자체 HTML·CSS 의 글자 기호(▾ ✓ ▸ ↻ …)는 `SK.iconify(root)`·`SK.setText`·`SK.icon`, CSS `content:` 는 `--ico-*` 마스크.
+  5. css 의 600/700/800/900 숫자 → 500(토큰은 이미 500). `--font-serif` 이탤릭으로 기호를 쓰던 곳은 `--font-math`.
+  6. 1920·1280 회귀 0, 1180·1024 빈 띠 0, 끌기 위치 맞음, 콘솔 오류 0.
+
+### 0R4-7. 팀장 마무리에서 공통 틀에 더한 것 (2026-10-28 밤 · 5종 모두 반영 끝)
+- **유니코드 아래첨자 자동 변환** `SK.normMath`: `rich()`·`mathNodes`·`SK.text` 가 `$…$` 밖의 `v₀ m₁ vₓ vᵧ v₁′` 를 `$v_0$` 로 바꿔 그린다. 그래서 실험 카드 `changes/fixed`, 개념 `formula/symbols/live`, 용어 `def`, 기록 표 머리, 상태 칩, 토글 `onText/offText` 가 모두 이탤릭 세리프+아래첨자. 새 글은 그래도 `$…$` 로 쓴다(표기 한 가지).
+- 상태 칩(`status()` 배열)·기록 표 열 이름·`SK.guide` rows/sections 도 `rich`+`iconify` 를 거친다 (projectile 의 `mathify()` 는 자체 교사 서랍 HTML 용으로만 남음).
+- `--ico-close` 마스크 토큰 추가(렌즈의 `--lens-ico-close` 대체). `addToggle` 상태 글은 `setText`(✓ 아이콘).
+- 허브 카드: `max-height: 700u` + 칸 가운데 정렬 — 16:9 는 그대로, 세로가 긴 화면에서 카드 속이 비지 않는다.
+- 캔버스 축 제목처럼 **왼쪽 여백(`view.ox`)이 0 인 태블릿에서만** 자리를 바꿔야 하면 `view.ox / view.scale` 로 판정한다(projectile y축 제목 예: 16:9 세로 제목 · 태블릿 가로 제목).
+- 남겨 둔 글자 기호: 기록 구분 `●▲■◆★`(허브 배지·기록 표·속력 막대 범례)와 값 변화 `→`. 이 둘은 내용 기호라 아이콘으로 바꾸지 않는다.
 
 ---
 
@@ -185,15 +313,16 @@
 49_물리-수업시뮬레이터/
 ├─ index.html                 허브 (카드 5장, 1~5 키, ?mode= 전달)
 ├─ shared/
-│  ├─ fonts.css · fonts/      로컬 글꼴
+│  ├─ fonts.css · fonts/      로컬 글꼴 — R4: 에스코어 드림 SCDream3/4/5.otf (원본 그대로) + LICENSE_SCDream.txt
 │  ├─ tokens.css              디자인 토큰 (--u, --color-*, --fs-*, --space-* …)
 │  ├─ base.css                리셋·무대·부품 클래스 (R1 부품은 파일 끝 19~30번)
 │  ├─ shell.css               시뮬레이터 화면 뼈대 배치 (R1 전면 수정)
+│  ├─ icons.js                R4: window.SimIcons — 공통 SVG 아이콘(JS 문자열 내장)
 │  ├─ sim.js                  window.SimKit
 │  └─ TEMPLATE.html           복사해서 시작하는 예제 (= sims/_template/index.html)
 └─ sims/<slug>/index.html + sim.js (+ <slug>.css)
 ```
-불러오는 순서(바꾸지 말 것): `fonts.css → tokens.css → base.css → shell.css → ../../shared/sim.js → sim.js`
+불러오는 순서(바꾸지 말 것): `fonts.css → tokens.css → base.css → shell.css → ../../shared/icons.js → ../../shared/sim.js → sim.js`
 
 ---
 
@@ -210,6 +339,7 @@ y812 ~900   .sim-band    1010×88 계기판 | 그래프 (5:4)        .rec-chip 2
 y916 ~1036  .sim-bar     실험 카드 5장(2줄) | [▶ 실행] [◀ 한 칸 뒤로][앞으로 ▶][속도 ×1 ▾] / [기록하기][처음 설정으로][⋯ 더보기]
 y806        .notice-zone 토스트 1개, 3초, 실험 화면과 하단 띠 사이 가운데 (모달보다 위)
 ```
+- R4 각주: 16:9 보다 세로가 긴 화면에서는 **실험 화면 h660+extra · 오른쪽 칸 h760+extra · 하단 띠·기록 칩 y812+extra · 하단 막대 y916+extra** (§0R4-2). 16:9 는 extra 0.
 - `SimKit.el.*`: `root slide top task note stage panel(스크롤 칸) panelBox recBig thinkBoard band meters graph records(기록 칩) bar presets cornerTL/TR/BL/BR status notices`
 - 오른쪽 칸 전환: 비교 단계 → 기록 큰 판, 정리 단계 → 질문 판(think 가 있으면). 판 머리 '설정 보기 ▸', 패널 머리 '기록 표 보기 ▸', 기록 칩 '표 보기/표 닫기'. `SK.showSide('panel'|'records'|'think')`.
 - 패널은 안에서 스크롤, 끝이 아니면 아래 그림자 + '아래에 더 있어요 ↓'(누르면 내려감). 칸마다 '기본값으로 ↺'.

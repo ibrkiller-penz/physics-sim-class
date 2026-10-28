@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  물리 시뮬레이터 실험실 — 새 시뮬레이터 시작용 최소 예제 (공통 틀 SimKit, R2 2026-10-28)
+  물리 시뮬레이터 실험실 — 새 시뮬레이터 시작용 최소 예제 (공통 틀 SimKit, R2 2026-10-28 · R4 갱신)
   쓰는 법: 이 파일을 sims/<slug>/index.html 로 복사 → 아래 인라인 스크립트 내용을 sims/<slug>/sim.js 로 옮기고
           <script src="sim.js"></script> 로 바꾼다. 경로 ../../shared/ 는 sims/<slug>/ 에서 맞는 경로다.
           (바로 열어 보려면 같은 내용이 들어 있는 sims/_template/index.html 을 연다)
@@ -8,6 +8,8 @@
           계기판 1줄 · 그래프 · 기록 표(priority 1~3, extra 자리) · 실험 카드 2개(changes 아래 줄 · 누르면 값 바로 적용 → 예측 창 자동) ·
           숫자 예측(max 함수·example) · 예측 창이 떠 있는 동안 결과 층 숨기기(SK.predicting) · 도움말(concepts 새 구조 · terms alias · inlineTerms) ·
           결과 해설(takeaway {line, more} → 패널 맨 위 카드) · 정리 질문(think id/when · hint 접힘) · 수업 안내(교사)
+  R4: 불러오는 순서 fonts.css → tokens → base → shell → icons.js → sim.js · 태블릿 세로 여유(cfg.onResize 에서 view.offsetY) ·
+      캔버스 글자 SK.text/SK.font(에스코어, $v_0$ 수식 표기) · 기호 'v_y' · SK.icon/SK.drawIcon
   설명서: docs/SIMKIT.md
 -->
 <html lang="ko">
@@ -22,6 +24,7 @@
 </head>
 <body data-sim="projectile-energy">
   <div id="sim-root"></div>
+  <script src="../../shared/icons.js"></script>
   <script src="../../shared/sim.js"></script>
   <script>
   (function () {
@@ -52,6 +55,9 @@
       autoPredict: true,   // 기본값. 카드·모드를 고르면 예측 창이 자동으로 (교사 모드 › 수업 안내에서 끌 수 있음)
       onPredictOpen: function () { SK.requestRender(); },   // 예측 창이 떠 있는 동안 결과 층을 숨기려면 render 에서 SK.predicting() 을 본다
       onPredictClose: function () { SK.requestRender(); },
+      // R4: 태블릿(4:3)에서는 실험 화면이 세로로 길어진다(view.extra, 16:9 = 0). 바닥을 아래에 붙이려면 offsetY = extra
+      //     (그리기·toLogical 이 같이 움직인다. view.w/h 는 설계값 그대로, 위로 넓어진 하늘은 y = −extra ~ 0)
+      onResize: function (view) { view.offsetY = view.extra; },
       dt: 1 / 240,
       reset: function (p) { ball = { y: H0, v: 0 }; trail = []; firstHit = null; lastSample = -1; },
       step: function (dt, p) {
@@ -68,11 +74,19 @@
         var ctx = view.ctx;
         ctx.fillStyle = SK.color('--color-paper-sunk');
         ctx.fillRect(0, GROUND, view.w, view.h - GROUND);
+        // R4: 세로 여유가 있으면 모눈을 위로(y = −extra) 더 그린다
+        ctx.strokeStyle = SK.color('--color-grid'); ctx.lineWidth = 1;
+        for (var gy = GROUND - SCALE; gy >= -view.extra; gy -= SCALE) { ctx.beginPath(); ctx.moveTo(100, gy); ctx.lineTo(view.w, gy); ctx.stroke(); }
         ctx.strokeStyle = SK.color('--color-line-strong'); ctx.lineWidth = 3;
         ctx.beginPath(); ctx.moveTo(0, GROUND); ctx.lineTo(view.w, GROUND); ctx.stroke();
+        // R4: 캔버스 글자는 SK.text (에스코어, 22u 이상, 굵기 400/500만). ctx.font 직접 쓰기 대신 SK.font(400, 22)
         ctx.fillStyle = SK.color('--color-ink-muted');
-        ctx.font = '500 22px Pretendard, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';   // R2: 캔버스 글자 22u 이상
-        for (var m = 0; m <= 5; m++) { ctx.fillText(m + ' m', 70, GROUND - m * SCALE); ctx.fillRect(80, GROUND - m * SCALE - 1, 20, 2); }
+        var topY = SK.stageInset().yTop + 16;   // R4: 상태 칩 아래부터 (offsetY 반영된 그리기 좌표)
+        for (var m = 0; GROUND - m * SCALE >= topY; m++) {
+          SK.text(ctx, m + ' m', 70, GROUND - m * SCALE, { size: 22, align: 'right' });
+          ctx.fillRect(80, GROUND - m * SCALE - 1, 20, 2);
+        }
+        SK.text(ctx, '떨어뜨린 높이 $h$ = 5 m', 560, GROUND - 5 * SCALE, { size: 22, weight: 400, color: '--color-ink-muted', bg: true });
         function map(t, y) { return [300 + t * 220, GROUND - y * SCALE]; }
         SK.records.forEach(function (r) { SK.drawPath(ctx, r.series.y, SK.recStyle(r.slot), map); });
         if (SK.ghost) SK.drawPath(ctx, SK.ghost.series.y, SK.ghostStyle(), map);
@@ -83,11 +97,11 @@
         if (SK.isFlashing('g')) { ctx.strokeStyle = SK.color('--color-focus'); ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(x, y, 30, 0, Math.PI * 2); ctx.stroke(); }
         ctx.fillStyle = SK.color('--color-sim-projectile');
         ctx.beginPath(); ctx.arc(x, y, 20, 0, Math.PI * 2); ctx.fill();
-        SK.arrow(ctx, x, y, x, y - ball.v * 12, { color: '--color-q-velocity', width: 5 });
+        SK.arrow(ctx, x, y, x, y - ball.v * 12, { color: '--color-q-velocity', width: 5, label: Math.abs(ball.v) > 1 ? '$v$' : '' });   // R4: 라벨 $…$ = 이탤릭 세리프
         // 라벨이 겹치면 SK.placeLabel 이 위/아래로 밀고 흰 칩을 깐다
         SK.placeLabel(ctx, [
-          { x: x + 40, y: y, text: '공 (높이 ' + SK.fmt(ball.y, 1) + ' m)', anchor: 'left' },
-          { x: x + 40, y: y + 6, text: '속도 ' + SK.fmt(ball.v, 1) + ' m/s', anchor: 'left', color: '--color-q-velocity' }
+          { x: x + 40, y: y, text: '높이 $y$ = ' + SK.fmt(ball.y, 1) + ' m', anchor: 'left' },
+          { x: x + 40, y: y + 6, text: '속도 $v_y$ = ' + SK.fmt(ball.v, 1) + ' m/s', anchor: 'left', color: '--color-q-velocity' }
         ]);
         meters.update({ t: SK.time, y: ball.y, v: ball.v });
         graph.draw({ y: trail });
@@ -117,7 +131,7 @@
     var meters = SK.meters(null, [
       { key: 't', label: '시간', symbol: 't', unit: 's', decimals: 2 },
       { key: 'y', label: '높이', symbol: 'y', unit: 'm', decimals: 2 },
-      { key: 'v', label: '속도', symbol: 'v', unit: 'm/s', decimals: 1, q: 'velocity' }
+      { key: 'v', label: '속도', symbol: 'v_y', unit: 'm/s', decimals: 1, q: 'velocity' }   // R4: 기호는 'v_y' (유니코드 아래첨자 금지)
     ]);
     var graph = SK.graph(null, {
       title: '높이-시간', empty: '높이 그래프',
@@ -131,7 +145,7 @@
         { key: 't1', label: '첫 바닥', unit: 's', decimals: 2, from: 'value', changed: true, priority: 1 },
         { key: 'place', label: '장소', from: 'param', priority: 3, text: function (r) { return r.params.g < 5 ? '달' : '지구'; } }   // 3 = '열 더 보기' 에서만
       ],
-      extra: SK.h('p', { class: 'var__hint', text: '(예제) 큰 표 아래 시뮬레이터 전용 자리 — recordTable({extra}) 로 붙여요.' })
+      extra: SK.h('p', { class: 'var__hint' }, [SK.icon('arrow-up') || '↑', ' (예제) 큰 표 아래 시뮬레이터 전용 자리 — recordTable({extra}) 로 붙여요.'])   // R4: SK.icon(name)
     });
 
     // ---- 4. 실험 카드 (이름 12자 이내 · 예측은 answer/why 필수) ---------------------------------

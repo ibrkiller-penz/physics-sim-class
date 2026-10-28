@@ -15,6 +15,8 @@
      기록 칩     .rec-chip   x1060~1290 y812~900 저장한 실험 n/5 · (최대 5) [표 보기]
      하단 막대   .sim-bar    x40~1880  y916~1036 실험 카드 5장 | [▶ 실행] [한 장면 뒤로][한 장면 앞으로][속도] / [기본값으로 되돌리기][그 밖의 기능 ▾]
    T 로 접기  .sim.is-collapsed → 실험 화면 x40~1880 y140~900
+   R4 태블릿(16:9 보다 세로가 긴 화면): --extra(tokens.css, 최대 440u) 만큼 실험 화면·오른쪽 칸이 길어지고
+       하단 띠·기록 칩(y812)·하단 막대(y916)는 +extra 만큼 아래로. 1920×1080·1280×720 은 extra 0 = 위 그림 그대로.
    ===================================================================== */
 
 .sim { --x: calc(40 * var(--u)); }
@@ -132,7 +134,7 @@ html:not(.cursor-hidden) .task-step:hover .task-step__name { text-decoration: un
 /* ---------- 실험 화면 (y140~800) -------------------------------------- */
 .sim-stage {
   left: var(--x); top: calc(140 * var(--u));
-  width: calc(1250 * var(--u)); height: calc(660 * var(--u));
+  width: calc(1250 * var(--u)); height: calc(660 * var(--u) + var(--extra));   /* R4: 세로 여유는 전부 실험 화면에 */
   overflow: hidden;
   border-radius: var(--radius-lg);
   background: var(--color-paper-raised);
@@ -167,7 +169,7 @@ html:not(.cursor-hidden) .task-step:hover .task-step__name { text-decoration: un
 /* ---------- 오른쪽 칸 (x1310 y140~900, 570×760) ------------------------ */
 .sim-panel, .rec-big, .think-board {
   left: calc(1310 * var(--u)); top: calc(140 * var(--u));
-  width: calc(570 * var(--u)); height: calc(760 * var(--u));
+  width: calc(570 * var(--u)); height: calc(760 * var(--u) + var(--extra));   /* R4 */
   border-radius: var(--radius-lg);
   display: grid; grid-template-rows: auto auto minmax(0, 1fr);
   overflow: hidden;
@@ -243,8 +245,9 @@ html:not(.cursor-hidden) .panel-more:hover { background: var(--color-line); }
 .panel-sec__body:empty { display: none; }
 .panel-deep > summary { list-style: none; cursor: pointer; min-height: var(--tap); position: static; }
 .panel-deep > summary::-webkit-details-marker { display: none; }
-.panel-deep > summary::after { content: "▾ 펼치기"; margin-left: auto; font: var(--font-weight-semibold) var(--fs-caption)/1 var(--font-sans); color: var(--color-primary); }
-.panel-deep[open] > summary::after { content: "▴ 접기"; }
+/* R4: [펼치기 ▾]/[접기 ▴] = 아이콘(::before, 마스크 --ico-chev-down/up — base.css §43) + 글자(::after) */
+.panel-deep > summary::after { content: "펼치기"; order: 2; margin-left: var(--space-1); font: var(--font-weight-semibold) var(--fs-caption)/1 var(--font-sans); color: var(--color-primary); }
+.panel-deep[open] > summary::after { content: "접기"; }
 .panel-foot { margin-top: auto; display: flex; gap: var(--space-2); flex-wrap: wrap; }
 .panel-foot:empty { display: none; }
 .panel-foot .btn { flex: 1; font-size: var(--fs-meta); }
@@ -282,7 +285,7 @@ html:not(.cursor-hidden) .panel-more:hover { background: var(--color-line); }
 
 /* ---------- 하단 띠 (y812~900) ----------------------------------------- */
 .sim-band {
-  left: var(--x); top: calc(812 * var(--u));
+  left: var(--x); top: calc(812 * var(--u) + var(--extra));   /* R4: 띠 높이는 그대로, 여유만큼 아래로 */
   width: calc(1010 * var(--u)); height: calc(88 * var(--u));
   display: grid;
   grid-template-columns: minmax(0, 5fr) minmax(0, 4fr);
@@ -293,7 +296,7 @@ html:not(.cursor-hidden) .panel-more:hover { background: var(--color-line); }
 .band-cell:empty { display: none; }
 /* 기록 칩: 저장한 실험 n/5 · (최대 5) [표 보기] */
 .rec-chip {
-  left: calc(1062 * var(--u)); top: calc(812 * var(--u));
+  left: calc(1062 * var(--u)); top: calc(812 * var(--u) + var(--extra));
   width: calc(228 * var(--u)); height: calc(88 * var(--u));
   display: grid; grid-template-rows: auto 1fr; gap: calc(2 * var(--u));
   padding: var(--space-1) var(--space-3) var(--space-2);
@@ -310,7 +313,7 @@ html:not(.cursor-hidden) .panel-more:hover { background: var(--color-line); }
 
 /* ---------- 하단 막대 (y916~1036, 120u) -------------------------------- */
 .sim-bar {
-  left: var(--x); top: calc(916 * var(--u));
+  left: var(--x); top: calc(916 * var(--u) + var(--extra));
   width: calc(1840 * var(--u)); height: calc(120 * var(--u));
   display: flex; align-items: stretch; gap: var(--space-4);
   padding-top: calc(8 * var(--u));
@@ -323,13 +326,13 @@ html:not(.cursor-hidden) .panel-more:hover { background: var(--color-line); }
 .sim-bar .btn--run.is-long { font-size: calc(26 * var(--u)); padding: 0 var(--space-4); }
 /* [한 장면 뒤로][한 장면 앞으로][속도] / [기본값으로 되돌리기 ……][그 밖의 기능 ▾] */
 .bar-grid { display: grid; grid-template-columns: repeat(3, auto); grid-template-rows: 1fr 1fr; gap: var(--space-2); }
-.bar-grid .btn { min-height: 0; min-width: 0; padding: 0 var(--space-4); font-size: var(--fs-meta); gap: var(--space-2); border-width: calc(2 * var(--u)); }
+.bar-grid .btn { min-height: 0; min-width: 0; padding: 0 var(--space-3); font-size: var(--fs-meta); gap: var(--space-2); border-width: calc(2 * var(--u)); }   /* R4: 에스코어가 넓어 좌우 16→12u (실험 카드 폭 유지) */
 .bar-grid .bar-reset { grid-column: span 2; }
 
 /* ---------- T: 조작판 접기 ---------------------------------------------- */
 .sim.is-collapsed .sim-panel, .sim.is-collapsed .rec-big, .sim.is-collapsed .think-board,
 .sim.is-collapsed .sim-band, .sim.is-collapsed .rec-chip { display: none !important; }
-.sim.is-collapsed .sim-stage { width: calc(1840 * var(--u)); height: calc(760 * var(--u)); }
+.sim.is-collapsed .sim-stage { width: calc(1840 * var(--u)); height: calc(760 * var(--u) + var(--extra)); }
 
 /* ---------- R2(G5) 좁은 화면 · 세로 휴대전화 안내 ------------------------- */
 .narrow-warn { display: none; }
@@ -338,7 +341,7 @@ html:not(.cursor-hidden) .panel-more:hover { background: var(--color-line); }
     display: grid; gap: 4px; position: fixed; left: 0; right: 0; top: 0; z-index: 100;
     padding: 14px 18px;
     background: var(--color-ink); color: var(--color-paper);
-    font: 600 17px/1.45 var(--font-sans); text-align: center; word-break: keep-all;
+    font: 500 17px/1.45 var(--font-sans); text-align: center; word-break: keep-all;
   }
   .narrow-warn b { font-size: 20px; }
 }

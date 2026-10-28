@@ -109,12 +109,13 @@
   var TYPES = ['arrow', 'candle', 'F', 'far'];
   var BLOCKERS = ['none', 'top', 'hole'];
   var BLOCKER_TEXT = { none: '없음', top: '위 절반', hole: '가운데만 뚫림' };
-  var FONT = '"Pretendard", "Noto Sans KR", "Malgun Gothic", sans-serif';
+  // R4: 글꼴 상수 없음 — 캔버스 글자는 모두 SK.text / SK.font (에스코어 드림, 기호는 $…$)
 
   function X(cm) { return LX + cm * SX; }
   function Y(cm) { return AXIS - cm * SY; }
   function C(name) { return SK.color(name); }
-  function font(ctx, w, px) { ctx.font = w + ' ' + px + 'px ' + FONT; }
+  /** R4: 태블릿 세로 여유로 아래로 민 양(논리 단위). 보이는 위 끝 = −OFF() */
+  function OFF() { return (SK.view && SK.view.offsetY) || 0; }
   function isInt(v) { return Math.abs(v - Math.round(v)) < 0.05; }
   /** 거리 글자: 정수 cm (숫자칸에 소수를 직접 넣었으면 소수 1자리) */
   function dist(v, input) {
@@ -190,27 +191,27 @@
     ctx.lineTo(x + r, y + hh); ctx.quadraticCurveTo(x, y + hh, x, y + hh - r);
     ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
   }
+  /** R4: 캔버스 라벨 = SK.text (굵기 400 기본 · 강조 500, 그 이상은 500) */
   function label(ctx, text, x, y, o) {
     o = o || {};
-    font(ctx, o.weight || 600, o.size || 22);
-    ctx.textAlign = o.align || 'center'; ctx.textBaseline = o.base || 'middle';
+    var t = { size: o.size || 22, weight: Math.min(500, o.weight || 400), align: o.align || 'center', baseline: o.base || 'middle', color: o.color || '--color-ink' };
     if (o.bg) {
-      var w = ctx.measureText(text).width + 16, hh = (o.size || 22) + 12;
+      var w = SK.measure(ctx, text, t).w + 16, hh = t.size + 12;
       var bx = o.align === 'left' ? x - 8 : o.align === 'right' ? x - w + 8 : x - w / 2;
       ctx.save(); ctx.fillStyle = C(o.bg); ctx.globalAlpha = o.bgAlpha || 0.92;
       roundRect(ctx, bx, y - hh / 2, w, hh, 8); ctx.fill(); ctx.restore();
     }
-    ctx.fillStyle = C(o.color || '--color-ink');
-    ctx.fillText(text, x, y);
+    SK.text(ctx, text, x, y, t);
   }
-  function wrapText(ctx, text, x, y, maxW, lh) {
+  /** 낱말 단위 줄바꿈 (o = SK.text 옵션) */
+  function wrapText(ctx, text, x, y, maxW, lh, o) {
     var words = text.split(' '), lineS = '', yy = y;
     words.forEach(function (w) {
       var test = lineS ? lineS + ' ' + w : w;
-      if (ctx.measureText(test).width > maxW && lineS) { ctx.fillText(lineS, x, yy); lineS = w; yy += lh; }
+      if (SK.measure(ctx, test, o).w > maxW && lineS) { SK.text(ctx, lineS, x, yy, o); lineS = w; yy += lh; }
       else lineS = test;
     });
-    if (lineS) ctx.fillText(lineS, x, yy);
+    if (lineS) SK.text(ctx, lineS, x, yy, o);
   }
 
   /* ------------------------------------------------------------------
@@ -236,6 +237,12 @@
     onPredictClose: function () { SK.requestRender(); },
     dt: 1 / 120,
     stageFit: true,
+    // R4: 태블릿 세로 여유는 위아래 반씩(광축이 가운데). 정면 창은 보이는 위 끝에 붙이고, 광선은 넓어진 위까지
+    onResize: function (view) {
+      view.offsetY = view.extra / 2;
+      WIN.y = 12 - view.offsetY;
+      Y_TOP = (AXIS + view.offsetY) / SY;
+    },
     reset: function (p) {
       animT = 0;
       if (committed === null) committed = snap(p);
@@ -262,7 +269,7 @@
     onTeacher: function () { syncUI(); renderTable(); SK.update(); SK.requestRender(); }
   });
   SK.el.band.style.gridTemplateColumns = 'minmax(0, 5.6fr) minmax(0, 4.4fr)';
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { SK.requestRender(); });
+  SK.fontsReady.then(function () { SK.requestRender(); });   // R4: 에스코어가 준비되면 다시 그리기
 
   /* ------------------------------------------------------------------
      4. 수치 바꾸기 (요구 A) — 패널 맨 위: 초점거리·물체 거리 / 더 많은 설정: 물체 높이·스크린 위치
@@ -278,11 +285,11 @@
      ------------------------------------------------------------------ */
   // 빛의 길 보기: 광선 칩 3개 — 켜짐 = 광선 색 채움 + ✓, 꺼짐 = 윤곽선. 선 견본(색·점선 모양)은 늘 흰 바탕 위에 (색약)
   var raysBox = h('div', { class: 'lens-rays', role: 'group', 'aria-label': '빛의 길 보기 — 광선 켜고 끄기' });
-  var raysCtl = h('div', { class: 'ctl' }, [h('div', { class: 'ctl__label' }, ['빛의 길 보기', h('span', { class: 'apply-ico apply-ico--live', title: '바꾸면 바로 반영돼요', 'aria-label': '바로 반영' }, '⚡')]), raysBox,
+  var raysCtl = h('div', { class: 'ctl' }, [h('div', { class: 'ctl__label' }, ['빛의 길 보기', h('span', { class: 'apply-ico apply-ico--live', title: '바꾸면 바로 반영돼요', 'aria-label': '바로 반영' }, SK.icon('bolt') || '⚡')]), raysBox,
     h('p', { class: 'var__hint', text: '세 광선 중 두 개만 켜도 만나는 점이 상의 끝이에요' })]);
   SK.panel('situation').appendChild(raysCtl);
   [['ray1', '① 평행 광선', '광축과 나란히 들어와 렌즈를 지나 초점을 지나요'], ['ray2', '② 초점 광선', '앞쪽 초점을 지나 들어와 렌즈를 지나 광축과 나란히 나가요'], ['ray3', '③ 중심 광선', '렌즈 한가운데를 꺾이지 않고 곧게 지나요']].forEach(function (r, i) {
-    var api = SK.addToggle(raysBox, { key: r[0], label: r[1], value: true, record: false, onText: '✓ 켜짐', offText: '꺼짐' });
+    var api = SK.addToggle(raysBox, { key: r[0], label: r[1], value: true, record: false, onText: '켜짐', offText: '꺼짐' });   // R4: 켜짐 앞 ✓ 는 CSS 마스크 아이콘
     var icon = SK.swatch(SK.recStyle(i));     // 실험 화면의 선 색·모양·굵기 그대로
     icon.setAttribute('class', 'lens-ray-icon');
     var b = api.el.querySelector('.check');
@@ -315,11 +322,11 @@
   /* 더 많은 설정: 물체 높이 · 스크린 위치 · 심화 그림 (교육과정 해설: 렌즈 제작자 공식 제외 → 그림으로만) */
   SK.addVar('deep', { key: 'h', label: '물체 높이', unit: 'cm', min: 2, max: 6, step: 1, value: 4, decimals: 0, ticks: [2, 4, 6], apply: 'live', onChange: changed, hint: '높이를 바꿔도 배율은 그대로예요' });
   SK.addVar('deep', { key: 'screenX', label: '스크린 위치', unit: 'cm', min: 5, max: 100, step: 1, value: 15, decimals: 0, ticks: [5, 50, 100], apply: 'live', record: false, hint: '실험 화면의 [스크린] 손잡이를 끌어도 돼요' });
-  SK.panel('deep').appendChild(h('div', { class: 'lens-deep' }, [
+  SK.panel('deep').appendChild(SK.iconify(h('div', { class: 'lens-deep' }, [
     h('p', { text: '심화 — 계산 없이 그림으로만 봐요.' }),
     h('button', { class: 'btn', type: 'button', onclick: function (e) { if (e.detail > 0) e.currentTarget.blur(); figureDialog('material'); } }, '렌즈 재료(굴절률 1.5 / 1.7) 비교 ▸'),
     h('button', { class: 'btn', type: 'button', onclick: function (e) { if (e.detail > 0) e.currentTarget.blur(); figureDialog('litho'); } }, '포토리소그래피: 축소 투영 ▸')
-  ]));
+  ])));   // R4: ▸ → 아이콘
 
   /* ------------------------------------------------------------------
      6. 하단 띠: 계기판 4개 | 상의 모습 한 줄 (기록 표는 비교 단계 큰 판)
@@ -457,15 +464,15 @@
   }
   var AX = '<line x1="10" y1="100" x2="510" y2="100" style="stroke:var(--color-line-strong)" stroke-width="1.5" stroke-dasharray="10 6"/>';
   var LENS = '<path d="M260 30 Q280 100 260 170 Q240 100 260 30Z" style="fill:var(--color-primary-tint);stroke:var(--color-primary)" stroke-width="2.5"/>';
-  function dot(x, t) { return '<circle cx="' + x + '" cy="100" r="6" style="fill:var(--color-sim-lens);stroke:var(--color-ink)" stroke-width="1.5"/><text x="' + x + '" y="128" text-anchor="middle" font-size="22" font-weight="800" style="fill:var(--color-sim-lens-text);stroke:var(--color-paper-raised);stroke-width:6;paint-order:stroke">' + t + '</text>'; }
+  function dot(x, t) { return '<circle cx="' + x + '" cy="100" r="6" style="fill:var(--color-sim-lens);stroke:var(--color-ink)" stroke-width="1.5"/><text x="' + x + '" y="128" text-anchor="middle" font-size="22" font-weight="500" style="fill:var(--color-sim-lens-text);stroke:var(--color-paper-raised);stroke-width:6;paint-order:stroke">' + t + '</text>'; }
   function ray(pts, col, dash) { return '<polyline points="' + pts + '" fill="none" style="stroke:' + col + '" stroke-width="3.5"' + (dash ? ' stroke-dasharray="' + dash + '"' : '') + '/>'; }
-  function txt(x, y, t, o) { o = o || {}; return '<text x="' + x + '" y="' + y + '" text-anchor="' + (o.a || 'middle') + '" font-size="' + (o.size || 22) + '" font-weight="' + (o.w || 700) + '" style="fill:var(' + (o.c || '--color-ink') + ');stroke:var(--color-paper-raised);stroke-width:5;paint-order:stroke">' + t + '</text>'; }
+  function txt(x, y, t, o) { o = o || {}; return '<text x="' + x + '" y="' + y + '" text-anchor="' + (o.a || 'middle') + '" font-size="' + (o.size || 22) + '" font-weight="' + Math.min(500, o.w || 500) + '" style="fill:var(' + (o.c || '--color-ink') + ');stroke:var(--color-paper-raised);stroke-width:5;paint-order:stroke">' + t + '</text>'; }
   var R1 = SK.recStyle(0), R2 = SK.recStyle(1), R3 = SK.recStyle(2);
   function dashOf(st) { return st.dash && st.dash.length ? st.dash.join(' ') : ''; }
   var FIG_FOCUS = svgFig(AX + LENS +
     [40, 70, 130, 160].map(function (y) { return ray('20,' + y + ' 260,' + y + ' 380,100 500,' + (100 + (100 - y)), 'var(--color-sim-lens)'); }).join('') +
     dot(380, 'F') + dot(140, 'F') + txt(70, 26, '나란한 빛 →', { a: 'start', size: 20 }) +
-    '<line x1="262" y1="186" x2="378" y2="186" style="stroke:var(--color-ink-muted)" stroke-width="2"/>' + txt(320, 180, '초점거리 f', { size: 20, c: '--color-ink-muted' }),
+    '<line x1="262" y1="186" x2="378" y2="186" style="stroke:var(--color-ink-muted)" stroke-width="2"/>' + txt(320, 180, '초점거리 <tspan style="font-family:var(--font-math);font-style:italic;font-size:22px">f</tspan>', { size: 20, c: '--color-ink-muted' }),
     '광축과 나란히 들어온 빛은 렌즈를 지나 초점 F 한 점에 모여요');
   // 그림용: f = 80, 물체 x 100 (= 2f) → 상 x 420 (= 2f), 같은 크기 거꾸로
   var FIG_RAYS = svgFig(AX + LENS +
@@ -503,7 +510,7 @@
     ['상은 물체 그림이 통째로 날아온 것이다?', '아니에요. 물체의 점 하나하나에서 나온 빛이 각각 한 점에 모이고, 그 점들이 모여 상이 돼요.'],
     ['허상은 가짜라서 볼 수 없다?', '볼 수 있어요. 돋보기 속 큰 글자가 허상이에요. 다만 빛이 실제로 모인 곳이 아니라서 스크린에는 맺히지 않아요. (카드 ④)'],
     ['물체를 초점에 두면 상이 가장 크다?', '상이 생기지 않아요. 렌즈를 지난 빛이 나란히 나가서 어디에서도 모이지 않아요. 상이 가장 커지는 건 초점 바로 바깥이에요.']
-  ].map(function (m) { return h('li', null, [h('b', { text: '✗ ' + m[0] }), h('span', { text: '→ ' + m[1] })]); }));
+  ].map(function (m) { return h('li', null, [SK.iconify(h('b', { text: '✗ ' + m[0] })), h('span', { text: '→ ' + m[1] })]); }));   // R4: ✗ → 아이콘
 
   SK.help({
     inlineTerms: true,
@@ -797,7 +804,7 @@
   }
   var HID_TIP = '숨긴 초점거리는 정리 단계에서 답 확인하기로 공개돼요';
   function status(p) {
-    var fT = p.hideF ? (SK.isTeacher() ? 'f ' + p.f + ' cm (학생에겐 숨김)' : 'f ? cm (숨김)') : 'f ' + p.f + ' cm';
+    var fT = p.hideF ? (SK.isTeacher() ? '$f$ ' + p.f + ' cm (학생에겐 숨김)' : '$f$ ? cm (숨김)') : '$f$ ' + p.f + ' cm';
     return [fT, '스크린 ' + (p.screen ? '켜짐' : '꺼짐'), '가림판 ' + BLOCKER_TEXT[p.blocker]];
   }
   /** 상태 칩 'f ? cm' 에 숨김 이유 말풍선 (칩은 공통 틀이 만든다) */
@@ -884,7 +891,7 @@
   function q(text, x, y, o) {
     o = o || {};
     var size = Math.max(22, o.size || 22);
-    LQ.push({ text: text, x: x, y: y, anchor: o.align || 'center', size: size, font: (o.weight || 700) + ' ' + size + 'px ' + FONT, color: o.color || '--color-ink', leader: o.leader });
+    LQ.push({ text: text, x: x, y: y, anchor: o.align || 'center', size: size, weight: Math.min(500, o.weight || 500), color: o.color || '--color-ink', leader: o.leader });   // R4: 글꼴은 공통(SK.text), 기호는 $…$
   }
 
   function render(view, p) {
@@ -922,7 +929,7 @@
     ctx.save();
     // 렌즈 가운데 면 (작도용 세로 점선)
     ctx.strokeStyle = C('--color-line'); ctx.lineWidth = 2; ctx.setLineDash([4, 7]);
-    line(ctx, LX, 18, LX, RAIL - 4);
+    line(ctx, LX, 18 - OFF(), LX, RAIL - 4);
     // 광축
     ctx.strokeStyle = C('--color-line-strong'); ctx.lineWidth = 1.5; ctx.setLineDash([12, 8]);
     line(ctx, XL, AXIS, XR, AXIS);
@@ -962,7 +969,7 @@
       ctx.fillStyle = C('--color-sim-lens'); ctx.strokeStyle = C('--color-ink'); ctx.lineWidth = 2;
       ctx.lineJoin = 'miter'; ctx.beginPath(); ctx.moveTo(x, RAIL - 1); ctx.lineTo(x - 13, RAIL - 25); ctx.lineTo(x + 13, RAIL - 25); ctx.closePath(); ctx.fill(); ctx.stroke();
       ctx.restore();
-      label(ctx, m[1], x, RAIL - 42, { size: 22, weight: 700, color: '--color-sim-lens-text', bg: '--color-paper-raised' });
+      label(ctx, m[1], x, RAIL - 42, { size: 22, weight: 500, color: '--color-sim-lens-text', bg: '--color-paper-raised' });
     });
   }
 
@@ -971,13 +978,13 @@
     function outline(v, st, tag) {
       if (!v || v.ox === null || v.ox === undefined || !isFinite(v.ox) || v.oh === null || !isFinite(v.oh)) return;
       if (v.ox < -50 || v.ox > 100) return;
-      var x = X(v.ox), yTip = clamp(Y(v.oh), 4, RAIL - 4);
+      var x = X(v.ox), yTip = clamp(Y(v.oh), 4 - OFF(), RAIL - 4);
       ctx.save(); SK.applyStroke(ctx, st);
       line(ctx, x, AXIS, x, yTip);
       var dir = yTip > AXIS ? 1 : -1;
       ctx.beginPath(); ctx.moveTo(x - 10, yTip - dir * 14); ctx.lineTo(x, yTip); ctx.lineTo(x + 10, yTip - dir * 14); ctx.stroke();
       ctx.restore();
-      if (tag) q(tag, x + 16, yTip + dir * 4, { size: 22, weight: 800, color: st.color, align: 'left', leader: false });
+      if (tag) q(tag, x + 16, yTip + dir * 4, { size: 22, weight: 500, color: st.color, align: 'left', leader: false });
     }
     SK.records.forEach(function (r) { var st = SK.recStyle(r.slot); outline(r.values, st, (st.mark || '') + r.n); });
     if (SK.ghost) outline(SK.ghost.values, SK.ghostStyle(), '직전');
@@ -1000,7 +1007,7 @@
     var longest = 0;
     rayPaths = [];
     ctx.save();
-    ctx.beginPath(); ctx.rect(XL - 12, 0, XR - XL + 24, RAIL - 2); ctx.clip();
+    ctx.beginPath(); ctx.rect(XL - 12, -OFF(), XR - XL + 24, RAIL - 2 + OFF()); ctx.clip();   // R4: 넓어진 위까지
     list.forEach(function (r) {
       var ray = Phys.ray(p, r.y);
       var x0 = far ? -50 : -p.s, y0 = far ? r.y + FAR_TAN * 50 : p.h;
@@ -1028,8 +1035,8 @@
         // 광선 끝 번호 ①②③ — 색만으로 구분하지 않게
         if (reveal === Infinity && !blocked) {
           var e = pts[pts.length - 1], right = e[0] > 1150;
-          var ny = clamp(e[1], 24, RAIL - 30);
-          q(['①', '②', '③'][r.n], right ? e[0] - 14 : e[0] + 14, ny, { size: 24, weight: 800, align: right ? 'right' : 'left', color: r.st.color, leader: false });
+          var ny = clamp(e[1], 24 - OFF(), RAIL - 30);
+          q(['①', '②', '③'][r.n], right ? e[0] - 14 : e[0] + 14, ny, { size: 24, weight: 500, align: right ? 'right' : 'left', color: r.st.color, leader: false });
           if (!right) rayNumBottom = Math.max(rayNumBottom, ny);
         }
       }
@@ -1128,7 +1135,7 @@
         var onScr = p.screen && Math.abs(p.screenX - si) < 3;
         var rx = onScr ? X(p.screenX) + 5 + 40 : x + 16;
         var ry = onScr && rayNumBottom > 0 ? rayNumBottom + 36 : tipY + 10;
-        q('실상', rx, Math.min(ry, RAIL - 140), { size: 24, weight: 800, align: 'left', color: '--color-sim-lens-text', leader: false });
+        q('실상', rx, Math.min(ry, RAIL - 140), { size: 24, weight: 500, align: 'left', color: '--color-sim-lens-text', leader: false });
       }
       if (Y(hi) > RAIL - 4) q('상이 화면보다 커요 (' + fmt(Math.abs(hi), 1) + ' cm)', x + 14, RAIL - 130, { size: 22, align: 'left', color: '--color-sim-lens-text' });
     } else {
@@ -1140,7 +1147,7 @@
       var xv = X(si);
       drawShape(ctx, p.type, xv, AXIS, Math.abs(hi) * SY, hi * SY, { body: col.body, flame: col.flame, trunk: col.trunk, alpha: 0.9 * bl.bright, dashed: true });
       var ty = clamp(Y(hi), 30, RAIL - 30);
-      q('허상', xv - 14, ty, { size: 24, weight: 800, align: 'right', color: '--color-sim-lens-text' });
+      q('허상', xv - 14, ty, { size: 24, weight: 500, align: 'right', color: '--color-sim-lens-text' });
       if (Y(hi) < 4) q('상이 화면보다 커요 (' + fmt(Math.abs(hi), 1) + ' cm)', xv - 14, 64, { size: 22, align: 'right', color: '--color-sim-lens-text' });
     }
   }
@@ -1165,8 +1172,7 @@
       line(ctx, x1, yy, x2, yy); line(ctx, x1, yy - 8, x1, yy + 8); line(ctx, x2, yy - 8, x2, yy + 8);
       ctx.restore();
       // R3: 글자는 구간 가운데. 구간이 글자보다 짧거나 스크린 막대와 12u 안이면 한 줄 위로
-      font(ctx, 700, 22);
-      var tw = ctx.measureText(text).width + 12, cx = (x1 + x2) / 2, ty = yy - 20;
+      var tw = SK.measure(ctx, text, { size: 22, weight: 500 }).w + 12, cx = (x1 + x2) / 2, ty = yy - 20;
       if (img && x2 - x1 < tw - 16) ty -= 34;
       var sx = p.screen ? X(p.screenX) : null;
       if (sx !== null && sx + 5 + 12 > cx - tw / 2 && sx - 5 - 12 < cx + tw / 2) {   // 스크린 막대와 12u 띄워 비킨다
@@ -1201,7 +1207,7 @@
     if (p.type !== 'far') vdim(X(-p.s), Y(p.h), '물체 높이 ' + dist(p.h, true) + ' cm', '--color-ink-muted', -1);
     if (showRes && !hidden() && im.kind !== 'none' && isFinite(im.hi)) {
       var x = X(im.si), yT = Y(im.hi);
-      if (x > XL && x < XR && yT > 4 && yT < RAIL - 4) vdim(x, yT, '상 높이 ' + fmt(Math.abs(im.hi), 1) + ' cm', '--color-sim-lens-text', im.kind === 'virtual' ? -1 : 1);
+      if (x > XL && x < XR && yT > 4 - OFF() && yT < RAIL - 4) vdim(x, yT, '상 높이 ' + fmt(Math.abs(im.hi), 1) + ' cm', '--color-sim-lens-text', im.kind === 'virtual' ? -1 : 1);
     }
   }
 
@@ -1219,10 +1225,10 @@
         ctx.beginPath(); ctx.moveTo(ax + d * 6, HY); ctx.lineTo(ax - d * 4, HY - 8); ctx.lineTo(ax - d * 4, HY + 8); ctx.closePath(); ctx.fill();
       });
       ctx.restore();
-      label(ctx, text, x, HY + 1, { size: 22, weight: 800, color: active ? '--color-paper-raised' : '--color-sim-lens-text' });
+      label(ctx, text, x, HY + 1, { size: 22, weight: 500, color: active ? '--color-paper-raised' : '--color-sim-lens-text' });
       if (active) {   // 끄는 동안 값 말풍선 (손잡이 위)
         var v = key === 's' ? p.s : p.screenX;
-        label(ctx, dist(v, true) + ' cm', x, HY - 112, { size: 26, weight: 800, color: '--color-paper-raised', bg: '--color-ink', bgAlpha: 0.92 });
+        label(ctx, dist(v, true) + ' cm', x, HY - 112, { size: 26, weight: 500, color: '--color-paper-raised', bg: '--color-ink', bgAlpha: 0.92 });
       }
     }
     if (p.type !== 'far') handle('s', X(-p.s), '물체');
@@ -1236,7 +1242,7 @@
     ctx.beginPath(); ctx.moveTo(x + 26, y); ctx.quadraticCurveTo(x, y - 24, x - 26, y); ctx.quadraticCurveTo(x, y + 24, x + 26, y); ctx.closePath(); ctx.fill(); ctx.stroke();
     ctx.fillStyle = C('--color-ink'); ctx.beginPath(); ctx.arc(x - 6, y, 9, 0, Math.PI * 2); ctx.fill();
     ctx.restore();
-    q('눈', x, y + 40, { size: 22, weight: 800 });
+    q('눈', x, y + 40, { size: 22, weight: 500 });
   }
 
   /** 오른쪽 위 정면 보기 창 — [물체 | 스크린(또는 눈)] 두 칸을 같은 배율로 크게. 캡션은 창 밖 아래 */
@@ -1249,11 +1255,14 @@
     ctx.fillStyle = C('--color-paper-raised'); ctx.strokeStyle = C('--color-line-strong'); ctx.lineWidth = 2;
     roundRect(ctx, w.x, w.y, w.w, H + (winOpen ? CAP_H : 0), 10); ctx.fill(); ctx.stroke();
     ctx.restore();
-    label(ctx, onScreen ? '스크린 정면' : '눈으로 본 모습', w.x + 14, w.y + w.top / 2, { size: 24, weight: 800, align: 'left' });
+    label(ctx, onScreen ? '스크린 정면' : '눈으로 본 모습', w.x + 14, w.y + w.top / 2, { size: 24, weight: 500, align: 'left' });
     // 접기 버튼: 머리 전체(높이 66u = --tap)가 눌림 자리, 버튼 모양은 오른쪽
     var bw = 112, bx = w.x + w.w - bw - 8, by = w.y + 9, bh = w.top - 18;
     ctx.save(); roundRect(ctx, bx, by, bw, bh, 8); ctx.fillStyle = C('--color-paper'); ctx.fill(); ctx.strokeStyle = C('--color-primary'); ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
-    label(ctx, winOpen ? '접기 ▴' : '펼치기 ▾', bx + bw / 2, w.y + w.top / 2, { size: 22, weight: 700, color: '--color-primary' });
+    // R4: '접기 ▴' 글자 기호 → 글 + 캔버스 아이콘
+    var tl = winOpen ? '접기' : '펼치기', tlw = SK.measure(ctx, tl, { size: 22, weight: 500 }).w, isz = 22, tx0 = bx + bw / 2 - (tlw + 4 + isz) / 2;
+    label(ctx, tl, tx0, w.y + w.top / 2, { size: 22, weight: 500, align: 'left', color: '--color-primary' });
+    SK.drawIcon(ctx, winOpen ? 'chev-up' : 'chev-down', tx0 + tlw + 4 + isz / 2, w.y + w.top / 2, isz, { color: '--color-primary', width: 2.4 });
     if (!winOpen) return;
 
     var pad = 8, top = w.y + w.top, nameH = 32, ph = w.body - pad - nameH;
@@ -1283,12 +1292,12 @@
     ctx.beginPath(); ctx.rect(sx, top, sw, ph); ctx.clip();
     ctx.fillStyle = C(onScreen ? '--color-ink' : '--color-paper-sunk'); ctx.fillRect(sx, top, sw, ph);
     var inkOn = onScreen ? '--color-paper-raised' : '--color-ink';
-    function msg(t) { font(ctx, 700, 22); ctx.fillStyle = C(inkOn); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; wrapText(ctx, t, ax, ay - 16, sw - 20, 30); }
+    function msg(t) { wrapText(ctx, t, ax, ay - 16, sw - 20, 30, { size: 22, weight: 500, align: 'center', color: inkOn }); }
     var light = { body: C('--color-paper-raised'), flame: C('--color-q-energy-p'), trunk: C('--color-paper-raised') };
     var dark = { body: C('--color-sim-lens'), flame: C('--color-q-energy-p'), trunk: C('--color-sim-lens') };
     if (pred) {
-      font(ctx, 800, 56); ctx.fillStyle = C(inkOn); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('?', ax, ay - 18);
-      font(ctx, 700, 22); ctx.fillText('실행하면 보여요', ax, ay + 40);
+      SK.drawIcon(ctx, 'help', ax, ay - 18, 64, { color: inkOn });   // R4: ? → 아이콘
+      label(ctx, '실행하면 보여요', ax, ay + 40, { size: 22, weight: 500, color: inkOn });
     } else if (!done) {
       msg('빛이 가는 중…');
     } else if (onScreen) {
@@ -1309,12 +1318,12 @@
     ctx.restore();
     // 칸 이름 (창 안 아래 줄)
     var ny = top + ph + nameH / 2 + 2;
-    label(ctx, far ? '먼 풍경' : '물체', ox + ow / 2, ny, { size: 22, weight: 700, color: '--color-ink-muted' });
-    label(ctx, onScreen ? '스크린' : '눈에 보이는 상', ax, ny, { size: 22, weight: 700, color: '--color-ink-muted' });
+    label(ctx, far ? '먼 풍경' : '물체', ox + ow / 2, ny, { size: 22, weight: 500, color: '--color-ink-muted' });
+    label(ctx, onScreen ? '스크린' : '눈에 보이는 상', ax, ny, { size: 22, weight: 500, color: '--color-ink-muted' });
     // 캡션: 창 안 마지막 줄 (왼쪽 정렬) — 첫 줄 상의 모습, 둘째 줄 비율 안내
     ctx.save(); ctx.strokeStyle = C('--color-line'); ctx.lineWidth = 1; line(ctx, w.x + 12, w.y + H, w.x + w.w - 12, w.y + H); ctx.restore();
     if (cap && !pred) {
-      label(ctx, cap, w.x + 14, w.y + H + (far ? CAP_H / 2 : 20), { size: 22, weight: 700, align: 'left', color: '--color-ink' });
+      label(ctx, cap, w.x + 14, w.y + H + (far ? CAP_H / 2 : 20), { size: 22, weight: 500, align: 'left', color: '--color-ink' });
       if (!far) label(ctx, '두 칸은 같은 비율', w.x + 14, w.y + H + 46, { size: 20, weight: 500, align: 'left', color: '--color-ink-muted' });
     }
   }
@@ -1407,7 +1416,9 @@
       v.clear();
       if (kind === 'material') drawMaterial(v.ctx); else drawLitho(v.ctx);
     }
-    v.onResize = draw; draw();
+    // R4: 태블릿 세로 여유는 위아래 반씩 (그림 가운데). clear() 가 offsetY 를 반영한다
+    v.onResize = function () { v.offsetY = v.extra / 2; draw(); };
+    v.offsetY = v.extra / 2; draw();
     note.textContent = kind === 'material'
       ? '같은 모양의 렌즈라도 빛을 더 잘 꺾는 유리(굴절률이 큰 유리)로 만들면 빛이 더 많이 꺾여 초점이 렌즈에 더 가까워져요. (계산은 다루지 않아요)'
       : '마스크(회로 그림)를 렌즈에서 2f보다 멀리 두면, 작고 거꾸로 선 실상이 웨이퍼 위에 맺혀요. 이 그림은 4배로 줄여 새기는 모습이에요 — 그래서 반도체·디스플레이 공정에 렌즈가 꼭 필요해요.';
@@ -1421,7 +1432,7 @@
   function drawMaterial(ctx) {
     [[0, '굴절률 1.5 (보통 유리)', 1.5], [480, '굴절률 1.7 (빛을 더 잘 꺾는 유리)', 1.7]].forEach(function (pn) {
       var ox = pn[0], y = 210, lx = ox + 130, fpx = 250 * (0.5 / (pn[2] - 1));   // 같은 모양 → 초점거리는 (n−1)에 반비례
-      label(ctx, pn[1], ox + 240, 34, { size: 24, weight: 800 });
+      label(ctx, pn[1], ox + 240, 34, { size: 24, weight: 500 });
       ctx.save(); ctx.strokeStyle = C('--color-line-strong'); ctx.lineWidth = 1.5; ctx.setLineDash([10, 6]); line(ctx, ox + 20, y, ox + 460, y); ctx.restore();
       [-80, -40, 0, 40, 80].forEach(function (yy) {
         ctx.save(); SK.applyStroke(ctx, { color: C('--color-sim-lens'), dash: [], width: 3 });
@@ -1430,7 +1441,7 @@
       });
       miniLens(ctx, lx, y, 100, 18);
       ctx.fillStyle = C('--color-sim-lens'); ctx.beginPath(); ctx.arc(lx + fpx, y, 8, 0, Math.PI * 2); ctx.fill();
-      label(ctx, '초점', lx + fpx, y + 130, { size: 22, weight: 800, color: '--color-sim-lens-text', bg: '--color-paper-raised' });
+      label(ctx, '초점', lx + fpx, y + 130, { size: 22, weight: 500, color: '--color-sim-lens-text', bg: '--color-paper-raised' });
       ctx.save(); ctx.strokeStyle = C('--color-sim-lens'); ctx.lineWidth = 2; ctx.setLineDash([4, 5]); line(ctx, lx + fpx, y + 8, lx + fpx, y + 112); ctx.restore();
     });
     ctx.save(); ctx.strokeStyle = C('--color-line'); ctx.lineWidth = 2; line(ctx, 480, 20, 480, 380); ctx.restore();
@@ -1440,11 +1451,11 @@
     var mx = lx - s * sc, wx = lx + si * sc, H = 120;
     ctx.save(); ctx.strokeStyle = C('--color-line-strong'); ctx.lineWidth = 1.5; ctx.setLineDash([10, 6]); line(ctx, 20, y, 940, y); ctx.restore();
     for (var i = 0; i < 3; i++) SK.arrow(ctx, 20, y - 80 + i * 80, mx - 26, y - 80 + i * 80, { color: '--color-q-energy-p', width: 4 });
-    label(ctx, '빛', 40, y - 110, { size: 22, weight: 800, color: '--color-q-energy-p-text' });
+    label(ctx, '빛', 40, y - 110, { size: 22, weight: 500, color: '--color-q-energy-p-text' });
     ctx.save(); ctx.fillStyle = C('--color-paper-sunk'); ctx.strokeStyle = C('--color-ink-muted'); ctx.lineWidth = 2;
     ctx.fillRect(mx - 8, y - H, 16, 2 * H); ctx.strokeRect(mx - 8, y - H, 16, 2 * H); ctx.restore();
     drawShape(ctx, 'F', mx, y, H * 0.5, H, { body: C('--color-ink') });
-    label(ctx, '마스크 (회로 그림)', mx, y + H + 26, { size: 22, weight: 700 });
+    label(ctx, '마스크 (회로 그림)', mx, y + H + 26, { size: 22, weight: 500 });
     // 마스크 꼭대기에서 나온 광선 ①③② → 웨이퍼 위 상 꼭대기 (세로는 그림용으로 키움)
     var tip = H, tipImg = m * H, yLs = [tip, 0, -tip * f / (s - f)];
     yLs.forEach(function (yL, j) {
@@ -1452,10 +1463,10 @@
       ctx.beginPath(); ctx.moveTo(mx, y - tip); ctx.lineTo(lx, y - yL); ctx.lineTo(wx, y - tipImg); ctx.stroke(); ctx.restore();
     });
     miniLens(ctx, lx, y, 130, 14);
-    label(ctx, '렌즈', lx, y - 150, { size: 22, weight: 700, color: '--color-primary' });
+    label(ctx, '렌즈', lx, y - 150, { size: 22, weight: 500, color: '--color-primary' });
     ctx.save(); ctx.fillStyle = C('--color-ink-muted'); ctx.fillRect(wx - 5, y - 70, 10, 140); ctx.restore();
     drawShape(ctx, 'F', wx + 14, y, Math.abs(tipImg) * 0.5, tipImg, { body: C('--color-sim-lens') });
-    label(ctx, '웨이퍼 (반도체 판)', wx + 30, y + 100, { size: 22, weight: 700, align: 'left' });
-    label(ctx, '작고 거꾸로 선 실상 (1/4 크기)', wx + 30, y - 100, { size: 20, weight: 700, align: 'left', color: '--color-sim-lens-text' });
+    label(ctx, '웨이퍼 (반도체 판)', wx + 30, y + 100, { size: 22, weight: 500, align: 'left' });
+    label(ctx, '작고 거꾸로 선 실상 (1/4 크기)', wx + 30, y - 100, { size: 20, weight: 500, align: 'left', color: '--color-sim-lens-text' });
   }
 })();
