@@ -1,0 +1,199 @@
+/* =====================================================================
+   물리 시뮬레이터 실험실 — 디자인 토큰 (공통 틀, 2026-10-28)
+   근거: docs/04_팀장결정서.md §2 · 레퍼런스 32_프랑스혁명-수업사이트/src/styles/tokens.css
+   사용법: docs/SIMKIT.md
+
+   규칙
+   - 모든 크기는 "1920×1080 기준 px 숫자 × var(--u)" 로 쓴다.
+       예) font-size: calc(30 * var(--u));  padding: var(--space-5);
+   - px 를 직접 쓰는 것은 1px 선(hairline)뿐이다.
+   - 색은 반드시 --color-* 이름으로만 쓴다(컴포넌트·sim.js 에 16진수 직접 금지).
+     Canvas 에서는 SimKit.color('--color-primary') 로 읽는다.
+   - 레퍼런스의 navy / red / period / highlight / bar 토큰은 쓰지 않는다.
+   - color-mix() 금지(구형 브라우저 file:// 대비) — tint 는 아래 고정 16진수.
+
+   불러오는 순서: fonts.css → tokens.css → base.css → shell.css → sim.js
+
+   대비(WCAG 2.x 공식, node 로 재계산 2026-10-28, 바탕 paper #F5EFE0 기준)
+     ink 15.1 · ink-muted 8.0 · line-strong 3.5(UI) · focus 3.7(UI)
+     primary 8.3 (tint 위 7.4, paper 글자 on primary 8.3) · copper 4.7 · copper-text 6.8 (tint 위 6.2)
+     q-energy-k 5.2 · q-energy-p 3.3(면·선 전용, 글자는 -text 5.2) · q-energy-heat 5.2
+     ok 5.6 · warn 7.3 · rec-3 7.3
+     식별색 on paper: projectile 5.2 · slit 7.3 · collision 5.2 · orbit 8.0 · lens 5.2
+     식별색 on 자기 tint: projectile 4.5 · collision 4.4 · lens 4.4 → tint 위 글자는 반드시 -text
+       (-text on tint: projectile 5.3 · collision 5.3 · lens 5.2 · slit 6.0 · orbit 6.7)
+   ===================================================================== */
+
+:root {
+  /* ---------- 0. 비례 단위 --------------------------------------------- */
+  /* 1920×1080 화면에서 1px. 1280×720 → 0.667px. 하한 없음(통째로 줄어듦). */
+  --u: min(calc(100vw / 1920), calc(100vh / 1080));
+  --design-w: 1920;
+  --design-h: 1080;
+
+  /* ---------- 1. 색: 바탕·글자·선 (레퍼런스 그대로) -------------------- */
+  --color-paper:        #F5EFE0; /* 화면 바탕 · 레터박스 */
+  --color-paper-raised: #FBF8EF; /* 카드·버튼·입력칸·실험 화면 바탕 */
+  --color-paper-sunk:   #ECE3CE; /* 조절 패널·표 머리·라벨 칩 */
+  --color-paper-scrim:  rgb(245 239 224 / 0.88); /* 실험 화면 위 반투명 판(예측 카드 뒤) */
+  --color-paper-glass:  rgb(245 239 224 / 0.85); /* 진행 알약 */
+
+  --color-ink:          #1C1A17; /* 본문·제목 (15.1:1) */
+  --color-ink-muted:    #4E473C; /* 보조 글 (8.0:1) */
+  --color-ink-inverse:  #FFFFFF;
+
+  --color-line:         #D9CFB8; /* 장식 구분선·카드 테두리 */
+  --color-line-strong:  #8A7E68; /* 눈금선·의미 있는 테두리 (3.5:1) */
+  --color-grid:         #E6DCC6; /* 실험 화면·그래프 모눈 (장식) */
+
+  --color-focus:         #B26B00; /* 키보드 포커스 (3.7:1) — 선택(청록)과 구분 */
+  --color-focus-on-dark: #FFD27A;
+
+  /* ---------- 2. 색: 포인트 '실험실 노트' (청록 잉크 + 구리 기구) ------- */
+  --color-primary:        #0F4C5C; /* 선택·현재 단계·주 버튼·속도 화살표 (8.3:1) */
+  --color-primary-dark:   #0A3542; /* 주 버튼 마우스 올림 */
+  --color-primary-tint:   #D6E6EA; /* 눌린 버튼·선택 카드 바탕·표 머리·'즉시' 꼬리표 */
+  --color-primary-text:   #0F4C5C;
+
+  --color-copper:         #9A5B1E; /* 면·선·힘/가속도 화살표 (4.7:1) */
+  --color-copper-text:    #7A4612; /* 구리색 글자 (6.8:1) */
+  --color-copper-tint:    #F1E4D3; /* 안내 칩·'다시 시작' 꼬리표 바탕 */
+
+  /* ---------- 3. 물리량 공통 색 (모든 시뮬레이터에서 같은 뜻) ----------- */
+  --color-q-velocity:      var(--color-primary); /* 속도 화살표 */
+  --color-q-force:         var(--color-copper);  /* 힘·가속도 화살표 */
+  --color-q-energy-k:      #1F6F5F; /* 운동 에너지 */
+  --color-q-energy-p:      #B07A00; /* 위치 에너지 (면·선 전용) */
+  --color-q-energy-p-text: #8A5A00; /* 위치 에너지 글자 */
+  --color-q-energy-heat:   #A8432A; /* 열·손실 */
+  --color-q-ghost:         rgb(28 26 23 / 0.35); /* 직전 실행 흐림 */
+
+  /* ---------- 4. 기록 5회 = 색 + 선 모양 ------------------------------- */
+  /* dash 는 SVG stroke-dasharray / Canvas setLineDash 숫자(u 단위). none = 실선 */
+  --color-rec-1: #0F4C5C;  --dash-rec-1: none;       --width-rec-1: 4;  /* 실선 */
+  --color-rec-2: #9A5B1E;  --dash-rec-2: 12 8;       --width-rec-2: 4;  /* 점선 */
+  --color-rec-3: #6B3A7A;  --dash-rec-3: 20 8 4 8;   --width-rec-3: 4;  /* 쇄선 */
+  --color-rec-4: #1F6F5F;  --dash-rec-4: 4 6;        --width-rec-4: 5;  /* 촘촘 점선 */
+  --color-rec-5: #4E473C;  --dash-rec-5: none;       --width-rec-5: 2;  /* 가는 실선 */
+
+  /* ---------- 5. 상태 ------------------------------------------------ */
+  --color-ok:        #2E6B3A; /* 예측 맞음 (5.6:1) */
+  --color-ok-tint:   #DDDFCC;
+  --color-warn:      #8E2A26; /* 범위 밖 입력·'두 가지를 바꿨어요' (7.3:1) */
+  --color-warn-tint: #E9D7CA;
+
+  /* ---------- 6. 시뮬레이터 식별색 (허브 카드·제목 밑줄·성취기준 칩) ---- */
+  /* tint = 식별색 12% + paper 88% (고정값). tint 위 글자는 -text 를 쓴다. */
+  --color-sim-projectile:      #1F6F5F; /* 숲 청록 — 포물선 */
+  --color-sim-projectile-tint: #DBE0D1;
+  --color-sim-projectile-text: #1F6254;
+  --color-sim-slit:            #6B3A7A; /* 자주 — 이중 슬릿·양자 */
+  --color-sim-slit-tint:       #E4D9D4;
+  --color-sim-slit-text:       #6B3A7A;
+  --color-sim-collision:       #A8432A; /* 벽돌 주홍 — 충돌 */
+  --color-sim-collision-tint:  #ECDACA;
+  --color-sim-collision-text:  #933D27;
+  --color-sim-orbit:           #3B3F8C; /* 밤하늘 남보라 — 위성 */
+  --color-sim-orbit-tint:      #DFDAD6;
+  --color-sim-orbit-text:      #3B3F8C;
+  --color-sim-lens:            #8A5A00; /* 황동 — 렌즈 */
+  --color-sim-lens-tint:       #E8DDC5;
+  --color-sim-lens-text:       #7A5003;
+
+  /* 지금 시뮬레이터 색 (아래 [data-sim] 에서 바뀜). 컴포넌트는 이것만 쓴다. */
+  --sim:      var(--color-primary);
+  --sim-tint: var(--color-primary-tint);
+  --sim-text: var(--color-primary-text);
+
+  /* ---------- 7. 글꼴 ------------------------------------------------ */
+  --font-serif: "Noto Serif KR", "Nanum Myeongjo", "Batang", serif;      /* 제목·질문 */
+  --font-sans:  "Pretendard", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+  --font-num:   "Pretendard", system-ui, sans-serif; /* 숫자 — tabular-nums 함께 */
+
+  --font-weight-regular:  400;
+  --font-weight-medium:   500;
+  --font-weight-semibold: 600;
+  --font-weight-bold:     700;
+  --font-weight-black:    900;
+
+  --font-lh-tight: 1.2;
+  --font-lh-snug:  1.4;
+  --font-lh-body:  1.6;
+  --font-tracking-title: -0.01em;
+
+  /* ---------- 8. 글자 크기 (괄호 = 1920 / 1280 화면 실제 px) ------------ */
+  --fs-display: calc(96 * var(--u)); /* (96/64) 허브 제목 */
+  --fs-meter:   calc(56 * var(--u)); /* (56/37) 계기판 큰 숫자 */
+  --fs-h1:      calc(48 * var(--u)); /* (48/32) 예측 카드 질문·허브 부제 */
+  --fs-title:   calc(40 * var(--u)); /* (40/27) 시뮬레이터 제목(명조) */
+  --fs-h2:      calc(40 * var(--u));
+  --fs-h3:      calc(32 * var(--u)); /* (32/21) 카드 제목·질문 판 */
+  --fs-body-lg: calc(30 * var(--u));
+  --fs-body:    calc(28 * var(--u)); /* (28/19) 본문·버튼 — 본문 최소 */
+  --fs-control: calc(26 * var(--u)); /* (26/17) 변수 이름·탭 */
+  --fs-meta:    calc(24 * var(--u)); /* (24/16) 상태 줄·라벨·표 */
+  --fs-caption: calc(20 * var(--u)); /* (20/13) 꼬리표·키 안내·축 눈금 (본문 아님) */
+
+  /* ---------- 9. 간격 (4u 단위) --------------------------------------- */
+  --space-1:  calc(4 * var(--u));
+  --space-2:  calc(8 * var(--u));
+  --space-3:  calc(12 * var(--u));
+  --space-4:  calc(16 * var(--u));
+  --space-5:  calc(24 * var(--u));
+  --space-6:  calc(32 * var(--u));
+  --space-7:  calc(48 * var(--u));
+  --space-8:  calc(64 * var(--u));
+  --space-9:  calc(80 * var(--u));
+  --space-10: calc(96 * var(--u));
+
+  /* 화면 뼈대 (결정서 §2-3) */
+  --space-slide-w: calc(1920 * var(--u));
+  --space-slide-h: calc(1080 * var(--u));
+  --space-btn-h:    calc(72 * var(--u)); /* 버튼 최소 높이(터치) */
+  --space-btn-h-lg: calc(88 * var(--u));
+  --space-thumb:    calc(48 * var(--u)); /* 슬라이더 손잡이 */
+  --space-border-select: calc(4 * var(--u));
+  --space-focus-ring:    calc(4 * var(--u));
+
+  /* ---------- 10. 모서리 ---------------------------------------------- */
+  --radius-sm:   calc(4 * var(--u));
+  --radius-md:   calc(8 * var(--u));
+  --radius-lg:   calc(16 * var(--u));
+  --radius-pill: 999px;
+
+  /* ---------- 11. 그림자 (낮고 옅게 — 전자칠판 반사) ------------------- */
+  --shadow-sm: 0 calc(1 * var(--u)) calc(2 * var(--u)) rgb(28 26 23 / 0.10);
+  --shadow-md: 0 calc(4 * var(--u)) calc(12 * var(--u)) rgb(28 26 23 / 0.12);
+  --shadow-lg: 0 calc(12 * var(--u)) calc(32 * var(--u)) rgb(28 26 23 / 0.16);
+
+  /* ---------- 12. 움직임 (모두 0.3초 이하) ----------------------------- */
+  --dur-instant: 0ms;
+  --dur-fast:    120ms;
+  --dur-base:    200ms;
+  --dur-slow:    300ms; /* 상한 */
+  --dur-ease:    cubic-bezier(0.2, 0, 0, 1);
+  --dur-cursor-hide: 3000ms; /* 커서 숨김 대기 (sim.js 가 읽음) */
+  --dur-notice:      3000ms; /* 안내 말풍선 유지 */
+}
+
+/* 태블릿 세로(폭 < 높이): 설계 화면을 1330×2000 으로 바꾸고 패널을 아래로(shell.css) */
+@media (orientation: portrait) {
+  :root {
+    --u: min(calc(100vw / 1330), calc(100vh / 2000));
+    --design-w: 1330;
+    --design-h: 2000;
+    --space-slide-w: calc(1330 * var(--u));
+    --space-slide-h: calc(2000 * var(--u));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-fast: 0ms; --dur-base: 0ms; --dur-slow: 0ms; }
+}
+
+/* 시뮬레이터 식별색 연결: <body data-sim="projectile-energy"> */
+[data-sim="projectile-energy"]   { --sim: var(--color-sim-projectile); --sim-tint: var(--color-sim-projectile-tint); --sim-text: var(--color-sim-projectile-text); }
+[data-sim="double-slit-quantum"] { --sim: var(--color-sim-slit);       --sim-tint: var(--color-sim-slit-tint);       --sim-text: var(--color-sim-slit-text); }
+[data-sim="collision-momentum"]  { --sim: var(--color-sim-collision);  --sim-tint: var(--color-sim-collision-tint);  --sim-text: var(--color-sim-collision-text); }
+[data-sim="orbit-gravity"]       { --sim: var(--color-sim-orbit);      --sim-tint: var(--color-sim-orbit-tint);      --sim-text: var(--color-sim-orbit-text); }
+[data-sim="convex-lens"]         { --sim: var(--color-sim-lens);       --sim-tint: var(--color-sim-lens-tint);       --sim-text: var(--color-sim-lens-text); }

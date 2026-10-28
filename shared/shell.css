@@ -1,0 +1,152 @@
+/* =====================================================================
+   물리 시뮬레이터 실험실 — 시뮬레이터 화면 뼈대 (공통 틀, 2026-10-28)
+   tokens.css · base.css 다음에 불러온다. 마크업은 SimKit.init() 이 만든다.
+   근거: docs/04_팀장결정서.md §2-3 (1920×1080 기준, 단위 u)
+
+     제목 줄   .sim-top    x40~1880  y0~88
+     실험 화면 .sim-stage  x40~1290  y100~800   (1250×700)  ← Canvas 논리 좌표 1250×700
+     조절 패널 .sim-panel  x1310~1880 y100~960  (570×860)   상황 → 수치 → 표시 도구 → 심화▸
+     하단 띠   .sim-band   x40~1290  y816~960   (1250×144)  계기판 | 그래프 | 기록 표
+     하단 막대 .sim-bar    x40~1880  y976~1064  (1840×88)   프리셋 | 재생 | 기록
+     T 로 접기 .sim.is-collapsed → 실험 화면 x40~1880 y100~960 (1840×860)
+     세로 태블릿(폭<높이): 설계 화면 1330×2000, 패널이 실험 화면·하단 띠 아래로
+   ===================================================================== */
+
+.sim { --x: calc(40 * var(--u)); }
+.sim > .sim-top, .sim > .sim-stage, .sim > .sim-panel, .sim > .sim-band, .sim > .sim-bar { position: absolute; }
+
+/* ---------- 제목 줄 ---------------------------------------------------- */
+.sim-top {
+  left: var(--x); top: 0;
+  width: calc(1840 * var(--u)); height: calc(88 * var(--u));
+  gap: var(--space-5);
+}
+.sim-top__brand { padding-right: var(--space-2); }
+.sim-top__main { flex: 1; min-width: 0; display: grid; align-content: center; gap: calc(4 * var(--u)); }
+.sim-title {
+  font: var(--font-weight-bold) var(--fs-title)/1.1 var(--font-serif);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-decoration: underline var(--sim) calc(4 * var(--u));
+  text-underline-offset: calc(8 * var(--u));
+  text-decoration-skip-ink: none;
+}
+.sim-top__line2 { display: flex; align-items: center; gap: var(--space-2); min-width: 0; padding-top: calc(4 * var(--u)); }
+.sim-top__line2 .chip { height: calc(28 * var(--u)); flex: none; }
+.sim-today {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-sans);
+  color: var(--color-ink-muted);
+}
+.sim-today b { color: var(--color-ink); font-weight: var(--font-weight-bold); margin-right: var(--space-2); }
+.sim-status {
+  flex: none; align-self: center;
+  width: calc(440 * var(--u));
+  font: var(--font-weight-medium) var(--fs-meta)/1.3 var(--font-sans);
+  color: var(--color-ink-muted);
+  text-align: right;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.sim-status b { color: var(--color-ink); font-weight: var(--font-weight-bold); }
+.sim-status .is-run  { color: var(--color-primary); font-weight: var(--font-weight-bold); }
+.sim-status .is-pend { color: var(--color-copper-text); font-weight: var(--font-weight-bold); }
+
+/* ---------- 실험 화면 ---------------------------------------------------- */
+.sim-stage {
+  left: var(--x); top: calc(100 * var(--u));
+  width: calc(1250 * var(--u)); height: calc(700 * var(--u));
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--color-paper-raised);
+  border: 1px solid var(--color-line);
+  box-shadow: var(--shadow-sm);
+  touch-action: none; /* 실험 화면 안 끌기(공 당기기 등)는 시뮬레이터가 처리 */
+}
+.sim-stage > canvas.stage-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* 실험 화면 위에 얹는 글자 판 (왼쪽 위 / 오른쪽 위) */
+.stage-corner { position: absolute; z-index: 5; display: grid; gap: var(--space-2); pointer-events: none; }
+.stage-corner > * { pointer-events: auto; }
+.stage-corner--tl { left: var(--space-4); top: var(--space-4); max-width: 70%; }
+.stage-corner--tr { right: var(--space-4); top: var(--space-4); justify-items: end; }
+.stage-corner--bl { left: var(--space-4); bottom: var(--space-4); }
+.stage-corner--br { right: var(--space-4); bottom: var(--space-4); justify-items: end; }
+
+/* ---------- 조절 패널 ---------------------------------------------------- */
+.sim-panel {
+  left: calc(1310 * var(--u)); top: calc(100 * var(--u));
+  width: calc(570 * var(--u)); height: calc(860 * var(--u));
+  overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior: contain;
+  border-radius: var(--radius-lg);
+  background: var(--color-paper-sunk);
+  padding: var(--space-4) var(--space-5) var(--space-5);
+  display: flex; flex-direction: column; gap: var(--space-5);
+  scrollbar-width: thin;
+}
+.panel-sec { display: grid; gap: var(--space-3); }
+.panel-sec__title {
+  display: flex; align-items: center; gap: var(--space-2);
+  font: var(--font-weight-bold) var(--fs-meta)/1.2 var(--font-serif);
+  color: var(--color-ink-muted);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-line-strong);
+}
+.panel-sec__body { display: grid; gap: var(--space-4); }
+.panel-sec__body:empty, .panel-sec:has(> .panel-sec__body:empty) { display: none; }
+.panel-deep > summary { list-style: none; cursor: pointer; min-height: calc(56 * var(--u)); }
+.panel-deep > summary::-webkit-details-marker { display: none; }
+.panel-deep > summary::after { content: "▸"; margin-left: auto; transition: transform var(--dur-fast); }
+.panel-deep[open] > summary::after { transform: rotate(90deg); }
+.panel-foot { margin-top: auto; display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.panel-foot .btn { flex: 1; font-size: var(--fs-meta); }
+
+/* ---------- 하단 띠 ------------------------------------------------------ */
+.sim-band {
+  left: var(--x); top: calc(816 * var(--u));
+  width: calc(1250 * var(--u)); height: calc(144 * var(--u));
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 4fr) minmax(0, 4fr);
+  gap: var(--space-3);
+}
+.sim-band > * { min-width: 0; min-height: 0; }
+.band-cell { position: relative; min-width: 0; min-height: 0; display: grid; }
+.band-cell:empty { display: none; }
+
+/* ---------- 하단 막대 ---------------------------------------------------- */
+.sim-bar {
+  left: var(--x); top: calc(976 * var(--u));
+  width: calc(1840 * var(--u)); height: calc(88 * var(--u));
+  display: flex; align-items: center; gap: var(--space-5);
+  border-top: 1px solid var(--color-line);
+  padding-top: calc(8 * var(--u));
+}
+.sim-bar__group { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.sim-bar__presets { flex: 1 1 auto; }
+.sim-bar__presets:empty::before { content: "프리셋 없음"; color: var(--color-ink-muted); font-size: var(--fs-caption); }
+.sim-bar__transport, .sim-bar__records { flex: none; }
+.sim-bar .btn { padding: 0 var(--space-4); font-size: var(--fs-meta); }
+.sim-bar .btn--run { min-width: calc(170 * var(--u)); }
+.sim-bar .btn--speed { min-width: calc(110 * var(--u)); }
+
+/* ---------- T: 조작판 접기 ------------------------------------------------ */
+.sim.is-collapsed .sim-panel, .sim.is-collapsed .sim-band { display: none; }
+.sim.is-collapsed .sim-stage { width: calc(1840 * var(--u)); height: calc(860 * var(--u)); }
+
+/* ---------- 세로 태블릿 (설계 1330×2000) -------------------------------- */
+@media (orientation: portrait) {
+  .sim-top { width: calc(1250 * var(--u)); height: calc(128 * var(--u)); flex-wrap: wrap; row-gap: 0; }
+  .sim-top__brand { display: none; }
+  .sim-top__main { flex: 1 1 100%; }
+  .sim-status { width: auto; flex: 1; text-align: left; }
+  .sim-stage { top: calc(140 * var(--u)); }
+  .sim-band  { top: calc(856 * var(--u)); }
+  .sim-panel {
+    left: var(--x); top: calc(1016 * var(--u));
+    width: calc(1250 * var(--u)); height: calc(860 * var(--u));
+    display: grid; grid-template-columns: 1fr 1fr; align-content: start; column-gap: var(--space-6);
+  }
+  .sim-panel > .panel-deep, .sim-panel > .panel-foot { grid-column: 1 / -1; }
+  .sim-bar { top: calc(1896 * var(--u)); width: calc(1250 * var(--u)); gap: var(--space-2); }
+  .sim-bar .btn__key, .preset .chip { display: none; }
+  .sim-bar .btn--run { min-width: calc(120 * var(--u)); }
+  .sim.is-collapsed .sim-stage { width: calc(1250 * var(--u)); height: calc(1740 * var(--u)); }
+}

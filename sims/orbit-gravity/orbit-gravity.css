@@ -1,0 +1,126 @@
+/* =====================================================================
+   orbit-gravity 전용 스타일 (공통 틀 위에 새 클래스만 추가 — 접두사 og-)
+   색은 토큰 이름만, 크기는 u 단위, 움직임 0.3초 이하.
+   ===================================================================== */
+
+/* 모드에 따라 숨기는 조절 */
+.og-hide { display: none !important; }
+
+/* 중심 천체 카드: 2×2, 그림 + 이름 + 탈출 속도 */
+.og-bodies .seg--cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.og-bodies .seg__opt {
+  display: grid; grid-template-columns: auto 1fr; align-items: center;
+  column-gap: var(--space-3); text-align: left; padding: var(--space-2) var(--space-3);
+  font-size: var(--fs-control);
+}
+.og-bodies .seg__opt .btn__sub { grid-column: 2; font-size: var(--fs-caption); font-weight: var(--font-weight-medium); }
+.og-ico { grid-row: span 2; width: calc(44 * var(--u)); height: calc(44 * var(--u)); }
+
+/* 모드 카드 3장 한 줄 */
+.og-modes .seg--cards { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.og-modes .seg__opt { font-size: var(--fs-meta); }
+
+/* 패널 안 작은 안내 줄 (고도 배수 병기 등) */
+.og-note {
+  font: var(--font-weight-semibold) var(--fs-meta)/1.4 var(--font-sans);
+  color: var(--sim-text);
+  background: var(--sim-tint);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+}
+.og-panel-btn { width: 100%; font-size: var(--fs-meta); }
+
+/* 식 보기 ▸ */
+.og-formula { border: 1px solid var(--color-line-strong); border-radius: var(--radius-md); background: var(--color-paper-raised); }
+.og-formula > summary {
+  list-style: none; cursor: pointer; min-height: calc(64 * var(--u));
+  display: flex; align-items: center; padding: 0 var(--space-4);
+  font: var(--font-weight-semibold) var(--fs-control)/1.2 var(--font-sans);
+}
+.og-formula > summary::-webkit-details-marker { display: none; }
+.og-formula > summary::after { content: "▸"; margin-left: auto; transition: transform var(--dur-fast); }
+.og-formula[open] > summary::after { transform: rotate(90deg); }
+.og-formula__body {
+  padding: 0 var(--space-4) var(--space-4);
+  display: grid; gap: var(--space-2);
+  font: var(--font-weight-medium) var(--fs-meta)/1.5 var(--font-num);
+  font-variant-numeric: tabular-nums;
+}
+.og-formula__body b { font-family: var(--font-serif); }
+
+/* 심화 카드 */
+.og-deep-card {
+  display: grid; gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-paper-raised);
+  border: 1px solid var(--color-line);
+}
+.og-deep-card h3 { font: var(--font-weight-bold) var(--fs-control)/1.3 var(--font-serif); }
+.og-deep-card p { font: var(--font-weight-regular) var(--fs-meta)/1.5 var(--font-sans); color: var(--color-ink-muted); }
+.og-deep-card p b { color: var(--color-ink); }
+.og-deep-canvas { position: relative; width: 100%; height: calc(280 * var(--u)); }
+.og-deep-svg { width: 100%; height: calc(150 * var(--u)); }
+
+/* 프리셋 순서 도우미 (실험 화면 왼쪽 아래) */
+.og-seq {
+  display: grid; gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-paper-scrim);
+  box-shadow: var(--shadow-sm);
+  max-width: calc(470 * var(--u));
+}
+.og-seq__title { font: var(--font-weight-bold) var(--fs-caption)/1.2 var(--font-sans); color: var(--sim-text); }
+.og-seq__steps { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); font: var(--font-weight-semibold) var(--fs-meta)/1.3 var(--font-num); color: var(--color-ink-muted); }
+.og-seq__steps .is-now { color: var(--color-paper); background: var(--sim); border-radius: var(--radius-sm); padding: 0 var(--space-2); }
+.og-seq__steps .is-done { color: var(--color-ink); text-decoration: underline var(--color-line-strong); }
+.og-seq__hint { font: var(--font-weight-medium) var(--fs-caption)/1.3 var(--font-sans); color: var(--color-ink-muted); }
+.og-seq .btn { justify-self: start; font-size: var(--fs-meta); }
+
+/* 정리 단계 생각해 보기 (오른쪽 아래) */
+.og-think { max-width: calc(560 * var(--u)); }
+
+/* 케플러 표 (실험 화면 왼쪽) */
+.og-kepler {
+  position: absolute; z-index: 4;
+  left: var(--space-4); top: calc(108 * var(--u)); bottom: var(--space-4);
+  width: calc(620 * var(--u));
+  display: grid; grid-template-rows: auto auto 1fr; gap: var(--space-3);
+  align-content: start;
+}
+.og-ktable { width: 100%; border-collapse: collapse; font: var(--font-weight-medium) var(--fs-meta)/1.2 var(--font-num); font-variant-numeric: tabular-nums; background: var(--color-paper-raised); }
+.og-ktable th {
+  height: calc(44 * var(--u)); padding: 0 var(--space-2);
+  background: var(--color-paper-sunk); color: var(--color-ink-muted);
+  font: var(--font-weight-semibold) var(--fs-caption)/1.2 var(--font-sans); text-align: right;
+  border-bottom: 1px solid var(--color-line-strong);
+}
+.og-ktable th:first-child, .og-ktable td:first-child { text-align: left; }
+.og-ktable td { height: calc(70 * var(--u)); padding: 0 var(--space-2); text-align: right; border-bottom: 1px solid var(--color-line); white-space: nowrap; }
+.og-ktable td:first-child { font: var(--font-weight-bold) var(--fs-body)/1 var(--font-serif); }
+.og-ktable .og-ratio { font-weight: var(--font-weight-bold); color: var(--sim-text); }
+.og-kin {
+  width: calc(116 * var(--u)); height: calc(72 * var(--u)); /* 터치 대상 72u 이상 (최종 통합 점검) */
+  padding: 0 var(--space-2);
+  border: calc(2 * var(--u)) solid var(--color-line-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-paper-raised);
+  font: var(--font-weight-bold) var(--fs-body)/1 var(--font-num);
+  font-variant-numeric: tabular-nums; text-align: right; color: var(--color-ink);
+}
+.og-kin:focus { border-color: var(--color-primary); outline: var(--space-focus-ring) solid var(--color-focus); outline-offset: 0; }
+.og-kin.is-invalid { border-color: var(--color-warn); color: var(--color-warn); }
+.og-kbtns { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.og-kbtns .btn { padding: 0 var(--space-4); font-size: var(--fs-meta); }
+.og-kmsg { font: var(--font-weight-medium) var(--fs-caption)/1.4 var(--font-sans); color: var(--color-ink-muted); }
+
+/* 비교 표 창 */
+.og-compare { width: 100%; }
+.og-compare td, .og-compare th { text-align: right; font-variant-numeric: tabular-nums; }
+.og-compare td:first-child, .og-compare th:first-child { text-align: left; }
+.og-compare tr.is-now td { background: var(--sim-tint); font-weight: var(--font-weight-bold); }
+.og-dialog-note { margin-top: var(--space-3); font: var(--font-weight-medium) var(--fs-meta)/1.5 var(--font-sans); color: var(--color-ink-muted); }
+
+/* 하단 띠: 직접 그리는 그래프 */
+.og-graph-btn { margin-left: var(--space-2); }

@@ -1,0 +1,46 @@
+/* =====================================================================
+   물리 시뮬레이터 실험실 — 글꼴 (모두 로컬 파일, 인터넷 불필요, file:// 동작)
+   출처: 32_프랑스혁명-수업사이트/node_modules 에서 복사 (2026-10-28)
+   - Pretendard 가변 글꼴(굵기 45~920 한 파일)   : 본문·버튼·숫자   (SIL OFL 1.1)
+   - Noto Serif KR 500/700/900 (한국어 + 라틴 subset): 제목·질문       (SIL OFL 1.1)
+   라이선스 원문: fonts/LICENSE-*.txt
+   ===================================================================== */
+
+@font-face {
+  font-family: 'Pretendard';
+  font-weight: 45 920;
+  font-style: normal;
+  font-display: swap;
+  src: url('fonts/PretendardVariable.woff2') format('woff2');
+}
+
+/* Noto Serif KR — 라틴(숫자·영문·기호) */
+@font-face {
+  font-family: 'Noto Serif KR'; font-style: normal; font-display: swap; font-weight: 500;
+  src: url('fonts/noto-serif-kr-latin-500-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: 'Noto Serif KR'; font-style: normal; font-display: swap; font-weight: 700;
+  src: url('fonts/noto-serif-kr-latin-700-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: 'Noto Serif KR'; font-style: normal; font-display: swap; font-weight: 900;
+  src: url('fonts/noto-serif-kr-latin-900-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+
+/* Noto Serif KR — 한국어(한글 전체). 라틴 범위 밖 글자는 여기서 */
+@font-face {
+  font-family: 'Noto Serif KR'; font-style: normal; font-display: swap; font-weight: 500;
+  src: url('fonts/noto-serif-kr-korean-500-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Noto Serif KR'; font-style: normal; font-display: swap; font-weight: 700;
+  src: url('fonts/noto-serif-kr-korean-700-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Noto Serif KR'; font-style: normal; font-display: swap; font-weight: 900;
+  src: url('fonts/noto-serif-kr-korean-900-normal.woff2') format('woff2');
+}

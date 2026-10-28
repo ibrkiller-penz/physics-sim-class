@@ -1,0 +1,62 @@
+/* collision-momentum 전용 스타일 — 공통 클래스는 덮어쓰지 않고 새 클래스(cm-)만 쓴다.
+   색은 토큰 이름만, 크기는 u. */
+
+/* 프리셋 꼬리표 두 가지 추가 (공통에 없는 이름) */
+[data-sim="collision-momentum"] .chip[data-tag="작용·반작용"] { background: var(--color-warn-tint); color: var(--color-warn); }
+[data-sim="collision-momentum"] .chip[data-tag="발사체"]      { background: var(--sim-tint); color: var(--sim-text); }
+
+/* 하단 띠: 계기판 2×2 (v₁ v₂ / p합 K합) */
+.cm-band .band-cell--meters .meters {
+  display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+  gap: var(--space-2); height: 100%;
+}
+.cm-band .band-cell--meters .meter { padding: calc(4 * var(--u)) var(--space-3); gap: 0; }
+.cm-band .band-cell--meters .meter__value--md { font-size: calc(34 * var(--u)); }
+
+/* 속도 슬라이더: 가운데 0 굵은 눈금 + ← → */
+.cm-vel .var__track::before {
+  content: ""; position: absolute; left: 50%; top: calc(18 * var(--u)); bottom: calc(18 * var(--u));
+  width: calc(4 * var(--u)); margin-left: calc(-2 * var(--u));
+  background: var(--color-ink); border-radius: var(--radius-sm); pointer-events: none;
+}
+.cm-vel .var__ticks span { font-weight: var(--font-weight-semibold); color: var(--color-ink-muted); }
+.cm-vel .var__ticks .cm-zero { position: absolute; left: 50%; transform: translateX(-50%); font-weight: var(--font-weight-black); color: var(--color-ink); }
+.cm-vel-hint { font: var(--font-weight-medium) var(--fs-caption)/1.35 var(--font-sans); color: var(--color-ink-muted); }
+
+/* 실험 화면 오른쪽 위: 슬로 모션 배지 · 만나지 않음 안내 · 생각해 보기 */
+.cm-badge {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--sim); color: var(--color-ink-inverse);
+  font: var(--font-weight-bold) var(--fs-meta)/1.2 var(--font-num);
+  box-shadow: var(--shadow-sm);
+}
+.cm-warn {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-warn-tint); color: var(--color-warn);
+  box-shadow: inset 0 0 0 calc(2 * var(--u)) var(--color-warn);
+  font: var(--font-weight-bold) var(--fs-meta)/1.3 var(--font-sans);
+}
+.cm-badge[hidden], .cm-warn[hidden], .cm-think[hidden] { display: none; }
+.cm-think { max-width: calc(600 * var(--u)); }
+
+/* 식 보기 (표시 도구 아래 접힘) */
+.cm-eq {
+  border-radius: var(--radius-md);
+  border: calc(3 * var(--u)) solid var(--color-line);
+  background: var(--color-paper-raised);
+}
+.cm-eq__sum {
+  list-style: none; cursor: pointer;
+  display: flex; align-items: center; min-height: calc(66 * var(--u));
+  padding: 0 var(--space-4);
+  font: var(--font-weight-semibold) var(--fs-control)/1.25 var(--font-sans);
+}
+.cm-eq__sum::-webkit-details-marker { display: none; }
+.cm-eq__sum::after { content: "▸"; margin-left: auto; transition: transform var(--dur-fast); }
+.cm-eq[open] > .cm-eq__sum::after { transform: rotate(90deg); }
+.cm-eq__body { display: grid; gap: var(--space-2); padding: 0 var(--space-4) var(--space-4); font: var(--font-weight-medium) var(--fs-meta)/1.4 var(--font-num); font-variant-numeric: tabular-nums; }
+.cm-eq__f { font-family: var(--font-serif); font-weight: var(--font-weight-bold); }
+.cm-eq__r { font-weight: var(--font-weight-bold); color: var(--color-primary); }
+.cm-eq__note { color: var(--color-ink-muted); font-size: var(--fs-caption); }

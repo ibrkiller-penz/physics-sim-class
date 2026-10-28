@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>물리 시뮬레이터 실험실</title>
+  <link rel="stylesheet" href="shared/fonts.css">
+  <link rel="stylesheet" href="shared/tokens.css">
+  <link rel="stylesheet" href="shared/base.css">
+  <style>
+    /* 허브 표지 전용 (1920×1080, 단위 u) */
+    .hub { display: grid; grid-template-rows: calc(88 * var(--u)) auto minmax(0, 1fr) calc(72 * var(--u)); padding: 0 calc(80 * var(--u)); }
+    .hub .menu { align-items: center; }
+    .hub .menu__name { font-size: var(--fs-meta); color: var(--color-ink); }
+    .hub-keys { font: var(--font-weight-medium) var(--fs-caption)/1 var(--font-sans); color: var(--color-ink-muted); display: flex; gap: var(--space-4); align-items: center; }
+    .hub-head { padding: calc(56 * var(--u)) 0 calc(40 * var(--u)); display: grid; gap: var(--space-4); }
+    .hub-title { font: var(--font-weight-black) var(--fs-display)/1.1 var(--font-serif); letter-spacing: -0.02em; }
+    .hub-title span { color: var(--color-primary); }
+    .hub-sub { font: var(--font-weight-medium) var(--fs-body-lg)/1.5 var(--font-sans); color: var(--color-ink-muted); }
+    .hub-sub b { color: var(--color-ink); font-weight: var(--font-weight-bold); }
+    .cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: calc(28 * var(--u)); min-height: 0; padding-bottom: calc(40 * var(--u)); }
+    .card {
+      position: relative; display: grid; grid-template-rows: auto auto auto 1fr auto; gap: var(--space-4);
+      padding: calc(36 * var(--u)) var(--space-6) var(--space-6);
+      border-radius: var(--radius-lg);
+      background: var(--color-paper-raised);
+      border: 1px solid var(--color-line);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      transition: border-color var(--dur-fast) var(--dur-ease), transform var(--dur-fast) var(--dur-ease), box-shadow var(--dur-fast) var(--dur-ease);
+    }
+    .card::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: calc(14 * var(--u)); background: var(--sim); }
+    html:not(.cursor-hidden) .card:hover, .card:focus-visible { border-color: var(--sim); box-shadow: var(--shadow-md); transform: translateY(calc(-4 * var(--u))); }
+    .card__top { display: flex; align-items: center; justify-content: space-between; }
+    .card__key {
+      display: grid; place-items: center; width: calc(56 * var(--u)); height: calc(56 * var(--u));
+      border-radius: var(--radius-md); background: var(--sim); color: var(--color-paper);
+      font: var(--font-weight-bold) var(--fs-h3)/1 var(--font-num);
+    }
+    .card__level { font: var(--font-weight-semibold) var(--fs-caption)/1 var(--font-sans); color: var(--color-ink-muted); }
+    .card__title { font: var(--font-weight-bold) var(--fs-h3)/1.3 var(--font-serif); color: var(--color-ink); }
+    .card__meta { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+    .card__meta .chip { height: auto; min-height: calc(32 * var(--u)); padding: var(--space-1) var(--space-3); white-space: normal; line-height: 1.3; }
+    .card__desc { font: var(--font-weight-regular) var(--fs-meta)/1.5 var(--font-sans); color: var(--color-ink); }
+    .card__go {
+      display: flex; align-items: center; justify-content: center; gap: var(--space-3);
+      min-height: var(--space-btn-h); border-radius: var(--radius-md);
+      border: calc(3 * var(--u)) solid var(--sim); color: var(--sim-text); background: var(--sim-tint);
+      font: var(--font-weight-bold) var(--fs-body)/1 var(--font-sans);
+    }
+    .hub-foot { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--color-line); font: var(--font-weight-medium) var(--fs-caption)/1.4 var(--font-sans); color: var(--color-ink-muted); }
+    @media (orientation: portrait) {
+      .hub { grid-template-rows: calc(88 * var(--u)) auto minmax(0, 1fr) calc(72 * var(--u)); padding: 0 calc(40 * var(--u)); }
+      .hub-title { font-size: calc(80 * var(--u)); }
+      .cards { grid-template-columns: 1fr 1fr; grid-auto-rows: minmax(0, 1fr); }
+      .card { grid-template-rows: auto auto auto 1fr auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="slide hub">
+      <nav class="menu" aria-label="표지 메뉴">
+        <span class="menu__brand">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="menu__name">물리 시뮬레이터 실험실</span>
+        </span>
+        <span class="hub-keys"><span><kbd>1</kbd>~<kbd>5</kbd> 바로 열기</span><span><kbd>F</kbd> 전체 화면</span><span><kbd>←</kbd><kbd>→</kbd> 카드 고르기 · <kbd>Enter</kbd> 열기</span></span>
+      </nav>
+
+      <header class="hub-head">
+        <h1 class="hub-title">바꾸고, 겨루고, <span>비교하는</span> 물리 실험실</h1>
+        <p class="hub-sub"><b>2022 개정 교육과정 고등학교 과학과 선택과목 물리</b> — 「물리학」(일반 선택) · 「역학과 에너지」 · 「전자기와 양자」(진로 선택)</p>
+      </header>
+
+      <main class="cards" id="cards" aria-label="시뮬레이터 5종"></main>
+
+      <footer class="hub-foot">
+        <span>모든 실험은 같은 순서로: 예측 › 실행 › 비교 › 정리 · <kbd>Space</kbd> 실행 · <kbd>S</kbd> 기록 · <kbd>R</kbd> 초기화 · <kbd>Esc</kbd> 두 번 = 이 화면</span>
+        <span>인터넷 없이 동작 · 전자칠판 1920×1080 기준</span>
+      </footer>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    'use strict';
+    // 카드 정보: docs/04_팀장결정서.md §1-1, §4 (성취기준은 결정서에 확인된 것만)
+    var SIMS = [
+      { slug: 'projectile-energy', title: '포물선 운동과 역학적 에너지',
+        subject: '역학과 에너지 (진로 선택)', unit: '(1) 시공간과 운동', std: '[12역학01-02]',
+        desc: '던지는 속력·각도·높이와 중력을 바꾸며, 포물선 운동이 수평 등속 + 연직 낙하이고 역학적 에너지가 보존됨을 확인해요.' },
+      { slug: 'double-slit-quantum', title: '이중 슬릿: 빛에서 전자 하나까지',
+        subject: '전자기와 양자 · 물리학', unit: '(3) 양자와 미시세계 · (3) 빛과 물질', std: '[12전자03-01] [12물리03-01]',
+        desc: '파장·슬릿 간격을 바꿔 무늬 간격을 재고, 전자를 하나씩 보내도 간섭무늬가 쌓이는지 봐요.' },
+      { slug: 'collision-momentum', title: '일차원 충돌과 운동량 보존',
+        subject: '물리학 (일반 선택)', unit: '(1) 힘과 에너지', std: '[12물리01-03]',
+        desc: '두 수레의 질량·속도와 충돌 종류를 바꿔, 튕기든 달라붙든 운동량의 합이 같은지와 충격량을 확인해요.' },
+      { slug: 'orbit-gravity', title: '인공위성과 탈출 속도',
+        subject: '역학과 에너지 (진로 선택)', unit: '(1) 시공간과 운동', std: '[12역학01-03·04·05]',
+        desc: '뉴턴의 대포에서 원궤도 위성, 탈출 속도까지 — 발사 속력과 높이, 중심 천체를 바꿔 궤도를 비교해요.' },
+      { slug: 'convex-lens', title: '볼록렌즈로 상 만들기',
+        subject: '물리학 (일반 선택)', unit: '(3) 빛과 물질', std: '[12물리03-02]',
+        desc: '물체와 스크린을 옮기며 광선 추적으로 상의 위치·크기·방향이 어떻게 바뀌는지 표에서 규칙을 찾아요.' }
+    ];
+    var box = document.getElementById('cards');
+    SIMS.forEach(function (s, i) {
+      var a = document.createElement('a');
+      a.className = 'card';
+      a.href = 'sims/' + s.slug + '/index.html';
+      a.setAttribute('data-sim', s.slug);
+      a.setAttribute('aria-label', (i + 1) + '번 ' + s.title);
+      a.innerHTML =
+        '<span class="card__top"><span class="card__key num">' + (i + 1) + '</span></span>' +
+        '<span class="card__title"></span>' +
+        '<span class="card__meta"><span class="chip chip--sim"></span><span class="chip chip--outline"></span><span class="chip chip--sim num"></span></span>' +
+        '<span class="card__desc"></span>' +
+        '<span class="card__go">열기 ▸</span>';
+      a.querySelector('.card__title').textContent = s.title;
+      var chips = a.querySelectorAll('.chip');
+      chips[0].textContent = s.subject; chips[1].textContent = s.unit; chips[2].textContent = s.std;
+      a.querySelector('.card__desc').textContent = s.desc;
+      box.appendChild(a);
+    });
+    var cards = box.querySelectorAll('.card');
+
+    // 키: F 전체 화면(e.code → 한글 입력 상태도 동작) · 1~5 열기 · ←/→ 고르기
+    document.addEventListener('keydown', function (e) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      var m = /^(?:Digit|Numpad)([1-5])$/.exec(e.code);
+      if (m) { e.preventDefault(); location.href = cards[+m[1] - 1].href; return; }
+      if (e.code === 'KeyF' && !e.repeat) {
+        e.preventDefault();
+        var d = document, el = d.documentElement;
+        try {
+          if (!(d.fullscreenElement || d.webkitFullscreenElement)) (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+          else (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+        } catch (err) { /* 지원 안 함 */ }
+        return;
+      }
+      if (e.code === 'ArrowRight' || e.code === 'ArrowLeft' || e.code === 'PageDown' || e.code === 'PageUp') {
+        e.preventDefault();
+        var cur = Array.prototype.indexOf.call(cards, document.activeElement);
+        var dir = (e.code === 'ArrowRight' || e.code === 'PageDown') ? 1 : -1;
+        var next = cur < 0 ? (dir > 0 ? 0 : cards.length - 1) : (cur + dir + cards.length) % cards.length;
+        cards[next].focus();
+      }
+    });
+
+    // 커서 3초 자동 숨김
+    var html = document.documentElement, t = 0;
+    function show() { html.classList.remove('cursor-hidden'); clearTimeout(t); t = setTimeout(function () { html.classList.add('cursor-hidden'); }, 3000); }
+    document.addEventListener('mousemove', show, { passive: true });
+    show();
+    document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
+  })();
+  </script>
+</body>
+</html>

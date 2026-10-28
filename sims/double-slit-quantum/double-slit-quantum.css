@@ -1,0 +1,100 @@
+/* =====================================================================
+   double-slit-quantum 전용 스타일 (접두사 dsq-) — 공통 클래스는 덮어쓰지 않고 새 클래스만 둔다.
+   색은 토큰만. 스펙트럼 그라디언트(--dsq-spectrum)는 파장→색 계산값을 JS 가 넣는다.
+   ===================================================================== */
+
+/* 보내는 것 카드: 2 × 2 */
+.dsq-cards2 .seg--cards { grid-template-columns: 1fr 1fr; }
+
+/* 어느 슬릿 측정기: 큰 스위치 */
+.dsq-bigswitch .check {
+  min-height: calc(96 * var(--u));
+  font-size: var(--fs-body-lg);
+  border-width: calc(4 * var(--u));
+}
+.dsq-bigswitch .check__state { font-size: var(--fs-meta); }
+.dsq-sub {
+  font: var(--font-weight-medium) var(--fs-caption)/1.35 var(--font-sans);
+  color: var(--color-ink-muted);
+}
+
+/* 파장 무지개 슬라이더 */
+.dsq-rainbow .range::-webkit-slider-runnable-track { height: calc(18 * var(--u)); background: var(--dsq-spectrum, var(--color-line)); }
+.dsq-rainbow .range::-webkit-slider-thumb { margin-top: calc(-15 * var(--u)); }
+.dsq-rainbow .range::-moz-range-track { height: calc(18 * var(--u)); background: var(--dsq-spectrum, var(--color-line)); }
+.dsq-rainbow .range::-moz-range-progress { background: transparent; }
+
+/* 보내는 빠르기 3단 */
+.dsq-speed { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
+.dsq-speed .btn { flex-direction: column; gap: calc(2 * var(--u)); padding: var(--space-2); font-size: var(--fs-meta); }
+.dsq-speed .btn__sub { font: var(--font-weight-medium) var(--fs-caption)/1 var(--font-num); }
+.dsq-skip { width: 100%; }
+
+/* 표시 도구 2 × 2 */
+.dsq-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+.dsq-grid2 .check { padding: 0 var(--space-3); gap: var(--space-2); font-size: var(--fs-meta); }
+
+/* 심화: 드브로이 파장 */
+.dsq-db {
+  font: var(--font-weight-medium) var(--fs-meta)/1.45 var(--font-sans);
+  color: var(--color-ink-muted);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-paper-raised);
+}
+
+/* 하단 띠: 계기판 */
+.dsq-meters {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-2);
+  min-width: 0; min-height: 0;
+}
+.dsq-meter-main, .dsq-meter-list {
+  min-width: 0; border-radius: var(--radius-md);
+  background: var(--color-paper-raised); border: 1px solid var(--color-line);
+  padding: var(--space-2) var(--space-3);
+}
+.dsq-meter-main { display: grid; align-content: center; gap: calc(2 * var(--u)); }
+.dsq-meter-list { display: grid; align-content: center; gap: calc(2 * var(--u)); }
+.dsq-label { font: var(--font-weight-semibold) var(--fs-caption)/1.2 var(--font-sans); color: var(--color-ink-muted); white-space: nowrap; }
+.dsq-label i { font-family: var(--font-serif); font-weight: var(--font-weight-bold); }
+.dsq-big {
+  font: var(--font-weight-bold) calc(48 * var(--u))/1 var(--font-num);
+  font-variant-numeric: tabular-nums; letter-spacing: -0.03em; color: var(--sim-text);
+  white-space: nowrap;
+}
+.dsq-big-unit { font: var(--font-weight-medium) var(--fs-caption)/1 var(--font-sans); color: var(--color-ink-muted); }
+.dsq-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); min-width: 0; }
+.dsq-row b {
+  font: var(--font-weight-bold) var(--fs-meta)/1.25 var(--font-num);
+  font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.dsq-gtoggle { margin-left: auto; min-height: calc(36 * var(--u)); font-size: var(--fs-caption); padding: 0 var(--space-2); }
+
+/* 실험 화면 위 글 (왼쪽 아래) — 거리 L 표시 줄을 가리지 않게 조금 띄움 */
+.dsq-notes { bottom: calc(44 * var(--u)); max-width: calc(690 * var(--u)); justify-items: start; }
+.dsq-tl { max-width: calc(700 * var(--u)); }
+.dsq-note {
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--color-paper-scrim);
+  box-shadow: var(--shadow-sm);
+  font: var(--font-weight-semibold) var(--fs-meta)/1.35 var(--font-sans);
+}
+.dsq-note--hint  { border-left: calc(6 * var(--u)) solid var(--sim); }
+.dsq-note--model { color: var(--sim-text); background: var(--sim-tint); }
+.dsq-note--det   { color: var(--color-copper-text); background: var(--color-copper-tint); }
+.dsq-note--eq    { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.dsq-notes [hidden], .dsq-tl [hidden], .dsq-think[hidden] { display: none !important; }
+
+/* 생각해 보기 판 */
+.dsq-think {
+  position: absolute; z-index: 6;
+  left: var(--space-4); top: calc(80 * var(--u));
+  width: calc(680 * var(--u));
+}
+.dsq-think-head { display: flex; align-items: center; justify-content: space-between; }
+.dsq-think-close { min-height: calc(56 * var(--u)); font-size: var(--fs-meta); }
+
+/* [고도화] 프리셋 5 꼬리표 '기묘함'(교육과정 해설 용어)은 공통 꼬리표 목록에 없어 기본 칩으로 보였다.
+   공통 규칙을 덮어쓰지 않고 이 시뮬레이터 안에서만 식별색으로 칠한다. */
+.chip[data-tag="기묘함"] { background: var(--sim-tint); color: var(--sim-text); box-shadow: inset 0 0 0 1px var(--sim); }
