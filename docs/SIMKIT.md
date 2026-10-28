@@ -58,7 +58,7 @@ slug: `projectile-energy` · `double-slit-quantum` · `collision-momentum` · `o
 |---|---|
 | 무대 | `.app` `.slide` · 상단 메뉴 `.menu` `.menu__brand` `.brand-mark` `.menu__name` `.menu__list` `.menu__item[aria-current=step]` `.menu__key` |
 | 버튼(72u 이상) | `.btn` `.btn--primary` `.btn--secondary` `.btn--quiet` `.btn--danger` `.btn--icon` `.btn--lg` `.btn--sm`(표 안 보조만) `.btn__key` `.btn__sub` `[aria-pressed=true]` |
-| 칩·꼬리표 | `.chip` `--sim` `--primary` `--copper` `--warn` `--ok` `--outline` · 프리셋 꼬리표 `.chip[data-tag="탐구 재현|대표 문항|오개념|과학사|교통안전"]` · `.tag--live`(즉시) `.tag--restart`(다시 시작) |
+| 칩·꼬리표 | `.chip` `--sim` `--primary` `--copper` `--warn` `--ok` `--outline` · 프리셋 꼬리표 `.chip[data-tag="탐구 재현|대표 문항|오개념|과학사|교통안전|작용·반작용|발사체|생활 속|기묘함"]` · `.tag--live`(즉시) `.tag--restart`(다시 시작) |
 | 변수 위젯 | `.var` `.var__head` `.var__label` `.var__sym` `.var__input` `.var__unit` `.var__row` `.var__step` `.range` `.var__ticks` `.var__bubble` `.var__msg` · 상태 `.is-dragging` `.is-pending` `.is-disabled` |
 | 상황 전환 | `.ctl` `.ctl__label` · 세그먼트 `.seg` `.seg__opt` · 카드형 `.seg--cards` · 체크 토글 `.check` `.check__box` `.check__state` |
 | 프리셋 | `.preset` `.preset__key` `.preset__name` · 설명 줄 `.preset-info` (`.is-change` 바꿀 값 / `.is-fixed` 고정한 값) |
@@ -124,6 +124,8 @@ SimKit.chooseMode({ title:'무엇을 알아볼까요?', modes:[{value:'cannon',l
 - **R** `SimKit.reset()` → 실행했던 결과는 `SimKit.ghost`(직전 실행, 35% 흐림)로 자동 보관. 기록은 그대로.
 - **C** `SimKit.clearRecords()` → 확인 창 후 기록·직전 모두 삭제.
 - `SimKit.recordTable(null, {columns:[{key:'v0', from:'param'}, {key:'range', label:'수평 거리', unit:'m', decimals:1, from:'value'}]})` — 기록 칸에 표. 크게 보기 단추 있음.
+  - 열 옵션 `text: function(rec, prev) → string` — 그 줄의 기록 전체(`rec.params`·`rec.values`)를 보고 글자를 정한다. 예) 벽 모드 줄의 m₂ 는 `'–'`.
+  - 열 옵션 `changed: true | function(rec, prev) → bool` — 결과(`from:'value'`) 열에도 '바뀜' 굵게(`td.is-changed`)를 붙인다. `true` 면 `values[key]` 가 직전 기록과 다를 때. 작은 표와 '크게 보기' 창 모두에 적용되므로 표 DOM 을 직접 고치지 않는다.
 - `SimKit.graph(null, {title, x:{label:'t',unit:'s',min:0,max:'auto'}, y:{...}, series:[{key:'y',label:'높이',color:'--color-primary'}]})` → 매 render 에서 `g.draw({y: points})`. 직전·기록 선은 저절로 겹침.
 - 실험 화면 위 궤적 겹치기: `SimKit.records.forEach(r => SimKit.drawPath(ctx, r.series.path, SimKit.recStyle(r.slot), map))`, 직전은 `SimKit.ghostStyle()`.
 - `SimKit.onRecords(fn)` 기록·직전이 바뀔 때.
@@ -136,7 +138,7 @@ SimKit.chooseMode({ title:'무엇을 알아볼까요?', modes:[{value:'cannon',l
 - `SimKit.fmt(v, d)` 음수 '−', 소수 자리 고정.
 
 ### 4-7. 흐름·안내
-`play/pause/toggle/reset/finish(msg)/stepFrame(±1)/setSpeed(x)` · `time/running/started/finished/speed` · `goStep(i)/nextStep/prevStep/stepIndex/stepName` · `predict({question, choices, info, tag}) → Promise<번호|null>` (키 1~n) · `notice(text, 'info'|'warn'|'restart'|'ok', ms)` · `confirm({title, body, ok, cancel, danger}) → Promise<bool>` · `dialog(...)` · `guide({rows:[{target, standard, discover, misconception}], sections:[{title, items:[]}], keys:'V 화살표'})` · `setStatus(text|null)` · `update()` · `requestRender()` · `onFrame(fn)` · `onKey(e => true면 처리 끝)` · `isTeacher()`.
+`play/pause/toggle/reset/finish(msg)/stepFrame(±1)/setSpeed(x)` · `time/running/started/finished/speed` · `goStep(i)/nextStep/prevStep/stepIndex/stepName` · `predict({question, choices, info, tag, handCount}) → Promise<번호|null>` (키 1~n · 카드의 '✋ 손들기 수' 를 누르면 선택지마다 손든 수 입력칸, 결과는 `SimKit.prediction.counts`; `handCount:false` 로 숨김) · `notice(text, 'info'|'warn'|'restart'|'ok', ms)`(실험 화면 아래 가운데, 최대 2개) · `confirm({title, body, ok, cancel, danger}) → Promise<bool>` · `dialog(...)` · `guide({rows:[{target, standard, discover, misconception}], sections:[{title, items:[]}], keys:'V 화살표'})` · `setStatus(text|null)` · `update()` · `requestRender()` · `onFrame(fn)` · `onKey(e => true면 처리 끝)` · `isTeacher()`.
 
 ---
 
@@ -203,3 +205,22 @@ SimKit.chooseMode({ title:'무엇을 알아볼까요?', modes:[{value:'cannon',l
 - `node --check shared/sim.js` 통과, TEMPLATE·허브 인라인 스크립트 문법 통과.
 - 브라우저(로컬 정적 서버 경유, 1600×900 · 820×1180 세로): `sims/_template/index.html` 콘솔 오류 0 — Space 실행·끝, S 기록, 프리셋 2 → 예측 카드 → 3 선택, 숫자칸 40 입력 → 범위 안내 후 25, 실행 후 '다시 시작' 안내, 기록 표 크게 보기, T 접기, 세로 배치 확인. 허브 콘솔 오류 0.
 - file:// 직접 열기는 검증 도구가 로컬 파일 접근을 막아 확인하지 못함 — 코드에 fetch·module 이 없으므로 동작 조건은 충족. 교실 PC 에서 더블클릭으로 한 번 더 확인할 것.
+
+---
+
+## 8. 최종 통합 점검에서 더한 것 (팀장, 2026-10-28)
+
+고도화팀의 `shared/` 수정 요청 가운데 다른 시뮬레이터를 깨뜨리지 않는 것을 반영했다. 다섯 시뮬레이터 모두 `node --check` 통과, 로컬 서버 브라우저 확인 콘솔 오류 0.
+
+| 요청 | 반영 |
+|---|---|
+| 기록 표 열에 그 줄의 값을 보고 글자를 정하는 기능 (충돌) | `columns[].text(rec, prev)` |
+| 결과 열에도 '바뀜' 굵게, 크게 보기 창 포함 (포물선·이중 슬릿·렌즈) | `columns[].changed` (true 또는 함수) |
+| `setSpeed` 안에서 다시 그리기 (위성) | `SimKit.setSpeed` 가 `requestRender` 를 겸함 |
+| 안내 말풍선이 3개까지 쌓여 프리셋 설명 줄·왼쪽 위 안내를 가림 (포물선·이중 슬릿) | 실험 화면 아래 가운데로 옮기고 최대 2개 |
+| 교사 화면 '손들기 수 입력' (포물선) | 예측 카드 '✋ 손들기 수' |
+| 꼬리표 색 '작용·반작용'·'발사체'(충돌), '생활 속'(렌즈), '기묘함'(이중 슬릿) | `base.css` 공통 색표 |
+| 제목 줄 넘침·상태 줄 겹침 (이중 슬릿) | `.sim-top__main` 은 내용 너비 기준, 상태 줄이 먼저 줄어듦(최소 190u), `.sim-top__line2` 넘침 숨김 |
+| 슬로 모션 배율 공식 기능 (충돌) | 미반영 — 지금은 `SimKit.setSpeed(배율)` 로 임의 배율을 넣을 수 있고 `[ ]` 는 5단만 순환. 필요하면 다음 차례 |
+
+시뮬레이터 쪽에서 지운 우회 코드: 포물선(`onRecords` 로 td 굵게), 이중 슬릿(`markChangedCells`, `DSQDebug`), 렌즈(`postTable` 의 is-changed 3줄), 충돌(`SK.valueText` 덮어쓰기), 위성(`SK.setSpeed` 감싸기).

@@ -22,7 +22,8 @@
   gap: var(--space-5);
 }
 .sim-top__brand { padding-right: var(--space-2); }
-.sim-top__main { flex: 1; min-width: 0; display: grid; align-content: center; gap: calc(4 * var(--u)); }
+/* 제목 칸은 내용 너비를 기준으로, 상태 줄이 먼저 줄어든다 (칩이 상태 줄 위로 넘치던 문제 — 최종 통합 점검) */
+.sim-top__main { flex: 1 1 auto; min-width: 0; display: grid; align-content: center; gap: calc(4 * var(--u)); }
 .sim-title {
   font: var(--font-weight-bold) var(--fs-title)/1.1 var(--font-serif);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -30,17 +31,17 @@
   text-underline-offset: calc(8 * var(--u));
   text-decoration-skip-ink: none;
 }
-.sim-top__line2 { display: flex; align-items: center; gap: var(--space-2); min-width: 0; padding-top: calc(4 * var(--u)); }
+.sim-top__line2 { display: flex; align-items: center; gap: var(--space-2); min-width: 0; padding-top: calc(4 * var(--u)); overflow: hidden; }
 .sim-top__line2 .chip { height: calc(28 * var(--u)); flex: none; }
 .sim-today {
-  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-sans);
   color: var(--color-ink-muted);
 }
 .sim-today b { color: var(--color-ink); font-weight: var(--font-weight-bold); margin-right: var(--space-2); }
 .sim-status {
-  flex: none; align-self: center;
-  width: calc(440 * var(--u));
+  flex: 0 3 calc(440 * var(--u)); align-self: center;  /* 칩보다 먼저 줄어든다 */
+  width: calc(440 * var(--u)); min-width: calc(190 * var(--u));
   font: var(--font-weight-medium) var(--fs-meta)/1.3 var(--font-sans);
   color: var(--color-ink-muted);
   text-align: right;
