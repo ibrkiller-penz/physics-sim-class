@@ -224,11 +224,11 @@
     { key: 'vy', label: '{{수직 속도}}', symbol: 'vy', unit: 'm/s', decimals: 1, q: 'velocity' }
   ]);
   meters.el.classList.add('pe-meters');
-  // 기호 vᵧ 는 <sub> 로 (밑줄 문자 'v_y' 를 화면에 쓰지 않음), 칸 안에 '(음수면 아래로)'
+  // 기호 vᵧ 는 <sub> 로 (밑줄 문자 'v_y' 를 화면에 쓰지 않음). R3: '음수면 아래' 는 라벨 줄 끝에 (값 줄은 숫자·단위만)
   var vySym = meters.el.querySelector('[data-key="vy"] .meter__label i');
   if (vySym) { vySym.textContent = 'v'; vySym.appendChild(h('sub', { text: 'y' })); }
-  var vyVal = meters.el.querySelector('[data-key="vy"] .meter__value');
-  if (vyVal) vyVal.appendChild(h('span', { class: 'pe-meter-note', text: '음수면 아래로' }));
+  var vyLab = meters.el.querySelector('[data-key="vy"] .meter__label');
+  if (vyLab) vyLab.appendChild(h('span', { class: 'pe-meter-note', text: '· 음수면 아래' }));
 
   var energyBox = h('div', { class: 'pe-energy', 'aria-label': '에너지 막대' });
   SK.el.graph.appendChild(energyBox);
@@ -285,7 +285,7 @@
       max: function (p) { return Math.max(10, Math.ceil(maxReach(p).R * 1.5 / 5) * 5); },
       overText: '가장 멀리 가는 각도보다도 커요 — 확인해 봐요'
     },
-    get why() { return '수평 거리 = 수평 속도 × 비행 시간이에요. 땅에서 던지면 45° 일 때 가장 멀리 가요.'; }
+    get why() { return '수평 거리 = 수평 속도 × 비행 시간이에요. 땅에서 던지면 45°일 때 가장 멀리 가요.'; }
   };
   function openRangePredict() {
     curPreset = -1;
@@ -298,7 +298,7 @@
   var PRESETS = [
     {
       name: '수평으로 던지기',
-      changes: 'h 20 m · 각도 0°', change: 'v₀ 10 m/s · 각도 0° · 높이 20 m · 떨어뜨린 공 함께',
+      changes: 'h 20 m · 0°', change: 'v₀ 10 m/s · 각도 0° · 높이 20 m · 떨어뜨린 공 함께',
       values: vals({ planet: 'earth', air: 'off', h: 20, v0: 10, theta: 0, m: 1, cmp: true, flash: true, shadow: true }),
       predict: {
         question: '20 m 절벽에서 옆으로 10 m/s 로 던진 공과 그냥 떨어뜨린 공(회색), 무엇이 먼저 땅에 닿을까요?',
@@ -312,8 +312,8 @@
       }
     },
     {
-      name: '날아가는 동안 에너지',
-      changes: 'h 20 m · 각도 30°', change: 'v₀ 10 m/s · 각도 30° · 높이 20 m · 질량 1 kg',
+      name: '나는 동안 에너지',
+      changes: 'h 20 m · 30°', change: 'v₀ 10 m/s · 각도 30° · 높이 20 m · 질량 1 kg',
       values: vals({ planet: 'earth', air: 'off', h: 20, v0: 10, theta: 30, m: 1, flash: true, energy: true }),
       predict: {
         question: '날아가는 동안 운동 에너지 + 위치 에너지의 합(역학적 에너지)은 어떻게 될까요?',
@@ -328,13 +328,13 @@
       }
     },
     {
-      name: '30° 와 60°',
-      changes: '각도 30° → 60°', change: 'v₀ 20 m/s · 땅에서 · 각도 30° (다음엔 60° 로 바꿔 기록)',
+      name: '30°와 60°',
+      changes: '각도 30° → 60°', change: 'v₀ 20 m/s · 땅에서 · 각도 30° (다음엔 60°로 바꿔 기록)',
       values: vals({ planet: 'earth', air: 'off', h: 0, v0: 20, theta: 30, m: 1, flash: true }),
       predict: {
-        question: '같은 속력 20 m/s 로 30° 와 60° 로 던지면 어느 쪽이 더 멀리 갈까요?',
+        question: '같은 속력 20 m/s 로 30°와 60°로 던지면 어느 쪽이 더 멀리 갈까요?',
         choices: ['30°', '60°', '같다'], answer: 3,
-        why: '30° 는 옆으로 빠르지만 일찍 떨어지고, 60° 는 오래 날지만 옆으로 느려요. 수평 속도 × 비행 시간이 같아져요. 더해서 90° 인 두 각도는 사거리가 같아요.',
+        why: '30°는 옆으로 빠르지만 일찍 떨어지고, 60°는 오래 날지만 옆으로 느려요. 수평 속도 × 비행 시간이 같아져요. 더해서 90°인 두 각도는 사거리가 같아요.',
         judge: function (p) {
           var r30 = PH.rangeFor(p, { theta: 30 }), r60 = PH.rangeFor(p, { theta: 60 }), d = r30 - r60;
           return Math.abs(d) < 0.05 ? 3 : (d > 0 ? 1 : 2);
@@ -410,7 +410,7 @@
     '<text x="215" y="30" text-anchor="middle" style="fill:var(--color-ink-muted)">60° (높이, 오래)</text>' +
     '<text x="300" y="98" style="fill:var(--color-sim-projectile)">45° 가장 멀리</text>' +
     '<text x="190" y="176" text-anchor="middle" style="fill:var(--color-ink)">30° (낮게, 빨리)</text>' +
-    '<text x="400" y="214" text-anchor="middle" style="fill:var(--color-ink)">30°·60° 같은 곳</text>' +
+    '<text x="400" y="214" text-anchor="middle" style="fill:var(--color-ink)">30° ·60° 같은 곳</text>' +
     '</svg>';
   var FIG_ENERGY =
     '<svg viewBox="0 0 520 210" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif" font-size="20">' +
@@ -503,8 +503,8 @@
       {
         title: '④ 사거리와 던지는 각도',
         summary: '45°에서 가장 멀리, 짝 각도는 같은 거리',
-        plain: '각도가 작으면 옆으로 빠르지만 금방 떨어져요.\n각도가 크면 오래 날지만 옆으로 느려요.\n그 사이 45° 에서 가장 멀리 가요. 30° 와 60° 처럼 더해서 90° 인 두 각도는 같은 거리를 가요(땅에서 던질 때).',
-        example: '지구(g 9.8)에서 20 m/s 로 던지면 30°·60° 는 35.3 m, 45° 는 40.8 m 가요.',
+        plain: '각도가 작으면 옆으로 빠르지만 금방 떨어져요.\n각도가 크면 오래 날지만 옆으로 느려요.\n그 사이 45°에서 가장 멀리 가요. 30°와 60°처럼 더해서 90°인 두 각도는 같은 거리를 가요(땅에서 던질 때).',
+        example: '지구(g 9.8)에서 20 m/s 로 던지면 30°·60°는 35.3 m, 45°는 40.8 m 가요.',
         figure: FIG_ANGLE,
         formula: 'R = v₀² sin2θ ÷ g   (땅에서 던질 때, 공기 저항 없음)',
         symbols: [
@@ -513,7 +513,7 @@
           { s: 'θ', meaning: '던지는 각도', unit: '°' },
           { s: 'g', meaning: '{{중력 가속도}}', unit: 'm/s²' }
         ],
-        why: '사거리 = 수평 속도 × 비행 시간 = (v₀ cosθ) × (2 v₀ sinθ ÷ g) = v₀² × 2 sinθ cosθ ÷ g = v₀² sin2θ ÷ g 예요.\nsin2θ 는 2θ = 90°, 곧 θ = 45° 일 때 가장 커요(값 1).\nsin(2×30°) = sin60° 와 sin(2×60°) = sin120° 가 같아서 짝 각도는 같은 거리를 가요.\n높은 곳에서 던지거나 공기 저항이 있으면 가장 멀리 가는 각도는 45° 보다 작아져요.',
+        why: '사거리 = 수평 속도 × 비행 시간 = (v₀ cosθ) × (2 v₀ sinθ ÷ g) = v₀² × 2 sinθ cosθ ÷ g = v₀² sin2θ ÷ g 예요.\nsin2θ 는 2θ = 90°, 곧 θ = 45°일 때 가장 커요(값 1).\nsin(2×30°) = sin60°와 sin(2×60°) = sin120°가 같아서 짝 각도는 같은 거리를 가요.\n높은 곳에서 던지거나 공기 저항이 있으면 가장 멀리 가는 각도는 45°보다 작아져요.',
         live: function (p) {
           var g = gNow(p);
           return '지금 값으로 (g = ' + gText(g) + ', v₀ = ' + p.v0 + ' m/s, 땅에서): 30°·60° → ' + fmt(p.v0 * p.v0 * Math.sin(Math.PI / 3) / g, 1) + ' m, 45° → ' + fmt(p.v0 * p.v0 / g, 1) + ' m';
@@ -523,7 +523,7 @@
         title: '⑤ 흔한 오해 바로잡기',
         summary: '최고점에서도 가속도는 g',
         plain: '✗ 최고점에서 공이 멈춘다 → ✓ 수직 속도만 0, 수평 속도는 그대로예요.\n✗ 최고점에서는 가속도도 0 이다 → ✓ 가속도는 내내 g, 아래 방향이에요.\n✗ 세게(빠르게) 수평으로 던질수록 늦게 떨어진다 → ✓ 떨어지는 시간은 높이와 g 로만 정해져요.\n✗ 무거운 공이 더 빨리 떨어진다 → ✓ 공기 저항이 없으면 질량과 상관없어요.\n✗ 날아가는 공을 앞으로 미는 힘이 있다 → ✓ 던진 뒤에는 중력(아래)만 작용해요.',
-        example: '20 m/s · 45° 로 던지면 최고점에서도 공은 옆으로 14.1 m/s 로 움직이고 있어요.',
+        example: '20 m/s · 45°로 던지면 최고점에서도 공은 옆으로 14.1 m/s 로 움직이고 있어요.',
         formula: 'a = F ÷ m = mg ÷ m = g   (아래 방향, 내내 같음)',
         symbols: [
           { s: 'a', meaning: '가속도 — 1 s 마다 속도가 바뀌는 양', unit: 'm/s²' },
@@ -590,8 +590,8 @@
     }
     if (run.h === 0 && run.theta > 0 && run.theta < 90 && run.theta !== 45) {
       return {
-        line: (90 - run.theta) + '° 로 던져도 같은 거리를 가요.',
-        more: '각도 ' + run.theta + '° → ' + fmt(r.R, 1) + ' m. 더해서 90° 인 두 각도는 sin2θ 가 같아서 사거리가 같아요. 가장 멀리 가는 각도는 45° 예요(땅에서, 공기 저항 없음).'
+        line: (90 - run.theta) + '°로 던져도 같은 거리를 가요.',
+        more: '각도 ' + run.theta + '° → ' + fmt(r.R, 1) + ' m. 더해서 90°인 두 각도는 sin2θ 가 같아서 사거리가 같아요. 가장 멀리 가는 각도는 45°예요(땅에서, 공기 저항 없음).'
       };
     }
     return {
@@ -610,9 +610,9 @@
   });
   SK.think({
     id: 'pair',
-    q: '공기 저항이 없을 때, 땅에서 같은 속력으로 30° 와 60° 로 던지면?',
-    choices: ['30° 가 더 멀리', '60° 가 더 멀리', '같은 거리'], answer: 3,
-    why: 'sin(2×30°) = sin(2×60°) 라서 사거리가 같아요. 60° 는 더 높이, 더 오래 날지만 옆으로 느려요.'
+    q: '공기 저항이 없을 때, 땅에서 같은 속력으로 30°와 60°로 던지면?',
+    choices: ['30°가 더 멀리', '60°가 더 멀리', '같은 거리'], answer: 3,
+    why: 'sin(2×30°) = sin(2×60°) 라서 사거리가 같아요. 60°는 더 높이, 더 오래 날지만 옆으로 느려요.'
   });
   SK.think({
     id: 'top',
@@ -634,9 +634,9 @@
   });
   SK.think({
     id: 'air',
-    q: '더 생각하기: 공기 저항이 있으면 가장 멀리 가는 각도는 45° 보다 클까, 작을까?',
-    hint: '더 많은 설정 › 공기 저항 › 탁구공을 고르고 35°·40°·45° 를 차례로 기록해 비교해 봐요.',
-    reveal: '작아져요. 탁구공(20 m/s, g = 9.8)은 35° 쯤에서 가장 멀리(약 10.4 m) 가고, 45° 는 10.0 m 예요. 공기 저항이 날아가는 내내 속도를 줄이니, 오래 나는 큰 각도가 더 손해를 봐요. 무거운 쇠공은 영향이 작아 거의 45° 그대로예요.'
+    q: '더 생각하기: 공기 저항이 있으면 가장 멀리 가는 각도는 45°보다 클까, 작을까?',
+    hint: '더 많은 설정 › 공기 저항 › 탁구공을 고르고 35°·40°·45°를 차례로 기록해 비교해 봐요.',
+    reveal: '작아져요. 탁구공(20 m/s, g = 9.8)은 35°쯤에서 가장 멀리(약 10.4 m) 가고, 45°는 10.0 m 예요. 공기 저항이 날아가는 내내 속도를 줄이니, 오래 나는 큰 각도가 더 손해를 봐요. 무거운 쇠공은 영향이 작아 거의 45° 그대로예요.'
   });
   var think1Body = think1 && think1.querySelector('.reveal__body');
   if (run) setTimeout(function () { updateThinkAnswer(run.g); }, 0);
@@ -652,17 +652,17 @@
   SK.guide({
     rows: [
       { target: '처음 속력 v₀ — 0~30 m/s, 1 단위, 기본 20 (↻)', standard: '[12역학01-02] 정량 설명', discover: '수평 던지기에서 v₀ 를 바꿔도 비행 시간은 같고 수평 거리만 v₀ 에 비례', misconception: '세게 던지면 늦게 떨어진다' },
-      { target: '던지는 각도 θ — 0~90°, 5° 단위, 기본 45 (↻)', standard: '[12역학01-02]', discover: '30° 와 60° 는 같은 거리, 45° 최대(지면 발사)', misconception: '각도가 클수록 멀리 간다' },
+      { target: '던지는 각도 θ — 0~90°, 5° 단위, 기본 45 (↻)', standard: '[12역학01-02]', discover: '30°와 60°는 같은 거리, 45° 최대(지면 발사)', misconception: '각도가 클수록 멀리 간다' },
       { target: '던지는 높이 h — 0~45 m, 5 단위, 기본 0 (↻)', standard: '탐구 활동(포물선 운동 동영상 분석), 수평 던지기 대표 문항', discover: '낙하 시간 = √(2h/g). 높이 4배 → 시간 2배', misconception: '—' },
       { target: '어디에서 던질까 — 지구(9.8/10) · 달 1.62 · 화성 3.71 (↻)', standard: '[12역학01-02] g 가 식에 들어가는 방식', discover: 'g 가 작으면 비행 시간·거리·높이가 커진다(사거리 ∝ 1/g)', misconception: '—' },
       { target: '떨어뜨린 공 함께 보기 (⚡)', standard: '대표 문항(수평 던지기 vs 자유 낙하)', discover: '두 공의 높이가 항상 같다', misconception: '던진 공이 늦게 떨어진다' },
-      { target: '더 많은 설정: 공기 저항 · 질량 (↻)', standard: '\'이상적 조건\'의 뜻, 변인 통제, 심화 발문', discover: '공기 저항이 있으면 가벼운 공이 덜 날아가고 최적 각도가 45° 보다 작다. 저항이 없으면 질량은 궤적과 무관', misconception: '무거운 공이 빨리 떨어진다' }
+      { target: '더 많은 설정: 공기 저항 · 질량 (↻)', standard: '\'이상적 조건\'의 뜻, 변인 통제, 심화 발문', discover: '공기 저항이 있으면 가벼운 공이 덜 날아가고 최적 각도가 45°보다 작다. 저항이 없으면 질량은 궤적과 무관', misconception: '무거운 공이 빨리 떨어진다' }
     ],
     sections: [
       { title: '성취기준', items: ['[12역학01-02] 뉴턴 운동 법칙으로 포물선 운동을 정량적으로 설명하고 역학적 에너지를 구한다.', '연계 [12물리01-04] 역학적 에너지 보존.', '탐구 활동: 포물선 운동을 하는 물체의 동영상을 분석하여 역학적 에너지 보존 확인하기. (교과서 활동 이름·쪽수는 확인 필요)'] },
       { title: '수업 흐름', items: ['① 예측: 처음 들어오면 사거리 숫자 예측 창이 떠요(상한은 지금 조건 최대 사거리의 1.5배). 실험 카드를 누르면 값이 바로 바뀌고 카드별 예측 질문이 떠요. 예측 창이 떠 있는 동안 궤적·기록은 숨겨요.', '② 실행: 끝나면 오른쪽 패널 맨 위에 예측 판정(예측·실제·차이)과 결과 해설 한 줄이 떠요. 해설 전문은 왜 그럴까? 안에 있어요.', '③ 비교: 한 가지만 바꿔 3~5번 기록해요(띠의 기록하기 버튼). 오른쪽 기록 표에서 두 기록을 나란히 비교해요. 눈금 자동 맞춤은 같은 v₀·h 면 각도를 바꿔도 눈금이 그대로라 궤적을 바로 견줄 수 있어요.', '④ 정리: 보기 3개 질문 4개(바로 판정) + 계산 1개(힌트 접힘) + 더 생각하기 1개. 답 확인하기 잠금은 교사 설정에서.'] },
-      { title: '발문', items: ['각도를 바꿔도 착지 속력이 같을까? (카드 ②, 모둠 활동) → 같은 v₀·h 면 √(v₀² + 2gh) 로 같아요.', '공기 저항을 켜면 가장 멀리 가는 각도는 45° 보다 클까 작을까? → 탁구공 20 m/s 에서 약 35°.', '최고점에서 공은 멈출까? → 수평 속도는 그대로, 가속도는 g 아래.'] },
-      { title: '조작 메모', items: ['섬광 점(0.1 s 간격)을 누르면 그 순간의 t·x·y·속도와 운동·위치 에너지가 떠요. 동영상 분석 활동처럼 점 몇 개를 골라 합이 같은지 표에 적게 해요. 빈 곳을 누르면 닫혀요.', '실행 전 공을 끌어당겼다 놓으면 v₀·θ 가 들어가요(당긴 길이 10u = 1 m/s). 놓아도 실행하지 않아요.', '공기 저항 없음은 해석해(식)로 계산해서 에너지 합이 출렁이지 않아요. 저항 있음은 RK4 (dt = 1/240 s).', '공기 저항을 켜면 질량은 공 종류로 정해져요(쇠공 0.50 kg, 탁구공 0.0027 kg). 달에는 공기가 없어 저항 0, 화성은 공기 밀도 0.020 kg/m³.', '떨어뜨린 공은 같은 높이·같은 연직 속도로 출발하고 옆으로만 움직이지 않는 공이에요. θ = 0° 이면 그냥 떨어뜨린 공.'] }
+      { title: '발문', items: ['각도를 바꿔도 착지 속력이 같을까? (카드 ②, 모둠 활동) → 같은 v₀·h 면 √(v₀² + 2gh) 로 같아요.', '공기 저항을 켜면 가장 멀리 가는 각도는 45°보다 클까 작을까? → 탁구공 20 m/s 에서 약 35°.', '최고점에서 공은 멈출까? → 수평 속도는 그대로, 가속도는 g 아래.'] },
+      { title: '조작 메모', items: ['섬광 점(0.1 s 간격)을 누르면 그 순간의 t·x·y·속도와 운동·위치 에너지가 떠요. 동영상 분석 활동처럼 점 몇 개를 골라 합이 같은지 표에 적게 해요. 빈 곳을 누르면 닫혀요.', '실행 전 공을 끌어당겼다 놓으면 v₀·θ 가 들어가요(당긴 길이 10u = 1 m/s). 놓아도 실행하지 않아요.', '공기 저항 없음은 해석해(식)로 계산해서 에너지 합이 출렁이지 않아요. 저항 있음은 RK4 (dt = 1/240 s).', '공기 저항을 켜면 질량은 공 종류로 정해져요(쇠공 0.50 kg, 탁구공 0.0027 kg). 달에는 공기가 없어 저항 0, 화성은 공기 밀도 0.020 kg/m³.', '떨어뜨린 공은 같은 높이·같은 연직 속도로 출발하고 옆으로만 움직이지 않는 공이에요. θ = 0°이면 그냥 떨어뜨린 공.'] }
     ],
     keys: 'G 지구 g 9.8/10 · L 눈금 자동 맞춤 · B 떨어뜨린 공 · A 속도·가속도 화살표'
   });
@@ -788,7 +788,9 @@
 
   function finishRun(p) {
     if (SK.finished) return;
-    SK.time = st.tLand - DT;   // 공통 틀이 곧 dt 를 더함 → 상태 칩 t 가 비행 시간과 같게
+    // R3: 상태 칩·'시간 t' 계기판·띠 문장이 모두 같은 st.tLand. SK.finish 가 칩을 바로 그리므로 그때는 tLand,
+    // 그 뒤 공통 틀이 dt 를 한 번 더하므로 끝나면 tLand - DT 로 되돌린다
+    SK.time = st.tLand;
     var E = PH.energy(run, st);
     st.result = {
       T: st.tLand, R: st.x, H: run.analytic ? run.H : st.maxY,
@@ -796,9 +798,10 @@
     };
     // 끝 안내는 띠 문장(6초) — 그다음 공통 문장 '기록하기 버튼으로 결과를 저장해요'
     var msg = st.tLand < 1e-9
-      ? (run.v0 > 0 ? '땅에서 0° 면 바로 닿아요. 각도를 키워요' : '공이 그대로예요. 속력이나 높이를 키워요')
+      ? (run.v0 > 0 ? '땅에서 0°면 바로 닿아요. 각도를 키워요' : '공이 그대로예요. 속력이나 높이를 키워요')
       : '착지! ' + fmt(st.tLand, 2) + ' s 동안 ' + fmt(st.x, 1) + ' m 날았어요';
     SK.finish(msg);
+    SK.time = st.tLand - DT;
   }
 
   function thin(pts, max) {
@@ -919,12 +922,13 @@
     ctx.beginPath(); ctx.moveTo(L.AX, L.GY); ctx.lineTo(L.AX, 0); ctx.stroke();
     ctx.font = '600 22px ' + FN; ctx.fillStyle = C.muted;
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    var ky = Math.max(1, Math.ceil(32 / (cell * S)));
+    var ky = Math.max(1, Math.ceil(32 / (cell * S))), yTickW = 0;
     for (var iy = 1; sy(iy * cell) >= TOPY - 30; iy++) {
       if (iy % ky) continue;
       var yy = sy(iy * cell);
       ctx.fillRect(L.AX - 8, yy - 1, 8, 2);
       ctx.fillText(numTxt(iy * cell), L.AX - 12, yy);
+      yTickW = Math.max(yTickW, ctx.measureText(numTxt(iy * cell)).width);
     }
     // x 눈금 (지면 아래) — 오른쪽 끝은 축 이름 자리
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
@@ -936,14 +940,15 @@
       ctx.fillText(numTxt(ix * cell), xx, L.GY + 12);
     }
     // 축 이름: 그래프 바깥 가장자리 (x: 오른쪽 아래 끝, y: 왼쪽 위 끝)
-    ctx.fillStyle = C.ink; ctx.font = '700 22px ' + FS;
+    // R3: 지면 띠 안 글자 위계는 하나 (600 · muted). y축 제목은 눈금 숫자 왼쪽 바깥 (숫자와 겹치지 않게)
+    ctx.fillStyle = C.muted; ctx.font = '600 22px ' + FS;
     ctx.textAlign = 'right'; ctx.textBaseline = 'top';
-    ctx.fillText('수평 거리 x (m)', W - 12, L.GY + 36);
-    ctx.save(); ctx.translate(16, (TOPY + L.GY) / 2); ctx.rotate(-Math.PI / 2);
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('높이 y (m)', 0, 0); ctx.restore();
-    // 눈금 크기: x 축 왼쪽 아래, 진한 22u
-    ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.font = '800 22px ' + FS; ctx.fillStyle = C.ink;
-    ctx.fillText('모눈 1칸 = ' + numTxt(cell) + ' m', 8, L.GY + 36);
+    ctx.fillText('수평 거리 x (m)', W - 12, L.GY + 40);
+    ctx.save(); ctx.translate(Math.max(12, L.AX - 12 - yTickW - 14), (TOPY + L.GY) / 2); ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom'; ctx.fillText('높이 y (m)', 0, 0); ctx.restore();
+    // 눈금 크기: x 축 왼쪽 아래
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('모눈 1칸 = ' + numTxt(cell) + ' m', 8, L.GY + 40);
 
     // 달·화성: 같은 조건으로 지구에서 던졌다면 (회색 점선)
     if (p.planet !== 'earth' && run.analytic && !pred) {
@@ -1041,9 +1046,11 @@
       SK.arrow(ctx, bx, by, tx, by, { color: '--color-q-velocity', width: 3, dash: [8, 6] });
       SK.arrow(ctx, bx, by, bx, ty, { color: '--color-q-velocity', width: 3, dash: [8, 6] });
       SK.arrow(ctx, bx, by, tx, ty, { color: '--color-q-velocity', width: 5 });
-      if (Math.abs(st.vx) > 1) labs.push({ x: tx + 10, y: by + 18, text: '수평 속도', anchor: 'left', color: '--color-q-velocity', size: 22 });
-      if (Math.abs(st.vy) > 1) labs.push({ x: bx + 12, y: ty + (st.vy > 0 ? -4 : 4), text: '수직 속도', anchor: 'left', color: '--color-q-velocity', size: 22 });
-      labs.push({ x: tx + 10, y: ty, text: '속도 v', anchor: 'left', color: '--color-q-velocity', size: 22 });
+      // R3: 이름표는 화살 끝에서 12u 바깥 (자취·화살과 겹치지 않게)
+      var vl = Math.hypot(tx - bx, ty - by) || 1, ux = (tx - bx) / vl, uy = (ty - by) / vl, LH = VLAB_H / 2;
+      if (Math.abs(st.vx) > 1) labs.push({ x: tx + 12, y: by, text: '수평 속도', anchor: 'left', color: '--color-q-velocity', size: 22 });
+      if (Math.abs(st.vy) > 1) labs.push({ x: bx - 8, y: ty + (st.vy > 0 ? -(12 + LH) : 12 + LH), ax: bx, ay: ty, text: '수직 속도', anchor: 'right', color: '--color-q-velocity', size: 22 });
+      labs.push({ x: tx + 12 * ux, y: ty + 12 * uy + uy * LH, ax: tx, ay: ty, text: '속도 v', anchor: ux < -0.3 ? 'right' : 'left', color: '--color-q-velocity', size: 22 });
     } else if (p.showV && !SK.started && run.v0 > 0) {
       // 실행 전: 던지는 방향 화살표
       var th0 = run.theta * Math.PI / 180, ln0 = Math.max(40, run.v0 * VS);
@@ -1063,7 +1070,7 @@
         }
       }
     }
-    if (labs.length) SK.placeLabel(ctx, labs, { avoid: [{ x: bx - BALL_R, y: by - BALL_R, w: BALL_R * 2, h: BALL_R * 2 }] });
+    if (labs.length) vecLabels(ctx, labs, [{ x: bx - BALL_R, y: by - BALL_R, w: BALL_R * 2, h: BALL_R * 2 }]);
 
     // 최고점에서 멈췄을 때: 짧은 라벨
     if (st.hold || (st.topDone && SK.started && !SK.running && !SK.finished && Math.abs(st.vy) < 1e-6)) {
@@ -1111,8 +1118,43 @@
     }
 
     updateLegend(p);
-    meters.update({ t: st.t, x: st.x, vx: st.vx, vy: st.vy });
+    meters.update({ t: st.landed && st.tLand !== null ? st.tLand : st.t, x: st.x, vx: st.vx, vy: st.vy });
     drawEnergy(p);
+  }
+
+  /**
+   * R3: 화살표 이름표 — 공통 placeLabel 과 같은 겹침 피하기에, 배경은 --color-paper-label 둥근 4u 상자,
+   * 밀려난 이름표의 보조선은 그 화살과 같은 색 1px (회색 굵은 선이 자취와 겹쳐 보이던 것)
+   */
+  var VLAB_H = 22 * 1.2 + 6;
+  function vecLabels(ctx, items, avoid) {
+    var placed = (avoid || []).slice(), padX = 6, hgt = VLAB_H;
+    var bg = SK.color('--color-paper-label') || 'rgba(251,248,239,0.85)';
+    items.forEach(function (it) {
+      ctx.save();
+      ctx.font = '600 ' + (it.size || 22) + 'px ' + FS;
+      var w = ctx.measureText(it.text).width + padX * 2;
+      var x0 = it.anchor === 'right' ? it.x - w : it.anchor === 'center' ? it.x - w / 2 : it.x;
+      var y0 = it.y - hgt / 2, dy = 0, tries = 0;
+      function hit(y) {
+        for (var i = 0; i < placed.length; i++) { var q = placed[i]; if (x0 < q.x + q.w && x0 + w > q.x && y < q.y + q.h && y + hgt > q.y) return true; }
+        return false;
+      }
+      while (hit(y0 + dy) && tries < 24) { tries++; dy = (tries % 2 ? -1 : 1) * Math.ceil(tries / 2) * 8; }
+      var box = { x: x0, y: y0 + dy, w: w, h: hgt };
+      placed.push(box);
+      var col = SK.color(it.color || '--color-ink');
+      if (Math.abs(dy) > 12) {   // 보조선: 화살 끝(ax, ay)에서 상자 가장자리까지
+        var lx = it.ax !== undefined ? it.ax : it.x, ly = it.ay !== undefined ? it.ay : it.y;
+        ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(Math.max(box.x, Math.min(lx, box.x + w)), ly < box.y ? box.y : box.y + hgt); ctx.stroke();
+      }
+      ctx.fillStyle = bg;
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(box.x, box.y, w, hgt, 4); ctx.fill(); } else ctx.fillRect(box.x, box.y, w, hgt);
+      ctx.fillStyle = col; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(it.text, box.x + padX, box.y + hgt / 2);
+      ctx.restore();
+    });
   }
 
   /** 실험 화면 위 작은 말풍선 (최고점·섬광 점·당기기) */

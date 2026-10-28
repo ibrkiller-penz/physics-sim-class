@@ -97,8 +97,9 @@
   var SK = window.SimKit;
   var h = SK.h, fmt = SK.fmt, clamp = SK.clamp;
   var LX = 425, SX = 8, SY = 14;            // 렌즈 x, 가로·세로 u/cm
-  var AXIS = 380, RAIL = 592, HY = 658;      // 광축 y, 광학대 윗면 y, 손잡이 가운데 y (손잡이 630~686: 실험 화면 안쪽)
+  var AXIS = 380, RAIL = 592, HY = 672;      // 광축 y, 광학대 윗면 y, 손잡이 가운데 y (R3: 눈금 숫자 아래 +14u — 손잡이 646~698)
   var XL = 25, XR = 1225;                    // −50 cm, +100 cm
+  var SCR_TOP = AXIS - 46, LABEL_Y = SCR_TOP - 6 - 16;   // 스크린 막대 윗면 · 렌즈/스크린 이름 줄(막대 위 6u, 라벨 높이 32u)
   var Y_TOP = AXIS / SY, Y_BOT = -(RAIL - 6 - AXIS) / SY;  // 광선을 그리는 세로 범위(cm)
   // 정면 보기 창 (R2): 머리 66u(= --tap, 누르면 접힘) + 몸통(물체 칸 | 스크린 칸, 같은 배율로 자동 확대) · 캡션은 창 밖 아래
   var WIN = { x: 908, y: 12, w: 330, top: 66, body: 196, objW: 104 };
@@ -227,7 +228,7 @@
       { text: '처음이면 ① 초점거리 찾기부터 골라 예측해요' },
       { text: '▶ 실행 뒤 스크린을 선명한 곳으로 옮겨요' },
       { text: '물체 거리만 바꿔 기록하고 규칙을 찾아요', action: { label: '규칙 카드 열기', onClick: function () { ruleCard(); } } },
-      { text: '질문에 답하고, 마지막으로 ⑤ 렌즈 반 가리기' }
+      { text: '질문에 답하고, 마지막으로 ⑤ 렌즈 반쪽 가리기' }
     ],
     // R2(A4): 카드를 누르면 값이 먼저 바뀌므로, 예측 창이 떠 있는 동안 상(像)·정면 창·계기판 결과를 숨긴다 (광선은 보임)
     autoPredict: true,
@@ -267,7 +268,10 @@
      4. 수치 바꾸기 (요구 A) — 패널 맨 위: 초점거리·물체 거리 / 더 많은 설정: 물체 높이·스크린 위치
      ------------------------------------------------------------------ */
   SK.addVar('values', { key: 'f', label: '{{초점거리}}', symbol: 'f', unit: 'cm', min: 5, max: 20, step: 1, value: 10, decimals: 0, ticks: [5, 10, 20], apply: 'live', onChange: changed, hint: '짧을수록 빛을 많이 꺾는 (더 볼록한) 렌즈예요' });
+  var sLock = null;   // R3: 물체 거리가 잠겼을 때(먼 풍경) 이유 한 줄
   SK.addVar('values', { key: 's', label: '{{물체 거리}}', symbol: 's', unit: 'cm', min: 3, max: 50, step: 1, value: 30, decimals: 0, ticks: [3, 20, 50], apply: 'live', onChange: changed, hint: '실험 화면의 [물체] 손잡이를 끌어도 돼요' });
+  sLock = h('p', { class: 'var__hint lens-hint', hidden: true, text: '먼저 초점거리를 찾아봐요 (먼 풍경이라 잠겼어요)' });
+  SK.controls.s.el.insertBefore(sLock, SK.controls.s.el.querySelector('.var__hint'));
 
   /* ------------------------------------------------------------------
      5. 상황 바꾸기 (요구 B) — 광선 3 · 가림판 · 스크린 · 물체 종류
@@ -366,7 +370,7 @@
   function presetApplied() { ghostData = null; SK.ghost = null; committed = snap(SK.params); eqOn = false; eqBtn.setAttribute('aria-pressed', 'false'); pinH = false; syncUI(); renderTable(); refreshFindF(); }
   SK.setPresets([
     {
-      name: '초점거리 찾기', tag: '탐구 재현', changes: '먼 풍경 · f 숨김',
+      name: '초점거리 찾기', tag: '탐구 재현', changes: 'f 숨김',
       change: '1) 먼 풍경 상을 스크린에 맺어 보기 → 2) 거리를 재서 f 알아내기',
       fixed: '초점거리는 숨김(정리 단계에서 답 확인하기로 공개), 광선 끔',
       values: preset({ type: 'far', s: 40, screenX: 30, hideF: true, ray1: false, ray2: false, ray3: false }),
@@ -387,7 +391,7 @@
       }
     },
     {
-      name: '물체를 2f 에', tag: '대표 문항', changes: 's 30 → 20 cm',
+      name: '물체를 2f에 두기', tag: '대표 문항', changes: 's 30 → 20 cm',
       change: '물체 거리 30 → 20 cm (= 2f)', fixed: 'f 10 cm, 물체 높이 4 cm, 스크린 20 cm',
       values: preset({ type: 'arrow', s: 20, screenX: 20 }),
       predict: {
@@ -395,7 +399,7 @@
         info: '2f = 초점거리의 두 배 자리예요 (f 가 10 cm 이면 20 cm).',
         choices: ['10 cm, 물체보다 작게', '20 cm, 물체와 같은 크기', '40 cm, 물체보다 크게'],
         answer: 2,
-        why: '2f 에 둔 물체의 빛은 반대쪽 2f 에 모여요. 물체 거리와 상 거리가 같으니 크기도 같고, 거꾸로 서요(배율 1배).'
+        why: '2f에 둔 물체의 빛은 반대쪽 2f 에 모여요. 물체 거리와 상 거리가 같으니 크기도 같고, 거꾸로 서요(배율 1배).'
       },
       onApply: presetApplied
     },
@@ -426,7 +430,7 @@
       onApply: presetApplied
     },
     {
-      name: '렌즈 반 가리기', tag: '오개념', changes: '렌즈 반 가림',
+      name: '렌즈 반쪽 가리기', tag: '오개념', changes: '렌즈 반 가림',
       change: '가림판으로 렌즈 위 절반 가리기', fixed: 'f 10 cm, 물체 30 cm, 높이 6 cm, 스크린 15 cm',
       values: preset({ type: 'candle', s: 30, h: 6, screenX: 15, blocker: 'top', fan: true }),   // 높이 6: 상(3 cm)이 정면 창에서 모양을 알아볼 만큼 크게
       predict: {
@@ -439,7 +443,8 @@
     }
   ]);
   // 처음 학생에게 권하는 카드 ① 에 '추천' 표시
-  (function () { var c = SK.el.presets.querySelector('.preset-card'); if (c) c.appendChild(h('span', { class: 'lens-reco', 'aria-hidden': 'true', text: '추천' })); })();
+  // R3: 떠 있는 배지 대신 공통 규칙(.preset-card.is-reco → 값 줄 앞 '추천 ·', 고르면 '✓ 고름'이 우선)
+  (function () { var c = SK.el.presets.querySelector('.preset-card'); if (c) c.classList.add('is-reco'); })();
 
   /* ------------------------------------------------------------------
      8. 설명 도우미 — ? 도움말(이렇게 해요·개념·용어) · 결과 해설 · 정리 질문
@@ -778,7 +783,7 @@
   function syncUI() {
     var p = SK.ui, hid = !!p.hideF && !SK.isTeacher();
     if (SK.controls.f) SK.controls.f.el.classList.toggle('teacher-only', !!p.hideF);
-    if (SK.controls.s) SK.controls.s.enable(p.type !== 'far');
+    if (SK.controls.s) { SK.controls.s.enable(p.type !== 'far'); if (sLock) sLock.hidden = p.type !== 'far'; }
     if (meters) ['si', 'm'].forEach(function (k) {
       var el = meters.el.querySelector('.meter[data-key="' + k + '"]');
       if (!el) return;
@@ -875,7 +880,7 @@
      14. 그리기
      ------------------------------------------------------------------ */
   /* 캔버스 라벨은 모아 두었다가 마지막에 SK.placeLabel 로 한꺼번에 (겹치면 위/아래로 밀고 흰 칩). R2: 글자 22u 이상 */
-  var LQ = [];
+  var LQ = [], rayNumBottom = -1;   // 광선 끝 번호 ①②③ 중 가장 아래 y (실상 라벨을 그 아래에)
   function q(text, x, y, o) {
     o = o || {};
     var size = Math.max(22, o.size || 22);
@@ -890,7 +895,7 @@
     // R2(A4): 예측 창이 떠 있는 동안에는 결과 층(상·상 거리·정면 창·계기판)을 숨긴다. 광선과 물체는 보인다
     var pred = SK.predicting();
     var showRes = done && !pred;
-    LQ = [];
+    LQ = []; rayNumBottom = -1;
 
     drawBench(ctx, p, showF);
     drawOverlays(ctx);
@@ -906,7 +911,7 @@
     drawHandles(ctx, p);
     if (!p.screen) drawEye(ctx);
     var avoid = [winBox()];
-    if (showF) [-2, -1, 1, 2].forEach(function (m) { var x = X(m * p.f); if (x >= XL && x <= XR) avoid.push({ x: x - 26, y: RAIL - 64, w: 52, h: 64 }); });
+    if (showF) [-2, -1, 1, 2].forEach(function (m) { var x = X(m * p.f); if (x >= XL && x <= XR) { avoid.push({ x: x - 26, y: RAIL - 64, w: 52, h: 64 }); avoid.push({ x: x - 10, y: AXIS - 10, w: 20, h: 20 }); } });
     SK.placeLabel(ctx, LQ, { avoid: avoid });
     drawWindow(ctx, p, im, sc, bl, done, pred);
     updateBand(p, im, sc, done, pred);
@@ -934,9 +939,10 @@
     ctx.restore();
     // 눈금 숫자 22u: 흰 칩 위 (손잡이·받침대 선이 지나가도 읽히게)
     for (cm = -50; cm <= 100; cm += 5) {
-      label(ctx, String(Math.abs(cm)), X(cm), RAIL + 30, { size: 22, weight: cm === 0 ? 800 : 600, color: cm === 0 ? '--color-ink' : '--color-ink-muted', bg: '--color-paper-raised', bgAlpha: 0.95 });
+      label(ctx, String(Math.abs(cm)), X(cm), RAIL + 30, { size: 22, weight: 500, color: '--color-ink-muted' });
     }
-    label(ctx, '(cm)', XR + 4, RAIL - 18, { size: 22, align: 'right', color: '--color-ink-muted', weight: 500 });
+    // 단위: 숫자 줄 오른쪽 끝 바로 아래 ('100' 오른쪽은 화면 끝이라 자리가 없음). 스크린 손잡이가 오른쪽 끝에 오면 숨김
+    if (!(p.screen && X(p.screenX) > XR - 150)) label(ctx, '(cm)', XR + 20, RAIL + 56, { size: 20, align: 'right', color: '--color-ink-muted', weight: 500 });
     // 광축 위 F · 2F 점 (글자는 광학대 위 삼각형에 한 벌만 — drawFMarks)
     if (showF) {
       [[-2, '2F'], [-1, 'F'], [1, 'F'], [2, '2F']].forEach(function (m) {
@@ -954,9 +960,9 @@
       var x = X(xcm);
       ctx.save();
       ctx.fillStyle = C('--color-sim-lens'); ctx.strokeStyle = C('--color-ink'); ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(x, RAIL - 2); ctx.lineTo(x - 13, RAIL - 26); ctx.lineTo(x + 13, RAIL - 26); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.lineJoin = 'miter'; ctx.beginPath(); ctx.moveTo(x, RAIL - 1); ctx.lineTo(x - 13, RAIL - 25); ctx.lineTo(x + 13, RAIL - 25); ctx.closePath(); ctx.fill(); ctx.stroke();
       ctx.restore();
-      label(ctx, m[1], x, RAIL - 46, { size: 26, weight: 800, color: '--color-sim-lens-text', bg: '--color-paper-raised' });
+      label(ctx, m[1], x, RAIL - 42, { size: 22, weight: 700, color: '--color-sim-lens-text', bg: '--color-paper-raised' });
     });
   }
 
@@ -1022,7 +1028,9 @@
         // 광선 끝 번호 ①②③ — 색만으로 구분하지 않게
         if (reveal === Infinity && !blocked) {
           var e = pts[pts.length - 1], right = e[0] > 1150;
-          q(['①', '②', '③'][r.n], right ? e[0] - 14 : e[0] + 14, clamp(e[1], 24, RAIL - 30), { size: 24, weight: 800, align: right ? 'right' : 'left', color: r.st.color });
+          var ny = clamp(e[1], 24, RAIL - 30);
+          q(['①', '②', '③'][r.n], right ? e[0] - 14 : e[0] + 14, ny, { size: 24, weight: 800, align: right ? 'right' : 'left', color: r.st.color, leader: false });
+          if (!right) rayNumBottom = Math.max(rayNumBottom, ny);
         }
       }
       // 허상: 렌즈 뒤로 퍼지는 빛을 왼쪽으로 늘인 점선 (결과 층 — 예측 중에는 숨김)
@@ -1074,7 +1082,9 @@
     ctx.fillStyle = C('--color-primary-tint'); ctx.globalAlpha = 0.85; ctx.fill();
     ctx.globalAlpha = 1; ctx.strokeStyle = C('--color-primary'); ctx.lineWidth = SK.isFlashing('f') ? 4.5 : 2.5; ctx.stroke();
     ctx.restore();
-    q('볼록렌즈', LX + 14, AXIS - R - 22, { size: 22, align: 'left', color: '--color-primary' });
+    // 스크린 이름과 같은 줄 — 스크린이 렌즈 오른쪽 가까이 있으면 렌즈 이름을 렌즈 왼쪽으로
+    var scrNear = p.screen && X(p.screenX) > LX && X(p.screenX) - LX < 250;
+    q('볼록렌즈', scrNear ? LX - 14 : LX + 14, LABEL_Y, { size: 22, align: scrNear ? 'right' : 'left', color: '--color-primary' });
   }
 
   function drawObject(ctx, p) {
@@ -1114,7 +1124,12 @@
       ctx.restore();
       var tipY = clamp(Y(hi), 20, RAIL - 30);
       if (cut) q('상이 생길 자리 (스크린이 빛을 먼저 막아요)', x + 14, Math.min(tipY + 26, RAIL - 110), { size: 22, align: 'left', color: '--color-ink-muted' });
-      else q('실상', x + 16, Math.min(tipY + 10, RAIL - 110), { size: 24, weight: 800, align: 'left', color: '--color-sim-lens-text' });
+      else {   // R3: 스크린에 맺히면 막대 오른쪽 40u · 광선 번호 ①②③ 아래
+        var onScr = p.screen && Math.abs(p.screenX - si) < 3;
+        var rx = onScr ? X(p.screenX) + 5 + 40 : x + 16;
+        var ry = onScr && rayNumBottom > 0 ? rayNumBottom + 36 : tipY + 10;
+        q('실상', rx, Math.min(ry, RAIL - 140), { size: 24, weight: 800, align: 'left', color: '--color-sim-lens-text', leader: false });
+      }
       if (Y(hi) > RAIL - 4) q('상이 화면보다 커요 (' + fmt(Math.abs(hi), 1) + ' cm)', x + 14, RAIL - 130, { size: 22, align: 'left', color: '--color-sim-lens-text' });
     } else {
       if (si < -50) {
@@ -1132,24 +1147,32 @@
 
   function drawScreen(ctx, p, im, sc, showRes) {
     if (!p.screen) return;
-    var x = X(p.screenX), top = AXIS - 46;
+    var x = X(p.screenX), top = SCR_TOP;
     ctx.save();
     ctx.fillStyle = C('--color-paper-sunk'); ctx.fillRect(x - 5, top, 10, RAIL - top);
     ctx.strokeStyle = C('--color-ink-muted'); ctx.lineWidth = 2; ctx.strokeRect(x - 5, top, 10, RAIL - top);
     ctx.restore();
     var clear = sc.formed && sc.clear && showRes;
     // 선명도 숫자는 계기판. 선명할 때만 스크린 위에 '선명!' (예측 중에는 숨김)
-    q(clear ? '스크린 · 선명!' : '스크린', x, top - 22, { size: 22, color: clear ? '--color-ok-text' : '--color-ink' });
+    q(clear ? '스크린 · 선명!' : '스크린', x, LABEL_Y, { size: 22, color: clear ? '--color-ok-text' : '--color-ink' });
   }
 
   /** 물체 거리·상 거리 화살표 — 광축 아래 한 줄(광학대 바로 위)에 나란히 */
   function drawRuler(ctx, p, im, showRes) {
     var y = RAIL - 80;
-    function dim(x1, x2, text, yy, col) {
+    function dim(x1, x2, text, yy, col, img) {
       ctx.save(); ctx.strokeStyle = C(col || '--color-ink-muted'); ctx.lineWidth = 2;
       line(ctx, x1, yy, x2, yy); line(ctx, x1, yy - 8, x1, yy + 8); line(ctx, x2, yy - 8, x2, yy + 8);
       ctx.restore();
-      q(text, (x1 + x2) / 2, yy - 20, { size: 22, color: col || '--color-ink-muted' });
+      // R3: 글자는 구간 가운데. 구간이 글자보다 짧거나 스크린 막대와 12u 안이면 한 줄 위로
+      font(ctx, 700, 22);
+      var tw = ctx.measureText(text).width + 12, cx = (x1 + x2) / 2, ty = yy - 20;
+      if (img && x2 - x1 < tw - 16) ty -= 34;
+      var sx = p.screen ? X(p.screenX) : null;
+      if (sx !== null && sx + 5 + 12 > cx - tw / 2 && sx - 5 - 12 < cx + tw / 2) {   // 스크린 막대와 12u 띄워 비킨다
+        cx = sx <= cx ? sx + 5 + 12 + tw / 2 : sx - 5 - 12 - tw / 2;
+      }
+      q(text, cx, ty, { size: 22, color: col || '--color-ink-muted', leader: false });
     }
     if (p.type !== 'far') dim(X(-p.s), LX, '물체 거리 ' + dist(p.s, true) + ' cm', y);
     if (hidden()) {
@@ -1158,10 +1181,10 @@
     }
     if (!showRes) return;
     if (im.kind === 'real' && im.si <= 100) {
-      dim(LX, X(im.si), '상 거리 ' + dist(im.si) + ' cm', y, '--color-sim-lens-text');
+      dim(LX, X(im.si), '상 거리 ' + dist(im.si) + ' cm', y, '--color-sim-lens-text', true);
     } else if (im.kind === 'virtual' && im.si >= -50) {
       // 허상은 물체와 같은 쪽이라 한 줄 위에
-      dim(X(im.si), LX, '상 거리 ' + dist(-im.si) + ' cm (렌즈 앞쪽)', y - 56, '--color-sim-lens-text');
+      dim(X(im.si), LX, '상 거리 ' + dist(-im.si) + ' cm (렌즈 앞쪽)', y - 56, '--color-sim-lens-text', true);
     }
   }
 
@@ -1184,7 +1207,7 @@
 
   function drawHandles(ctx, p) {
     function handle(key, x, text) {
-      var active = drag && drag.key === key, w = 112, hh = 56;
+      var active = drag && drag.key === key, w = 112, hh = 52;
       x = clamp(x, w / 2 + 4, 1250 - w / 2 - 4);      // 손잡이는 늘 실험 화면 안쪽에
       ctx.save();
       roundRect(ctx, x - w / 2, HY - hh / 2, w, hh, hh / 2);
@@ -1217,14 +1240,14 @@
   }
 
   /** 오른쪽 위 정면 보기 창 — [물체 | 스크린(또는 눈)] 두 칸을 같은 배율로 크게. 캡션은 창 밖 아래 */
-  var CAP_H = 44;
+  var CAP_H = 64;   // R3: 캡션은 창 안 마지막 두 줄
   function winH() { return winOpen ? WIN.top + WIN.body : WIN.top; }
   function winBox() { return { x: WIN.x - 8, y: WIN.y - 4, w: WIN.w + 16, h: winH() + 12 + (winOpen ? CAP_H : 0) }; }
   function drawWindow(ctx, p, im, sc, bl, done, pred) {
     var w = WIN, H = winH(), onScreen = p.screen, far = p.type === 'far';
     ctx.save();
     ctx.fillStyle = C('--color-paper-raised'); ctx.strokeStyle = C('--color-line-strong'); ctx.lineWidth = 2;
-    roundRect(ctx, w.x, w.y, w.w, H, 10); ctx.fill(); ctx.stroke();
+    roundRect(ctx, w.x, w.y, w.w, H + (winOpen ? CAP_H : 0), 10); ctx.fill(); ctx.stroke();
     ctx.restore();
     label(ctx, onScreen ? '스크린 정면' : '눈으로 본 모습', w.x + 14, w.y + w.top / 2, { size: 24, weight: 800, align: 'left' });
     // 접기 버튼: 머리 전체(높이 66u = --tap)가 눌림 자리, 버튼 모양은 오른쪽
@@ -1288,10 +1311,11 @@
     var ny = top + ph + nameH / 2 + 2;
     label(ctx, far ? '먼 풍경' : '물체', ox + ow / 2, ny, { size: 22, weight: 700, color: '--color-ink-muted' });
     label(ctx, onScreen ? '스크린' : '눈에 보이는 상', ax, ny, { size: 22, weight: 700, color: '--color-ink-muted' });
-    // 캡션: 창 밖 아래 (상을 가리지 않게)
+    // 캡션: 창 안 마지막 줄 (왼쪽 정렬) — 첫 줄 상의 모습, 둘째 줄 비율 안내
+    ctx.save(); ctx.strokeStyle = C('--color-line'); ctx.lineWidth = 1; line(ctx, w.x + 12, w.y + H, w.x + w.w - 12, w.y + H); ctx.restore();
     if (cap && !pred) {
-      if (!far) cap += ' · 두 칸은 같은 비율';
-      label(ctx, cap, w.x + w.w, w.y + H + CAP_H / 2 + 2, { size: 22, weight: 700, align: 'right', color: '--color-ink', bg: '--color-paper-raised', bgAlpha: 0.95 });
+      label(ctx, cap, w.x + 14, w.y + H + (far ? CAP_H / 2 : 20), { size: 22, weight: 700, align: 'left', color: '--color-ink' });
+      if (!far) label(ctx, '두 칸은 같은 비율', w.x + 14, w.y + H + 46, { size: 20, weight: 500, align: 'left', color: '--color-ink-muted' });
     }
   }
 

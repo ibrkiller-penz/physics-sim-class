@@ -178,7 +178,27 @@
   function plain(text) { return typeof text === 'string' ? text.replace(/\{\{(.+?)\}\}/g, '$1') : ''; }
   function stripNo(label) { return String(label || '').replace(/^\s*(?:[①-⑨]|\d+[.)]?)\s*/, ''); }
 
+  /** R3: 단위 붙이기 한 곳 — 영문 단위는 한 칸 띄우고('20 m/s'), °·% 는 붙인다('45°', '100%') */
+  function withUnit(v, unit) {
+    var t = v === null || v === undefined ? '' : String(v);
+    if (!unit) return t;
+    return t + (unit === '°' || unit === '%' || unit === '℃' ? '' : ' ') + unit;
+  }
+  /** R3: 번호 원 — 원문자(①) 글리프 대신 <span class="circ">1</span>. 숫자·원문자 모두 받음 */
+  var CIRC_RE = /^[①-⑳]/;
+  function circ(n) {
+    var t = String(n === null || n === undefined ? '' : n).trim();
+    if (CIRC_RE.test(t)) t = String(t.charCodeAt(0) - 0x2460 + 1);
+    return h('span', { class: 'circ', text: t });
+  }
+  /** '① 이름' 같은 글에서 앞 원문자를 떼어 [circ, ' 이름'] 으로 — 원문자 없으면 그대로 */
+  function circText(text) {
+    var t = String(text || '');
+    var m = t.match(/^\s*([①-⑳])\s*/);
+    return m ? [circ(m[1]), ' ' + t.slice(m[0].length)] : [t];
+  }
   SK.h = h; SK.fmt = fmt; SK.clamp = clamp; SK.parseNum = parseNum; SK.josa = josa; SK.withJosa = withJosa;
+  SK.withUnit = withUnit; SK.circ = circ; SK.circText = circText;
   SK.fmtFlex = fmtFlex;
   /** R2(C1): 기록 이름 = 모양 기호 + 이름 ('● 기록 1', '▲ 기록 2') — 표·그래프 범례·나란히 보기 공통 */
   var MARKS = ['●', '▲', '■', '◆', '★'];
@@ -223,7 +243,7 @@
   var mainTable = null;       // recordTable(null) 옵션
   var smallTables = [];
   var thinks = [];
-  var helpCfg = null, termDict = {};
+  var helpCfg = null, termDict = {}, helpScrim = null;
   var takeawayCfg = null;
   var flashes = {};
   var todaySeen = false;
@@ -371,19 +391,18 @@
     var toRecBtn = btn('기록 표 보기 ▸', 'btn--quiet btn--sm side-switch', function () { setSide(sideMode === 'panel' && SK.stepIndex === 3 && visibleThinks() ? 'think' : 'records', true); });
     toRecBtn.hidden = true;
     var legend = h('div', { class: 'panel-legend' }, [
+      /* R3: ⚡·↻ 둘 다 같은 칩, 가운데 '·' 대신 간격 */
       h('span', { class: 'panel-legend__words' }, [
-        h('span', { class: 'apply-ico apply-ico--live', 'aria-hidden': 'true', text: '⚡' }), ' 값을 바꾸면 바로 반영',
-        h('span', { class: 'panel-legend__dot', 'aria-hidden': 'true', text: '·' }),
-        h('span', { class: 'apply-ico apply-ico--restart', 'aria-hidden': 'true', text: '↻' }), ' 바꾸면 처음부터 다시 실행'
+        h('span', { class: 'apply-ico apply-ico--live', 'aria-hidden': 'true', text: '⚡' }), h('span', { text: '값을 바꾸면 바로 반영' })
+      ]),
+      h('span', { class: 'panel-legend__words' }, [
+        h('span', { class: 'apply-ico apply-ico--restart', 'aria-hidden': 'true', text: '↻' }), h('span', { text: '바꾸면 처음부터 다시 실행' })
       ]),
       toRecBtn
     ]);
-    var legendTip = h('div', { class: 'legend-tip', hidden: true, role: 'note' }, [
-      h('span', { text: '처음이에요? 값 옆 ⚡ 는 바꾸는 즉시 그림이 바뀌고, ↻ 는 ▶ 실행을 다시 눌러야 바뀌어요.' }),
-      btn('알겠어요', 'btn--outline btn--sm', function () { legendTip.hidden = true; })
-    ]);
+    /* R3: 범례 첫 방문 말풍선(legendTip)은 삭제 — 범례 줄과 같은 말 */
     var modeLine = h('div', { class: 'panel-mode', hidden: true });
-    var panelHead = h('div', { class: 'panel-head' }, [modeLine, legend, legendTip]);
+    var panelHead = h('div', { class: 'panel-head' }, [modeLine, legend]);
     var noteEl = buildPanelNote();
     var scroll = h('div', { class: 'sim-panel__scroll' });
     var secs = {};
@@ -477,7 +496,7 @@
     SK.el = {
       root: root, slide: slide, top: top, task: task, note: legacyNote, noteBody: noteEl.body, panelNote: noteEl.root, status: status,
       steps: stepList, taskText: taskText, taskSub: taskSub, taskWords: taskWords, taskAct: taskAct, taskNext: taskNext,
-      stage: stage, panel: scroll, panelBox: panelBox, panelHead: panelHead, panelMore: more, modeLine: modeLine, toRecBtn: toRecBtn, legendTip: legendTip,
+      stage: stage, panel: scroll, panelBox: panelBox, panelHead: panelHead, panelMore: more, modeLine: modeLine, toRecBtn: toRecBtn,
       sections: secs, panelFoot: foot, recBig: recBig, recBigBody: recBigBody, recCount: recCount,
       recNeed: recNeed, recBox: recBox, recTitle: recTitle, recScroll: recScroll, recVs: recVs, recExtra: recExtra,
       recChanged: recChanged, recMoreCols: recMoreCols, recSlide: recSlide,
@@ -490,17 +509,7 @@
     };
     noteEls = noteEl;
     updateTransport();
-    showLegendTipOnce();
-  }
-
-  /* R2(A5): 범례 첫 방문 말풍선 — 한 번만 */
-  function showLegendTipOnce() {
-    var seen = false;
-    try { seen = localStorage.getItem('simkit:legend-seen') === '1'; } catch (e) { seen = false; }
-    if (seen) return;
-    SK.el.legendTip.hidden = false;
-    try { localStorage.setItem('simkit:legend-seen', '1'); } catch (e) { /* 저장 안 돼도 됨 */ }
-    setTimeout(function () { if (SK.el.legendTip) SK.el.legendTip.hidden = true; }, 9000);
+    try { localStorage.removeItem('simkit:legend-seen'); } catch (e) { /* R3: 예전 말풍선 저장 키 정리 */ }
   }
 
   SK.panel = function (name) {
@@ -532,7 +541,9 @@
   }
   function checkMore() {
     var s = SK.el.panel; if (!s) return;
-    var hasMore = s.scrollHeight - s.scrollTop - s.clientHeight > 6;
+    // R3: 스크롤 끝 padding(64u)만 남았으면 '더 있음' 아님
+    var pad = parseFloat(getComputedStyle(s).paddingBottom) || 0;
+    var hasMore = s.scrollHeight - s.scrollTop - s.clientHeight - pad > 6;
     if (SK.el.panelMore.hidden === hasMore) SK.el.panelMore.hidden = !hasMore;
     s.classList.toggle('has-more', hasMore);
   }
@@ -542,7 +553,8 @@
     var cur = s.scrollTop + 8, target = null;
     for (var i = 0; i < heads.length; i++) {
       if (heads[i].offsetParent === null) continue;
-      var y = heads[i].offsetTop - s.offsetTop;
+      // R3(팀장): 스크롤 상자가 position:relative 라 offsetTop 은 이미 상자 기준 — 머리가 딱 위에 붙어 앞 묶음 머리가 비치지 않는다
+      var y = heads[i].offsetTop - (heads[i].offsetParent === s ? 0 : s.offsetTop);
       if (y > cur + 4) { target = y; break; }
     }
     if (target === null || target > s.scrollTop + s.clientHeight * 1.2) target = s.scrollTop + s.clientHeight * 0.7;
@@ -849,7 +861,7 @@
         var s = h('span', { text: t.label !== null && t.label !== undefined ? String(t.label) : fmtFlex(t.v, 0, dec) });
         s._f = (t.v - min) / (max - min);
         s.style.left = (s._f * 100) + '%';
-        if (s._f <= 0.02) s.classList.add('is-start'); else if (s._f >= 0.98) s.classList.add('is-end');
+        if (s._f < 0.12) s.classList.add('is-start'); else if (s._f > 0.88) s.classList.add('is-end');   // R3: 양끝 글자가 트랙 밖으로 안 나가게
         ticks.appendChild(s); tickEls.push(s);
       });
     }
@@ -865,7 +877,7 @@
       h('div', { class: 'var__head' }, [
         h('label', { class: 'var__label' }, labelKids),
         applyIcon(def.apply),
-        h('span', { class: 'var__field' }, [input, h('span', { class: 'var__unit', text: unitTxt })])
+        h('span', { class: 'var__field' }, [input, h('span', { class: 'var__unit' + (unitTxt === '°' ? ' var__unit--deg' : ''), text: unitTxt })])
       ]),
       h('p', { class: 'var__meta' }, [rangeTxt, h('span', { class: 'var__meta-dot', 'aria-hidden': 'true', text: '·' }), stepInfo]),
       h('div', { class: 'var__row' }, [minus, track, plus]),
@@ -875,7 +887,7 @@
     resolveWhere(where).appendChild(el);
     def.initial = value;
 
-    function showRange() { rangeTxt.textContent = fmtFlex(min, 0, prec) + '~' + fmtFlex(max, 0, prec) + (unitTxt ? ' ' + unitTxt : ''); }
+    function showRange() { rangeTxt.textContent = withUnit(fmtFlex(min, 0, prec) + '~' + fmtFlex(max, 0, prec), unitTxt); }
     function showErr(text) { err.textContent = text; err.hidden = false; input.classList.add('is-invalid'); setTimeout(checkMore, 0); }
     function clearErr() { if (!err.hidden) { err.hidden = true; input.classList.remove('is-invalid'); } }
     function show(v) {
@@ -884,9 +896,8 @@
       range.value = v;
       var f = (v - min) / (max - min);
       range.style.setProperty('--fill', (f * 100) + '%');
-      bubble.textContent = s + (unitTxt ? ' ' + unitTxt : '');
+      bubble.textContent = withUnit(s, unitTxt);
       bubble.style.left = 'calc(' + f + ' * (100% - var(--space-thumb)) + var(--space-thumb) / 2)';
-      for (var i = 0; i < tickEls.length; i++) tickEls[i].classList.toggle('is-under', Math.abs(tickEls[i]._f - f) < 0.09);
     }
     function set(v, opts) {
       opts = opts || {};
@@ -910,7 +921,7 @@
       if (v < min || v > max) {
         var near = clamp(v, min, max);
         var vt = fmtFlex(v, 0, prec), nt = fmtFlex(near, 0, prec);
-        showErr(vt + josa(vt, '은/는') + ' 넣을 수 없어요. 범위가 ' + fmtFlex(min, 0, prec) + '~' + fmtFlex(max, 0, prec) + (unitTxt ? ' ' + unitTxt : '') + '라서 가장 가까운 ' + withJosa(nt, '으로/로') + ' 맞췄어요.');
+        showErr(vt + josa(vt, '은/는') + ' 넣을 수 없어요. 범위가 ' + withUnit(fmtFlex(min, 0, prec) + '~' + fmtFlex(max, 0, prec), unitTxt) + '라서 가장 가까운 ' + withJosa(nt, '으로/로') + ' 맞췄어요.');
         v = near;
       } else clearErr();
       if (roundTo(v, prec) !== value) set(v, { source: 'input' });
@@ -1056,14 +1067,14 @@
       if (!p.changes && p.change) warnOnce('changes', 'SimKit(R2): preset.changes(카드 아래 줄, 예: "v₀ 10 → 20") 를 써 주세요. 지금은 change 를 대신 씁니다.');
       var ch = changesText(p);
       var tip = h('span', { class: 'preset-tip', role: 'tooltip' }, [
-        h('b', { text: CIRCLED[i] + ' ' + p.name }),
+        h('b', null, [circ(i + 1), ' ' + p.name]),
         p.tag ? h('span', { class: 'preset-tip__tag', text: SK.tagText(p.tag) }) : null,
         p.change ? h('span', null, [h('b', { text: '바꾸는 값: ' }), p.change]) : null,
         p.fixed ? h('span', null, [h('b', { text: '그대로 두는 값: ' }), p.fixed]) : null,
         p.predict && cfg.autoPredict ? h('span', { text: '누르면 값이 바로 바뀌고 예측 질문이 나와요.' }) : null
       ]);
       var b = h('button', { class: 'preset-card', type: 'button', 'aria-pressed': 'false', 'aria-label': (i + 1) + '번 실험 카드: ' + p.name + (ch ? ' — ' + ch : '') + (p.tag ? ' (' + SK.tagText(p.tag) + ')' : '') }, [
-        h('span', { class: 'preset-card__name' }, [h('span', { class: 'preset-card__key', text: CIRCLED[i] }), h('span', { class: 'preset-card__title', text: p.name })]),
+        h('span', { class: 'preset-card__name' }, [h('span', { class: 'preset-card__key' }, circ(i + 1)), h('span', { class: 'preset-card__title', text: p.name })]),
         h('span', { class: 'preset-card__changes' }, [
           p.tag ? h('span', { class: 'preset-card__dot', 'data-tag': p.tag, title: SK.tagText(p.tag), 'aria-hidden': 'true' }) : null,
           h('span', { class: 'preset-card__ch', text: ch })
@@ -1085,7 +1096,7 @@
       // R2 원칙 6: 실험 화면에는 모서리 칩 한 줄만 ('카드 ① 이름'), 자세한 값은 말풍선
       var p = presets[i];
       presetInfoEl = h('div', { class: 'preset-info', title: [p.change ? '바꾸는 값: ' + p.change : '', p.fixed ? '그대로: ' + p.fixed : ''].filter(Boolean).join('\n') || null }, [
-        h('b', { text: '카드 ' + CIRCLED[i] }), h('span', { class: 'preset-info__name', text: p.name })
+        h('b', null, ['카드 ', circ(i + 1)]), h('span', { class: 'preset-info__name', text: p.name })
       ]);
       SK.el.cornerTL.appendChild(presetInfoEl);
     }
@@ -1114,7 +1125,7 @@
     for (var k in vals) {
       if (!Object.prototype.hasOwnProperty.call(vals, k) || !SK.defs[k] || !SK.defs[k].record) continue;
       var d = SK.defs[k], name = d.symbol || plain(d.label);
-      parts.push(name + ' ' + SK.valueText(k, vals[k]) + (d.unit ? ' ' + d.unit : ''));
+      parts.push(name + ' ' + withUnit(SK.valueText(k, vals[k]), d.unit));
     }
     var s = head + ': ' + parts.slice(0, 2).join(' · ');
     if (!parts.length || s.length > 28) s = head + ' ' + p.name;
@@ -1297,7 +1308,7 @@
     if (el._sig !== sig) {
       el._sig = sig; el.innerHTML = '';
       parts.forEach(function (p) { if (p !== '' && p !== null && p !== undefined) el.appendChild(h('span', { class: 'chip' }, rich(String(p)))); });
-      el.appendChild(h('span', { class: 'chip num ' + run[1], text: run[0] + (SK.speed !== 1 ? ' · 속도 ×' + SK.speed : '') }));
+      el.appendChild(h('span', { class: 'chip num is-time ' + run[1], text: run[0] + (SK.speed !== 1 ? ' · 속도 ×' + SK.speed : '') }));
       if (SK.hasPending()) el.appendChild(h('span', { class: 'chip is-pend', text: '↻ 바꾼 값은 다음 실행부터' }));
     }
     updateTask();
@@ -1497,7 +1508,7 @@
     recordKeys().forEach(function (k) {
       if (A.params[k] === B.params[k]) return;
       var d = SK.defs[k] || {}, name = d.symbol || plain(d.label) || k;
-      out.push(name + ' ' + SK.valueText(k, A.params[k]) + ' → ' + SK.valueText(k, B.params[k]) + (d.unit ? ' ' + d.unit : ''));
+      out.push(name + ' ' + withUnit(SK.valueText(k, A.params[k]) + ' → ' + SK.valueText(k, B.params[k]), d.unit));
     });
     return out.length ? '바꾼 값(기록 ' + A.n + ' → ' + B.n + '): ' + out.join(' · ') : '기록 ' + A.n + '과 ' + B.n + '은 값이 같아요';
   }
@@ -1557,8 +1568,9 @@
     need._k = key; need.innerHTML = '';
     if (n < 2) {
       var canRec = SK.canRecord() && SK.finished;
-      need.appendChild(h('div', { class: 'rec-need' }, [
-        h('p', { text: '기록이 2개 있어야 비교할 수 있어요 (지금 ' + n + '개). 값 하나를 바꾸고 ▶ 실행한 뒤 기록하기 버튼으로 저장해요.' }),
+      // R3: 빈 상태는 안내 한 상자만 (표 상자·'저장한 실험 0/5' 소제목은 숨김)
+      need.appendChild(h('div', { class: 'rec-need' + (n === 0 ? ' is-empty' : '') }, [
+        h('p', { text: n === 0 ? '아직 저장한 실험이 없어요 — ▶ 실행한 뒤 기록하기를 누르면 여기에 쌓여요.' : '기록이 2개 있어야 비교할 수 있어요 (지금 1개). 값 하나를 바꾸고 ▶ 실행한 뒤 기록하기 버튼으로 저장해요.' }),
         canRec ? btn('지금 결과 기록하기', 'btn--secondary', function () { SK.record(); }) : null
       ]));
     }
@@ -1581,6 +1593,7 @@
     smallTables.forEach(function (t) { t.render(); });
     // 큰 판의 표는 늘 다시 그린다(숨어 있어도) — 시뮬레이터가 rt.el 안 표를 꾸미는 경우 호환
     SK.el.recTitle.textContent = '저장한 실험 ' + n + '/' + MAX_RECORDS + (n >= MAX_RECORDS ? ' — 가득 찼어요(✕ 로 하나 지우기)' : '');
+    if (SK.el.recBox) SK.el.recBox.hidden = n === 0;   // R3: 빈 상태 = 안내 한 상자
     renderNeed();
     var cl = changedLine();
     SK.el.recChanged.hidden = !cl; SK.el.recChanged.textContent = cl;
@@ -1684,7 +1697,9 @@
     if (noticeLast[flat] && now - noticeLast[flat] < 1200 && zone.firstChild) return;
     noticeLast[flat] = now;
     var kind = type && type !== 'info' ? type : 'info';
-    var kids = [kind === 'ok' ? h('span', { class: 'notice__mark', 'aria-hidden': 'true', text: '✓' }) : kind === 'warn' ? h('span', { class: 'notice__mark', 'aria-hidden': 'true', text: '!' }) : null, h('span', { text: flat })];
+    // R3(팀장): 글 속 원문자('카드 ①')도 .circ 배지로
+    var body = h('span', null, flat.split(/([①-⑳])/).map(function (s) { return CIRC_RE.test(s) ? circ(s) : s; }));
+    var kids = [kind === 'ok' ? h('span', { class: 'notice__mark', 'aria-hidden': 'true', text: '✓' }) : kind === 'warn' ? h('span', { class: 'notice__mark', 'aria-hidden': 'true', text: '!' }) : null, body];
     var n = h('div', { class: 'notice notice--' + kind, role: 'status' }, kids);
     if (action) {
       var ab = h('button', { class: 'notice__act', type: 'button' }, action.label);
@@ -1735,7 +1750,7 @@
 
   function predText(p) {
     if (!p) return '';
-    if (p.number !== undefined && p.number !== null) return fmtFlex(p.number, 0, 3) + (p.unit ? ' ' + p.unit : '');
+    if (p.number !== undefined && p.number !== null) return withUnit(fmtFlex(p.number, 0, 3), p.unit);
     return plain(p.answer || '');
   }
   function niceExample(mn, mx) {
@@ -1764,6 +1779,7 @@
     o = o || {};
     return new Promise(function (resolve) {
       if (modal && modal.type === 'predict') modal.close(null);
+      if (modal && modal.type === 'mode' && modal.close) modal.close();   // R3: 모드 창 위에 예측 창이 겹치지 않게
       lastPredictOpts = o;
       if (SK.stepIndex !== 0) SK.goStep(0);
       SK.pause();
@@ -1802,7 +1818,7 @@
       }
       var okBtn = btn('예측하기', 'btn--primary predict__ok', function () { submit(); });
       var btns = choices.map(function (c, i) {
-        var b = h('button', { class: 'btn btn--secondary predict__opt', type: 'button', 'aria-pressed': 'false' }, [h('span', { class: 'predict__no', text: CIRCLED[i] }), h('span', { class: 'predict__txt' }, rich(c)), keyHint(String(i + 1))]);
+        var b = h('button', { class: 'btn btn--secondary predict__opt', type: 'button', 'aria-pressed': 'false' }, [h('span', { class: 'predict__no' }, circ(i + 1)), h('span', { class: 'predict__txt' }, rich(c)), keyHint(String(i + 1))]);
         b.addEventListener('click', function (e) { blurOnMouse(e); choose(i); });
         b.addEventListener('dblclick', function () { choose(i); submit(); });
         return h('div', { class: 'predict__choice' }, [b, counts[i]]);
@@ -1826,7 +1842,7 @@
         nmMax = typeof nm.max === 'function' ? nm.max(SK.params) : nm.max;
         var ex = nm.example !== undefined ? fmtFlex(nm.example, 0, 3) : niceExample(nmMin, nmMax);
         numIn = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', 'aria-label': plain(nm.label || '예측 값') + ' 입력', placeholder: ex !== '' ? '예: ' + ex : '' });
-        var rangeTxt = typeof nmMin === 'number' && typeof nmMax === 'number' ? fmtFlex(nmMin, 0, 2) + '~' + fmtFlex(nmMax, 0, 2) + (nm.unit ? ' ' + nm.unit : '') + ' 사이' : '';
+        var rangeTxt = typeof nmMin === 'number' && typeof nmMax === 'number' ? withUnit(fmtFlex(nmMin, 0, 2) + '~' + fmtFlex(nmMax, 0, 2), nm.unit) + ' 사이' : '';
         numBox = h('div', { class: 'predict__num' }, [
           h('label', { class: 'predict__numlabel' }, rich(nm.label || '내 예측')),
           h('span', { class: 'predict__field' }, [numIn, h('span', { class: 'predict__unit', text: nm.unit || '' })]),
@@ -1877,6 +1893,7 @@
       ]);
       layer = h('div', { class: 'predict-layer' }, card);
       SK.el.stage.appendChild(layer);
+      SK.el.slide.classList.add('is-modal');   // R3: 모서리 칩·캔버스 위 버튼·카드 말풍선 숨김
       modal = {
         type: 'predict', close: function (v) { close(v, null); },
         shake: function () {
@@ -1961,7 +1978,7 @@
     var out = [], v = noteState.verdict, t = noteState.takeaway;
     if (v) {
       if (v.numeric) {
-        var u = v.numeric.unit ? ' ' + v.numeric.unit : '';
+        var u = withUnit('', v.numeric.unit);
         out.push(h('div', { class: 'note-verdict note-verdict--num verdict--' + v.kind }, [
           h('span', { class: 'verdict__mark', text: v.kind === 'hit' ? '✓ 가까워요' : '△ 차이 있어요' }),
           h('div', { class: 'note-nums' }, [
@@ -2080,7 +2097,7 @@
       SK.pause();
       var opts = modes.map(function (m, i) {
         var b = h('button', { class: 'mode-opt', type: 'button', 'aria-pressed': 'false' }, [
-          h('span', { class: 'mode-opt__no', text: CIRCLED[i] }),
+          h('span', { class: 'mode-opt__no' }, circ(i + 1)),
           h('span', { class: 'mode-opt__label', text: m.label }),
           m.desc ? h('span', { class: 'mode-opt__desc', text: m.desc }) : null,
           m.value === current && modeSeen[storeKey + ':picked'] ? h('span', { class: 'mode-opt__now', text: '지금 하는 것' }) : null
@@ -2099,7 +2116,7 @@
       SK.el.stage.appendChild(layer);
       SK.el.slide.classList.add('is-modal');
       modal = {
-        type: 'mode', onKey: function (e) {
+        type: 'mode', close: function () { closeLayer(); pick(current, true, true); }, onKey: function (e) {
           var m = /^(?:Digit|Numpad)([1-9])$/.exec(e.code);
           if (m && +m[1] <= modes.length) { start(+m[1] - 1); return true; }
           if (e.code === 'Escape') { closeLayer(); pick(current, true, true); return true; }
@@ -2167,7 +2184,7 @@
       var ds = document.querySelectorAll('details.reveal'); for (var i = 0; i < ds.length; i++) ds[i].open = true;
     }));
     if (o.keys) { body.appendChild(h('h3', { text: '이 실험 전용 키' })); body.appendChild(h('p', { text: o.keys })); }
-    if (o.keys) { guideKeys = o.keys; if (helpEl) { helpEl.remove(); helpEl = null; } }
+    if (o.keys) { guideKeys = o.keys; if (helpEl) { helpEl.remove(); helpEl = null; if (helpScrim) { helpScrim.remove(); helpScrim = null; } } }
     var closeBtn = btn(['닫기', keyHint('Esc')], '', function () { SK.toggleGuide(false); });
     drawerEl = h('aside', { class: 'drawer teacher-only', hidden: true, 'aria-label': '수업 안내(교사)' }, [
       h('div', { class: 'drawer__head' }, [h('h2', { text: '수업 안내(교사)' }), closeBtn]), body
@@ -2216,7 +2233,7 @@
   SK.help = function (o) {
     helpCfg = o || {};
     addTerms(helpCfg.terms);
-    if (helpEl) { helpEl.remove(); helpEl = null; }
+    if (helpEl) { helpEl.remove(); helpEl = null; if (helpScrim) { helpScrim.remove(); helpScrim = null; } }
     updateTask();
   };
   function concept(c) {
@@ -2286,10 +2303,15 @@
     keys.forEach(function (k) { kl.appendChild(h('dt', null, h('kbd', { text: k[0] }))); kl.appendChild(h('dd', { text: k[1] })); });
     var extra = guideKeys ? h('p', { class: 'var__hint', text: '이 실험 전용: ' + guideKeys }) : null;
     addTab('keys', '단축키', [kl, extra, h('p', { class: 'var__hint', text: '키보드가 없어도 화면의 버튼으로 모두 할 수 있어요.' })]);
-    var closeBtn = btn(['닫기', keyHint('Esc')], 'btn--outline', function () { SK.toggleHelp(false); });
+    var closeBtn = btn(['닫기', keyHint('Esc')], 'btn--outline btn--sm', function () { SK.toggleHelp(false); });
+    // R3: 제목 '도움말' + 작은 부제(실험 이름) — 긴 제목이 고아 줄로 꺾이지 않게
     helpEl = h('aside', { class: 'drawer drawer--help', hidden: true, 'aria-label': '도움말' }, [
-      h('div', { class: 'drawer__head' }, [h('h2', { text: '도움말 — ' + (cfg.title || '') }), closeBtn]), tabsBox, paneBox
+      h('div', { class: 'drawer__head' }, [h('h2', null, ['도움말', cfg.title ? h('small', { text: cfg.title }) : null]), closeBtn]), tabsBox, paneBox
     ]);
+    // R3: 서랍 뒤 스크림 — 누르면 닫힘
+    helpScrim = h('div', { class: 'drawer-scrim', hidden: true, 'aria-hidden': 'true' });
+    helpScrim.addEventListener('click', function () { SK.toggleHelp(false); });
+    SK.el.slide.appendChild(helpScrim);
     SK.el.slide.appendChild(helpEl);
     showTab('how');
   }
@@ -2305,6 +2327,7 @@
     if (!helpEl) buildHelp();
     var show = on === undefined ? helpEl.hidden : !!on;
     helpEl.hidden = !show;
+    if (helpScrim) helpScrim.hidden = !show;
     if (show) { if (tab) showTab(tab); else refreshLive(); if (drawerEl) drawerEl.hidden = true; }
   };
 
@@ -2376,7 +2399,7 @@
     if (o.choices && o.choices.length) {
       var bs = [];
       choices = h('div', { class: 'think-card__choices' }, o.choices.map(function (c, i) {
-        var b = btn([h('span', { class: 'think-card__mark', text: CIRCLED[i] }), h('span', { class: 'think-card__txt' }, rich(c))], 'think-card__opt', function () {
+        var b = btn([h('span', { class: 'think-card__mark' }, circ(i + 1)), h('span', { class: 'think-card__txt' }, rich(c))], 'think-card__opt', function () {
           bs.forEach(function (x) { x.classList.remove('is-right', 'is-wrong'); x.setAttribute('aria-pressed', 'false'); });
           b.setAttribute('aria-pressed', 'true');
           fb.hidden = false; fb.innerHTML = '';
@@ -2446,12 +2469,13 @@
 
   /**
    * A18: 캔버스 라벨 겹침 피하기. items = [{x, y, text, anchor:'left'|'center'|'right', color, font, bg:false}]
-   * 겹치면 위/아래로 8u 씩 밀고, 흰 반투명 칩을 깔아 그린다. 반환: 그려진 상자 목록
+   * 겹치면 위/아래로 8u 씩 밀고, 종이색 반투명 칩(--color-paper-label, 모서리 4u, 패딩 2u 6u)을 깔아 그린다. 반환: 그려진 상자 목록
+   * 항목 옵션(R3): leaderColor('--색 토큰' — 보조선 색, 기본 line-strong), radius(모서리, 기본 4)
    */
   SK.placeLabel = function (ctx, items, opts) {
     opts = opts || {};
     var placed = (opts.avoid || []).slice(), out = [];
-    var padX = 6, padY = 3;
+    var padX = 6, padY = 2;   // R3 규칙 12: 패딩 2u 6u · 모서리 4u · 바탕 --color-paper-label
     (items || []).forEach(function (it) {
       if (!it || !it.text) return;
       ctx.save();
@@ -2468,12 +2492,12 @@
       var box = { x: x0, y: y0 + dy, w: w, h: hgt };
       placed.push(box); out.push(box);
       if (Math.abs(dy) > 12 && it.leader !== false) {
-        ctx.strokeStyle = SK.color('--color-line-strong'); ctx.lineWidth = 1.5; ctx.setLineDash([]);
+        ctx.strokeStyle = it.leaderColor ? SK.color(it.leaderColor) : SK.color('--color-line-strong'); ctx.lineWidth = 1; ctx.setLineDash([]);
         ctx.beginPath(); ctx.moveTo(it.x, it.y); ctx.lineTo(it.x, dy < 0 ? box.y + box.h : box.y); ctx.stroke();
       }
       if (it.bg !== false) {
-        ctx.fillStyle = 'rgba(251,248,239,0.88)';
-        var r = 6; ctx.beginPath();
+        ctx.fillStyle = SK.color('--color-paper-label') || 'rgba(251,248,239,0.85)';
+        var r = it.radius !== undefined ? it.radius : (opts.radius !== undefined ? opts.radius : 4); ctx.beginPath();
         ctx.moveTo(box.x + r, box.y); ctx.arcTo(box.x + w, box.y, box.x + w, box.y + hgt, r); ctx.arcTo(box.x + w, box.y + hgt, box.x, box.y + hgt, r);
         ctx.arcTo(box.x, box.y + hgt, box.x, box.y, r); ctx.arcTo(box.x, box.y, box.x + w, box.y, r); ctx.closePath(); ctx.fill();
       }
@@ -2573,7 +2597,7 @@
       if (it.symbol) lab.push(' ', h('i', { text: it.symbol }));
       var card = h('div', { class: 'meter' + (it.hidden ? ' is-hidden-value' : ''), 'data-q': it.q || null, 'data-key': it.key }, [
         h('span', { class: 'meter__label' }, lab),
-        h('span', { class: 'meter__value' + (it.size === 'md' ? ' meter__value--md' : '') }, [val, h('span', { class: 'meter__unit', text: it.unit || '' })])
+        h('span', { class: 'meter__value' + (it.size === 'md' ? ' meter__value--md' : '') }, [val, h('span', { class: 'meter__unit', 'data-unit': it.unit || null, text: it.unit || '' })])
       ]);
       wrap.appendChild(card);
       cells[it.key] = { el: val, dec: it.decimals !== undefined ? it.decimals : 1, last: null };
@@ -2584,7 +2608,12 @@
       set: function (key, v) {
         var c = cells[key]; if (!c) return;
         var t = typeof v === 'number' ? fmt(v, c.dec) : (v === null || v === undefined ? '–' : String(v));
-        if (t !== c.last) { c.el.textContent = t; c.last = t; }
+        if (t !== c.last) {
+          c.el.textContent = t; c.last = t;
+          // R3: 값 자리에 숫자 없는 글('쏘기 전'·'부딪친 뒤')이면 작은 글자(.is-text)로, 단위는 숨김
+          var isText = typeof v === 'string' && !/[0-9]/.test(v) && v !== '–' && v !== '-';
+          var box = c.el.parentNode; if (box) box.classList.toggle('is-text', isText);
+        }
       },
       update: function (obj) { for (var k in obj) api.set(k, obj[k]); }
     };
@@ -2723,12 +2752,13 @@
       m.appendChild(b);
     }
     // R2(B2): 기록 모두 지우기 · 전체 화면 · 도움말 · 교사 모드 (+ 조작판 접기)
-    item('기록 모두 지우기…', function () { SK.clearRecords(); }, 'is-danger');
-    m.appendChild(h('hr'));
+    // R3: 지우는 항목은 맨 아래 구분선 밑으로
     item('전체 화면 켜기 / 끄기', function () { SK.toggleFullscreen(); });
     item('도움말 열기', function () { SK.toggleHelp(true); });
     item(SK.isTeacher() ? '교사 모드 끄기' : '교사 모드 켜기', function () { SK.toggleTeacher(); });
     item(SK.el.slide.classList.contains('is-collapsed') ? '조작판 다시 펴기' : '조작판 접기 (실험 화면 크게)', function () { SK.toggleCollapse(); });
+    m.appendChild(h('hr'));
+    item('기록 모두 지우기…', function () { SK.clearRecords(); }, 'is-danger');
   }
   document.addEventListener('pointerdown', function (e) {
     if (!openPop && (!SK.el.infoPop || SK.el.infoPop.hidden)) return;

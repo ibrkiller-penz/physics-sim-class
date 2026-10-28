@@ -47,8 +47,8 @@
   font: var(--font-weight-semibold) calc(22 * var(--u))/1.2 var(--font-sans); color: var(--color-ink-muted);
 }
 .cm-tabs {
-  position: absolute; left: calc(10 * var(--u)); top: calc(40 * var(--u)); width: calc(172 * var(--u));
-  display: grid; gap: calc(8 * var(--u)); pointer-events: auto;
+  position: absolute; left: calc(14 * var(--u)); top: calc(40 * var(--u)); width: calc(168 * var(--u));
+  display: grid; gap: calc(6 * var(--u)); pointer-events: auto;   /* R3: 왼쪽 14u(제목과 같은 기준선) · 탭 사이 6u */
 }
 /* R2(C3): 고른 탭 = 굵은 글씨 + 배경 상자 + 왼쪽 띠 · 안 고른 탭 = 윤곽선만 */
 .cm-tab {
@@ -57,12 +57,15 @@
   border-radius: var(--radius-md); border: calc(2 * var(--u)) solid var(--color-line);
   background: transparent; color: var(--color-ink-muted);
   font: var(--font-weight-medium) calc(22 * var(--u))/1.2 var(--font-sans); text-align: left; cursor: pointer;
-  word-break: keep-all;
+  word-break: keep-all; overflow: hidden;   /* R3: 고른 탭 왼쪽 띠를 둥근 모서리 안에 가둠 */
 }
 .cm-tab:hover { border-color: var(--color-line-strong); color: var(--color-ink); }
 .cm-tab[aria-selected="true"] {
   background: var(--sim-tint); color: var(--sim-text); border-color: var(--sim);
-  box-shadow: inset calc(6 * var(--u)) 0 0 var(--sim); font-weight: var(--font-weight-black);
+  font-weight: var(--font-weight-black);
+}
+.cm-tab[aria-selected="true"]::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: calc(6 * var(--u)); background: var(--sim);
 }
 /* 탭 이름 옆 같은 자리: 안 본 탭 ● (8u 점) · 본 탭 ✓ */
 .cm-tab__mark {
@@ -106,3 +109,8 @@
 
 /* 기록 표: 칸 사이 여백 (기록 이름과 첫 값이 붙지 않게) — 이 시뮬레이터 안에서만 */
 [data-sim="collision-momentum"] .rec-table td:not(.td-del), [data-sim="collision-momentum"] .rec-table th:not(.th-del) { padding-left: calc(20 * var(--u)); }
+
+/* R3: 계기판 '처음 → 지금' 두 값이면 한 단계 작게 — 속도 칸(좁음)에서 단위가 칸 밖으로 안 나가게 */
+.cm-band .meter[data-key="v1"] .meter__value.cm-pair,
+.cm-band .meter[data-key="v2"] .meter__value.cm-pair { font-size: calc(28 * var(--u)); }
+.cm-band .meter__value .arrow { margin: 0 .2em; }

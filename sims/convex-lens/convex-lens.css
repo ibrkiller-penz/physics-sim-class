@@ -90,13 +90,8 @@
   white-space: nowrap; pointer-events: none;
 }
 
-/* 실험 카드 ① '추천' 표시 (고름 표시와 반대쪽 위) */
-.lens-reco {
-  position: absolute; left: var(--space-2); top: calc(-16 * var(--u));
-  padding: calc(3 * var(--u)) var(--space-2); border-radius: var(--radius-pill);
-  background: var(--color-copper-tint); color: var(--color-copper-text); box-shadow: inset 0 0 0 calc(2 * var(--u)) var(--color-copper);
-  font: var(--font-weight-bold) var(--fs-caption)/1 var(--font-sans); white-space: nowrap; pointer-events: none;
-}
+/* R3: 물체 거리가 잠긴 이유 한 줄 (비활성이어도 선명) */
+.lens-hint { color: var(--color-copper-text); font-weight: var(--font-weight-semibold); word-break: keep-all; text-wrap: balance; }
 
 /* 기록 큰 판 아래 전용 자리: 같은 거리 찾기 · 규칙 카드 */
 .lens-recextra { display: grid; gap: var(--space-2); }

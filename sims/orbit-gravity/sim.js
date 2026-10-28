@@ -564,7 +564,7 @@
   SK.addVar('values', {
     key: 'v0', label: '{{발사 속력}}', symbol: 'v₀', unit: 'km/s',
     min: 0, max: 12, step: 0.1, value: 6.0, decimals: 1, precision: 2,
-    ticks: [{ v: 7.9, label: '지구를 돎' }, { v: 11.2, label: '탈출' }], apply: 'restart',
+    ticks: [{ v: 7.9, label: '지구 돌기' }, { v: 11.2, label: '탈출' }], apply: 'restart',
     hint: '지구에서 7.9 km/s면 지구를 돌고, 11.2 km/s 이상이면 돌아오지 않아요',
     onChange: function () { if (!seq) autoView(); updateSeq(); }
   });
@@ -608,8 +608,9 @@
     key: 'body', label: '중심 천체', style: 'cards', apply: 'restart', value: 'earth',
     options: BODY_ORDER.map(function (k) {
       var b = BODIES[k];
-      return { value: k, label: b.name, sub: k === 'jupiter' ? '탈출 59.5 · 속도 범위 밖' : '탈출 ' + SK.fmt(b.vEsc, 1) + ' km/s' };
+      return { value: k, label: b.name, sub: '탈출 ' + SK.fmt(b.vEsc, 1) + ' km/s' };
     }),
+    hint: '목성은 탈출 속도가 커서 이 대포(최대 12 km/s)로는 범위 밖이에요',
     onChange: function (v) {
       if (v === 'jupiter') { SK.notice('목성은 발사 속력 범위 밖이에요', 'warn'); showCompare(); }
       else if (!seq || seq.key !== 'body') autoView();
@@ -860,48 +861,60 @@
   function setBandTitle(t, legend) {
     if (bandTitle.textContent !== t) bandTitle.textContent = t;
     legend = legend || '';
-    if (bandLegend.textContent !== legend) bandLegend.textContent = legend;
+    if (bandLegend.dataset.t === legend) return;
+    bandLegend.dataset.t = legend; bandLegend.innerHTML = '';
+    legend.split(/([▼●▲■◆★]+)/).forEach(function (part) {   // 기호는 작은 글자로 x-height 가운데에
+      if (!part) return;
+      bandLegend.appendChild(/^[▼●▲■◆★]+$/.test(part) ? h('span', { class: 'og-band__sym', 'aria-hidden': 'true', text: part }) : document.createTextNode(part));
+    });
   }
-  /** 가로 속력 막대 (글자 22u). 위 줄: 경계 숫자·▼ 지금 / 막대: 구간 색·이름 + 기록 기호(●▲■◆★) */
+  /** 가로 속력 막대 (R3). 위 줄: 경계 숫자(18u, 막대 위 3u) / 막대(높이 최대 30u): 구간 색·이름(22u, 가운데) + 기록 기호(●▲■◆★)
+      ▼ 지금 표식은 막대 윗면에 붙은 작은 삼각형 + 막대를 지나는 선 — 숫자와 가까우면 숫자를 옆으로 비킨다 */
   function speedBar(ctx, W, H, o) {
-    var x0 = 12, x1 = W - 12, bh = Math.max(18, Math.min(28, H - 26)), by = H - bh - 1, ry = Math.max(11, by - 12);
+    var x0 = 12, x1 = W - 12, NUM = 18, GAP = 3;
+    var bh = Math.max(20, Math.min(30, H - NUM - GAP - 1)), by = H - bh - 1;
+    var ry = Math.max(NUM / 2, by - GAP - NUM / 2);              // 숫자 줄 가운데
     function X(v) { return x0 + (x1 - x0) * Math.max(0, Math.min(1, v / o.max)); }
     ctx.save();
     ctx.font = '700 22px ' + FONT;
-    var nowX = o.now !== null && o.now !== undefined ? X(o.now) : null;
+    var nx = o.now !== null && o.now !== undefined ? X(o.now) : null;
     (o.zones || []).forEach(function (z) {
       var a = X(z.from), b = X(z.to);
       ctx.fillStyle = col(z.color); ctx.fillRect(a, by, b - a, bh);
       if (!z.label) return;
       var tw = ctx.measureText(z.label).width, cx = (a + b) / 2;
-      if (b - a < tw + 14) return;
-      // ▼ 지금 표시와 겹치면 구간 안의 빈 쪽으로 옮긴다
-      if (nowX !== null && Math.abs(nowX - cx) < tw / 2 + 12) {
-        var left = nowX - a, right = b - nowX;
-        if (left >= tw + 24) cx = a + left / 2; else if (right >= tw + 24) cx = nowX + right / 2;
+      if (b - a < tw + 12) return;
+      // ▼ 지금 선과 겹치면 구간 안의 빈 쪽으로 옮긴다
+      if (nx !== null && Math.abs(nx - cx) < tw / 2 + 10) {
+        var left = nx - a, right = b - nx;
+        if (left >= tw + 20) cx = a + left / 2; else if (right >= tw + 20) cx = nx + right / 2;
       }
       text(ctx, z.label, cx, by + bh / 2 + 1, { size: 22, weight: 700, align: 'center', color: z.text || '--color-ink' });
     });
     ctx.strokeStyle = col('--color-line-strong'); ctx.lineWidth = 1; ctx.strokeRect(x0, by, x1 - x0, bh);
-    var nx = o.now !== null && o.now !== undefined ? X(o.now) : null;
     var mk = (o.marks || []).slice().sort(function (a, b) { return a.v - b.v; });
     for (var mi = 1; mi < mk.length; mi++) {   // 경계 숫자 둘이 가까우면(달·화성) 왼쪽 것은 오른쪽 맞춤, 오른쪽 것은 왼쪽 맞춤
       if (X(mk[mi].v) - X(mk[mi - 1].v) < 60) { mk[mi - 1] = Object.assign({}, mk[mi - 1], { align: 'right' }); mk[mi] = Object.assign({}, mk[mi], { align: 'left' }); }
     }
+    ctx.font = '700 ' + NUM + 'px ' + FONT;
     mk.forEach(function (m) {
-      var mx = X(m.v);
-      ctx.beginPath(); ctx.moveTo(mx, by - 2); ctx.lineTo(mx, by + bh); ctx.strokeStyle = col('--color-ink'); ctx.lineWidth = 2.5; ctx.stroke();
+      var mx = X(m.v), tw = ctx.measureText(m.text).width;
+      ctx.beginPath(); ctx.moveTo(mx, by); ctx.lineTo(mx, by + bh); ctx.strokeStyle = col('--color-ink'); ctx.lineWidth = 2.5; ctx.stroke();
       var al = m.align || 'center', tx = mx;
-      if (nx !== null && al === 'center' && Math.abs(nx - mx) < 34) { al = nx > mx ? 'right' : 'left'; tx = mx + (al === 'left' ? 6 : -6); }
-      else if (al === 'left') tx = mx + 12; else if (al === 'right') tx = mx - 12;
-      text(ctx, m.text, tx, ry, { size: 22, weight: 700, align: al, color: '--color-ink' });
+      if (al === 'left') tx = mx + 4; else if (al === 'right') tx = mx - 4;
+      // ▼ 와 겹치면 숫자를 ▼ 반대쪽으로 비킨다 (같은 줄에 두 표식이 포개지지 않게)
+      var l = al === 'left' ? tx : al === 'right' ? tx - tw : tx - tw / 2;
+      if (nx !== null && nx > l - 12 && nx < l + tw + 12) {
+        if (nx >= mx) { al = 'right'; tx = Math.min(mx, nx) - 12; } else { al = 'left'; tx = Math.max(mx, nx) + 12; }
+      }
+      text(ctx, m.text, tx, ry, { size: NUM, weight: 700, align: al, color: '--color-ink' });
     });
     (o.dots || []).forEach(function (d) {
       text(ctx, d.mark, X(d.v), by + bh / 2 + 1, { size: 22, weight: 800, align: 'center', color: d.color, halo: true });
     });
     if (nx !== null) {
       ctx.fillStyle = col('--color-sim-orbit');
-      ctx.beginPath(); ctx.moveTo(nx, by + 3); ctx.lineTo(nx - 9, by - 13); ctx.lineTo(nx + 9, by - 13); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(nx, by + 2); ctx.lineTo(nx - 8, by - 9); ctx.lineTo(nx + 8, by - 9); ctx.closePath(); ctx.fill();
       ctx.strokeStyle = col('--color-sim-orbit'); ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(nx, by); ctx.lineTo(nx, by + bh); ctx.stroke();
     }
@@ -984,6 +997,12 @@
     labels.push({ x: Math.min(1230, Math.max(20, lx)), y: Math.min(670, Math.max(30, ly)), text: label, anchor: lx > 625 ? 'right' : 'left', size: 22 });
   }
   /** 라벨이 화면 밖으로 나가지 않게: 글자 폭을 재서 anchor 와 x 를 고친다 */
+  /** R3: '중력' 라벨 — 화살표 끝에서 12u 더 바깥, 화살표 방향 쪽으로 정렬(궤도 선·화살표 위에 얹히지 않게) */
+  function forceLabel(x, y, fu, fl) {
+    var d = fl + 12, an = fu[0] > 0.35 ? 'left' : fu[0] < -0.35 ? 'right' : 'center';
+    var ly = y + fu[1] * d + (an === 'center' ? (fu[1] > 0 ? 14 : -14) : 0);
+    return { x: x + fu[0] * d, y: ly, text: '중력', anchor: an, size: 22, color: '--color-copper-text' };
+  }
   function keepIn(ctx, l) {
     ctx.font = '600 ' + (l.size || 22) + 'px ' + FONT;
     var w = ctx.measureText(l.text).width + 16, a = l.anchor || 'center';
@@ -1011,7 +1030,7 @@
       drawCannon(ctx, peak[0], peak[1] - 2, 1);
       labels.push({ x: peak[0] - 40, y: peak[1] + 56, text: '대포 (산 높이 20 km)', anchor: 'left', size: 22 });
     } else {
-      text(ctx, b.name, V.cx, V.cy + 10, { size: flashB ? 34 : 28, weight: 700, align: 'center', serif: true, color: flashB ? '--color-sim-orbit-text' : '--color-ink-muted' });
+      text(ctx, b.name, V.cx, V.cy + 10, { size: flashB ? 34 : 28, weight: 700, align: 'center', serif: true, color: flashB ? '--color-sim-orbit-text' : '--color-ink' });
       // 산은 보이도록 크게 그린 그림 (실제 20 km 는 이 축척에서 3u)
       var tp = top[1];
       ctx.beginPath(); ctx.moveTo(V.cx - 44, tp + 8); ctx.lineTo(V.cx, tp - 22); ctx.lineTo(V.cx + 40, tp + 8); ctx.closePath();
@@ -1072,12 +1091,14 @@
           labels.push({ x: bp[0] + vu[0] * (vl + 14), y: bp[1] + vu[1] * (vl + 14) - 4, text: '속도', anchor: vu[0] >= 0 ? 'left' : 'right', size: 22, color: '--color-q-velocity' });
         }
         SK.arrow(ctx, bp[0], bp[1], bp[0] + fu[0] * fl, bp[1] + fu[1] * fl, { color: '--color-q-force', width: 5 });
-        labels.push({ x: bp[0] + fu[0] * (fl + 16) + 14, y: bp[1] + fu[1] * (fl + 16), text: '중력', anchor: 'left', size: 22, color: '--color-copper-text' });
+        labels.push(forceLabel(bp[0], bp[1], fu, fl));
         if (v > 1) angleMark(ctx, bp[0], bp[1], vu, fu);
       }
     }
     updateViewBtns(V.key, off && c.res !== '원 궤도');
-    SK.placeLabel(ctx, labels.map(function (l) { return keepIn(ctx, l); }));
+    // 천체 이름(가운데 글자)과 라벨이 포개지지 않게
+    var nameBox = V.key !== 'near' ? [{ x: V.cx - 60, y: V.cy - 16, w: 120, h: 52 }] : [];
+    SK.placeLabel(ctx, labels.map(function (l) { return keepIn(ctx, l); }), { avoid: nameBox });
   }
 
   /* ------------------------------------------------------------------
@@ -1155,7 +1176,7 @@
     var s = satCalc(p.alt), S = satScale(p), CX = 480, CY = 370, hid = hideResults();
     var labels = [];
     drawBody(ctx, 'earth', CX, CY, S);
-    if (S > 60) text(ctx, '지구', CX, CY, { size: 26, weight: 700, align: 'center', serif: true, color: '--color-ink-muted' });
+    if (S > 60) text(ctx, '지구', CX, CY, { size: 26, weight: 700, align: 'center', serif: true, color: '--color-ink' });
     function circ(rR, st, lab) {
       ctx.save(); SK.applyStroke(ctx, st);
       ctx.beginPath(); ctx.arc(CX, CY, rR * S, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
@@ -1188,7 +1209,7 @@
       // 위성 라벨은 궤도 바깥쪽으로
       var ox = Math.cos(th), oy = -Math.sin(th);
       labels.push({ x: x + vu[0] * (vl + 14) + ox * 10, y: y + vu[1] * (vl + 14) + oy * 10, text: hid ? '속도' : '속도 ' + SK.fmt(s.v, 2) + ' km/s', anchor: vu[0] >= 0.2 ? 'left' : vu[0] <= -0.2 ? 'right' : 'center', size: 22, color: '--color-q-velocity' });
-      labels.push({ x: x + fu[0] * (fl + 18), y: y + fu[1] * (fl + 18), text: '중력', anchor: 'center', size: 22, color: '--color-copper-text' });
+      labels.push(forceLabel(x, y, fu, fl));
       angleMark(ctx, x, y, vu, fu);
     }
     var top = Math.max(110, (SK.stageInset ? SK.stageInset().top : 0) + 12);
@@ -1404,7 +1425,7 @@
       name: '뉴턴의 대포', tag: '과학사',
       changes: 'v₀ 7.9 km/s', change: '발사 속력 v₀ (4 → 6 → 7.9 → 10 → 11.2 km/s)', fixed: '지구 · 산 높이 20 km · 수평 발사',
       values: { mode: 'cannon', body: 'earth', v0: 7.9, tscale: 10, cview: 'earth', trail: true, arrows: true },
-      predict: { question: '산꼭대기에서 7.9 km/s로 수평으로 쏘면 포탄은 어떻게 될까?', choices: ['조금 가다 떨어진다', '지구를 한 바퀴 돈다', '우주로 날아간다'],
+      predict: { question: '산꼭대기에서 7.9 km/s로 수평으로 쏘면 포탄은 어떻게 될까?', choices: ['조금 가다 떨어진다', '지구를 한 바퀴 돈다', '우주로 날아간다'],
         judge: judgeIf(function (p) { return p.mode === 'cannon' && p.body === 'earth' && Math.abs(p.v0 - 7.9) < 0.05; }, cannonAnswer),
         why: '포탄은 계속 떨어지지만, 떨어지는 만큼 둥근 땅도 휘어 내려가서 땅에 닿지 않아요. 이 실험은 공기가 없는 약 20 km 높이 산에서 쏴요. 지표에서 7.9 km/s는 거의 원 궤도 속력이에요.',
         info: '이 실험은 공기가 없는 약 20 km 높이 산에서 쏴요. 지표에서 7.9 km/s는 거의 원 궤도 속력이에요.' },
@@ -1798,7 +1819,7 @@
     modes: [
       { value: 'cannon', label: '뉴턴의 대포', desc: '대포를 점점 세게 쏘아 궤도 찾기' },
       { value: 'sat', label: '원궤도 위성', desc: '위성을 원 궤도에 올려 보기' },
-      { value: 'kepler', label: '케플러 자료', desc: '케플러 법칙 표로 익히기(행성 자료)' }
+      { value: 'kepler', label: '케플러 자료', desc: '케플러 법칙 표로 익히기 (행성 자료)' }
     ],
     onPick: function (v) {
       var changed = SK.get('mode') !== v;

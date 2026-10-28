@@ -11,7 +11,7 @@
 
 /* 실험 화면 왼쪽 위 화살표 범례 (28u) */
 .pe-legend {
-  justify-self: end; max-width: calc(620 * var(--u));
+  justify-self: end; max-width: calc(640 * var(--u));
   display: flex; flex-direction: column; align-items: flex-start; gap: calc(2 * var(--u));
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-md);
@@ -40,7 +40,7 @@
 .pe-meters .meter__value { font-size: calc(36 * var(--u)); }
 .pe-meters .meter__unit { font-size: var(--fs-caption); }
 .pe-meters .meter__label sub { font-size: 0.75em; vertical-align: -0.25em; line-height: 0; }
-.pe-meter-note { display: inline-block; vertical-align: middle; margin-left: calc(8 * var(--u)); font: var(--font-weight-medium) var(--fs-caption)/1.0 var(--font-sans); color: var(--color-ink-muted); width: min-content; white-space: normal; word-break: keep-all; }
+.pe-meter-note { display: inline; width: auto; white-space: nowrap; margin-left: var(--space-2); vertical-align: baseline; font: var(--font-weight-medium) var(--fs-caption)/1.15 var(--font-sans); color: var(--color-ink-muted); }
 
 /* 하단 띠: 에너지 막대 */
 .pe-energy {

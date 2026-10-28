@@ -1,9 +1,56 @@
-# SimKit — 공통 틀 사용 설명서 (개발자용, R2 고도화 2차)
+# SimKit — 공통 틀 사용 설명서 (개발자용, R2 고도화 2차 + R3 디테일)
 
 > 작성: 에듀테크1(디자인 리드) · 2026-10-28
 > 근거: `docs/개선/R1_계획.md` §2(디자인 방향)·§3(A1~A18, H1~H2) · 이전 판: `docs/04_팀장결정서.md`
 > 다섯 시뮬레이터는 이 틀 **위에서만** 만든다. `shared/` 를 고칠 일이 생기면 디자인 리드에게 요청한다.
 > 바로 동작하는 예제: `sims/_template/index.html` (= `shared/TEMPLATE.html`) — R2 새 API 를 모두 씀.
+
+---
+
+## 0R3. R3 디테일 디자인에서 바뀐 것 (2026-10-28, 개발자1) — 먼저 읽기
+
+> 근거: `docs/개선/R3_디테일디자인.md` §2·§3-1. 뼈대는 그대로, 디테일만. 아래 **디테일 규칙**은 5종 모두 지킨다.
+
+### 0R3-1. 디테일 규칙
+1. **글자 크기 7단계만**: caption 22 · meta 24 · control 26 · body 28 · h3 32 · title 34/40 · meter 56 (u). 캔버스 글자도 22/24/26 중 하나, 제목만 명조.
+2. **간격은 4u 배수**. 섹션 사이 `--space-5`(24u), 변수 행 사이 `--space-4`, 눈금 줄과 다음 요소 사이 `--space-4`.
+3. **높이·모서리**: 주 버튼 72u, 보조 버튼·칩 토글 56u(`--space-btn-h-sm`), 칩 36u, 캔버스 안 버튼 44u. 카드·버튼·입력 `--radius-md`, 칩·알약 `--radius-pill`, 캔버스 안 상자 8u.
+4. **줄바꿈**: `body` 는 이미 `word-break: keep-all`. 제목·질문·카드 이름 `text-wrap: balance`(`.predict__q` `.preset-card__title` `.drawer__head h2` 는 공통에서 적용), 본문 단락 `text-wrap: pretty`. 기호·숫자 뒤 조사는 붙여 쓴다(`30°가`, `2f에`). '두 개'·'1 kg' 처럼 갈라지면 안 되는 짧은 어절은 `&nbsp;`(JS 문자열이면 `\u00a0`) 로 묶는다. 짧은 끝말 하나가 남으면 문구를 줄인다.
+5. **단위**: 영문 단위(m/s·kg·cm·nm)는 숫자와 한 칸, `°`·`%` 는 붙인다. 직접 이어 붙이지 말고 `SK.withUnit(v, unit)`. 숫자는 `tabular-nums`. 슬라이더 범위·말풍선·범위 밖 안내·예측 범위·계기판 단위는 공통이 자동으로 이 규칙을 쓴다.
+6. **값 자리 글자**('쏘기 전'·'부딪친 뒤'·'아직 없음')는 `.meter__value.is-text`(body 28u·600·muted). `SK.meters().set(key, '쏘기 전')` 처럼 **숫자가 없는 글**을 넣으면 공통이 자동으로 붙이고 단위를 숨긴다. 자체 계기판이면 클래스를 직접 단다.
+7. **번호 원**(①②③)은 글리프 대신 `.circ`(`SK.circ(n)`). 실험 카드 번호·예측 보기 번호·정리 카드 번호는 공통이 이미 바꿨다. 시뮬레이터 자체 화면(모드 카드·하단 단계 상자 등)은 `SK.circ(1)` 또는 `SK.circText('① 시작점')`.
+8. **포커스**: 버튼·카드는 주황 링 한 겹(`:focus-visible`). 입력칸(`.var__input` `.predict__num input` `.predict__count`)은 링 없이 청록 테두리 + tint 그림자. `tabindex="-1"` 컨테이너·`.predict`·`.mode-card`·`.drawer` 는 링 없음.
+9. **배지는 카드 밖으로 걸치지 않는다.** 실험 카드 '✓ 고름'·'추천' 은 값 줄 앞 글자(`::before`). 추천 카드는 `.preset-card` 에 클래스 `is-reco` 만 단다.
+10. **스크롤 끝**: 패널 마스크는 끝 64u 를 0 까지 투명, 스크롤 영역 padding-bottom 64u. '아래에 더 있어요' 는 padding 만 남으면 사라진다.
+11. **상태 전환 때 크기 변화 금지**: 실행 버튼 폭 240u 고정(Space 칩은 absolute), 시간 상태 칩 `.is-time` min-width 230u + tabular-nums.
+12. **캔버스 라벨**은 선과 겹칠 수 있으면 `--color-paper-label`(paper 85%) 배경·모서리 4u, 화살표 라벨은 화살 끝에서 12u 바깥. 캔버스 안 검은 면은 `--color-canvas-dark`(#2A2521).
+
+### 0R3-2. 새로 생긴 것 · 바뀐 것 (API · 클래스 · 토큰)
+| 이름 | 내용 |
+|---|---|
+| `SK.withUnit(v, unit)` | `'20 m/s'` · `'45°'` · `'100%'`. v 는 숫자·글 모두, unit 이 비면 v 그대로 |
+| `SK.circ(n)` | `<span class="circ">n</span>` 요소. n 은 숫자 또는 원문자(`'②'`→2) |
+| `SK.circText(text)` | `'① 시작점'` → `[circ, ' 시작점']` (원문자 없으면 `[text]`) — `h()` 의 자식으로 바로 |
+| `.circ` | 1.3em 원, currentColor 테두리 2u, `--font-num` 600. 부모 글자 크기를 따라감 |
+| `.meter__value.is-text` | 값 자리 글자. `SK.meters` 는 숫자 없는 글이면 자동 |
+| `.meter__unit[data-unit]` | `SK.meters` 가 단위를 속성으로도 넣음 — `°`·`%` 는 margin 0 |
+| `.meter__value .arrow` | 값 안 화살표(`2.0 <span class="arrow">→</span> 0.0`)를 0.7em 으로 |
+| `.preset-card.is-reco` | 값 줄 앞 '추천 ·'(구리색). 고른 카드는 '✓' 만(팀장 확인: '✓ 고름 ·' 은 값 줄이 잘림) |
+| `.preset-card__picked` | **표시 안 함**(`display:none !important`, 마크업 호환용으로만 남음) |
+| `.preset-card__dot` | **숨김**(팀장 확인: 한 색이 된 점은 뜻이 없고 값 줄을 잘리게 함). 마크업은 그대로 둬도 됨 |
+| `.var__unit--deg` | 단위가 `°` 일 때 공통이 붙임(기준선 맞춤) |
+| `.var__ticks span.is-start/.is-end` | 눈금 위치 12% 안쪽이면 양끝 정렬. **`.is-under`(손잡이 밑 숨김) 삭제 — 눈금은 항상 보임**, 트랙 아래 26u |
+| `.var.is-disabled` | 입력·슬라이더만 .45, `.var__hint`·`.pe-hint` 는 선명 |
+| `.btn:disabled` | 흐리게(.4) 대신 sunk 배경·line 테두리·muted 글자 |
+| `.drawer-scrim` | 도움말 서랍 뒤 0.18 먹색, 누르면 닫힘. 도움말 제목은 `'도움말'` + `<small>`(실험 이름) |
+| `.stage-status .chip.is-time` | 시간이 든 상태 칩(공통이 붙임) |
+| `.sim.is-modal .stage-overlay` · `.cm-lower` · `.stage-corner` · `.notice-zone` | 모달(예측·모드 창)이 떠 있을 때 숨김(캔버스 위 HTML 조각·모서리 칩·토스트) |
+| `notice()` 글 속 원문자 | '카드 ①' 처럼 글 속 ①②도 `.circ` 배지로 자동 변환 |
+| `--color-dim` | `rgb(74 58 40 / .28)` 따뜻한 갈색(예전 회색 .25) |
+| `--color-canvas-dark` / `--color-paper-label` | `#2A2521` / `rgb(251 248 239 / .85)` 신규 |
+| 그 밖의 기능 메뉴 | '기록 모두 지우기…' 가 맨 아래 구분선 밑 |
+| 기록 큰 판 빈 상태 | 표 상자·'저장한 실험 0/5' 소제목 숨김, 안내 한 상자('아직 저장한 실험이 없어요 — …') |
+| **삭제** `legendTip` | 패널 범례 첫 방문 말풍선(`SK.el.legendTip`, `.legend-tip`, localStorage `simkit:legend-seen`) 삭제. 범례 줄 ⚡·↻ 는 같은 `.apply-ico` 칩, '·' 는 간격으로 |
 
 ---
 
@@ -20,7 +67,7 @@
 ### 0-2. 버튼·문구 이름 고정표 (grep 으로 검사)
 | 하는 일 | 자리 | 이름(그대로) | 쓰지 말 것 |
 |---|---|---|---|
-| 실행 | 하단 막대 | `▶ 실행` → 실행 중 `⏸ 멈추기` → 멈춤 `▶ 이어서 실행` → 끝 `↻ 다시 실행`(윤곽선) | 띠 버튼에 '실행하기' |
+| 실행 | 하단 막대 | `▶ 실행` → 실행 중 `⏸ 멈추기` → 멈춤 `▶ 이어서 실행` → 끝 `↻ 다시 실행`(윤곽선 그대로 — R3: 버튼 폭 240u 고정이라 바뀌어도 덜컹 없음) | 띠 버튼에 '실행하기' |
 | 기록 | 상단 띠(끝난 뒤에만) | `기록하기` | 하단 기록 버튼, 문장 속 `[기록하기]` → '기록하기 버튼으로' |
 | 단계 이동 | 상단 띠 | `비교하러 가기 ▸` `정리하러 가기 ▸` `실행하러 가기 ▸` | '다음 단계 ▸' 와 함께 두 개 |
 | 예측 다시 열기 | 상단 띠(예측 단계) | `예측하기` | '예측 입력', '예측 질문 받기' |
@@ -177,10 +224,11 @@ y806        .notice-zone 토스트 1개, 3초, 실험 화면과 하단 띠 사�
 |---|---|
 | 지금 할 일 | `.sim-task` `.task-steps` `.task-step[aria-current=step]` `.task-step.is-done` `.task-step__num` `.task-now__text` `.task-now__sub` `.task-now__act` |
 | 버튼 | `.btn` `--primary` `--secondary` `--quiet` `--danger` `--icon` `--sm`(56u) `--lg` · `.btn__key`(기본 숨김, `html.show-keys`·호버·키보드 포커스에서만) |
-| 변수 위젯 | `.var` `.var__head` `.var__label` `.var__sym` `.var__range`(범위 상시) `.var__input` `.var__unit` `.var__row` `.var__step` `.var__stepinfo`(±step) `.range`(트랙 10u·손잡이 56u) `.var__ticks`(20u 먹색, 3개, 손잡이 밑은 숨김) `.var__err`(범위 밖 고정 안내) `.var__hint` · `.is-pending` `.is-flash` `.is-folded` |
+| 변수 위젯 | `.var` `.var__head` `.var__label` `.var__sym` `.var__range`(범위 상시) `.var__input` `.var__unit` `.var__row` `.var__step` `.var__stepinfo`(±step) `.range`(트랙 10u·손잡이 56u) `.var__ticks`(22u, 3개, 항상 보임 · 양끝 `.is-start/.is-end`) `.var__unit--deg` `.var__err`(범위 밖 고정 안내) `.var__hint` · `.is-pending` `.is-flash` `.is-folded` |
 | 반영 아이콘 | `.apply-ico--live`(⚡) `.apply-ico--restart`(↻, 실행 중 바꾸면 '↻ 다음 실행부터') — 예전 `.tag--live/--restart` 는 CSS 만 남음 |
 | 실험 카드 | `.preset-card` `.preset-card__name`(2줄) `.preset-card__key` `.preset-card__tag`(20u 풀어쓴 말) `.preset-tip`(호버 설명) `.preset-info`(고른 카드, 왼쪽 위) |
-| 상태 칩 | `.stage-status .chip` `.is-run` `.is-done` `.is-pend` |
+| 상태 칩 | `.stage-status .chip` `.is-run` `.is-done` `.is-pend` `.is-time`(R3) |
+| R3 디테일 | `.circ` `.meter__value.is-text` `.preset-card.is-reco` `.drawer-scrim` — §0R3 |
 | 예측 | `.predict-layer` `.predict` `.predict__close` `.predict__choices`(80u 버튼) `.predict__num` `.is-shake` · 판정 `.verdict--hit/--miss/--info` `.verdict__mark` |
 | 설명 도우미 | `.sim-note` `.takeaway` `.reveal`(`<details>`, `html.reveal-locked` 면 잠김) `.empty` `.think-card` `.term`(점선 밑줄) `.term-tip` `.drawer--help` `.help-tab` `.concept` `.concept__formula` `.concept__live` |
 | 기록 | `.rec-chip` `.rec-big` `.rec-need` `.rec-box` `.rec-table`(`td.is-changed`, `tr.is-ghost`) `.scroll-shadow`(좌우 그림자) `.vs` `.vs-table` `.vs-up`(▲) `.vs-down`(▼) |
@@ -285,6 +333,7 @@ SimKit.chooseMode({ title:'무엇을 알아볼까요?', default:'cannon', urlKey
 - `confirm/dialog({title, body, ok, cancel, danger})`.
 - `guide({rows, sections, keys})` — '수업 안내(교사)' 서랍(교사 모드 헤더 버튼). 표 대신 카드.
 - `placeLabel(ctx, [{x, y, text, anchor:'left'|'center'|'right', color, size, bg, leader}], {avoid:[상자], size})` — 겹치면 8u 씩 위/아래로, 반투명 칩 배경, 많이 밀리면 이음선. 반환: 상자 목록.
+- R3: `withUnit(v, unit)` · `circ(n)` · `circText(text)` — §0R3-2.
 - `setTeacher(bool)` `toggleTeacher()` `isTeacher()` · `toggleHelp()` `toggleGuide()` · `showSide()` · `setTask(i, {text, action})`.
 - 그대로인 것: `meters` (라벨에 `{{용어}}` 가능) · `graph` · `canvas` · `arrow` · `color` · `px` · `fmt` · `play/pause/toggle/reset/finish/stepFrame/setSpeed` · `goStep/nextStep/prevStep` · `setStatus` · `update` · `requestRender` · `onFrame` · `onKey`.
 
@@ -325,6 +374,8 @@ SimKit.chooseMode({ title:'무엇을 알아볼까요?', default:'cannon', urlKey
 | 식별색 projectile / slit / collision / orbit / lens (채도 −20%) | #27675A / #684074 / #9B4B37 / #434684 / #7C560E | 5.8 / 7.1 / 5.3 / 7.5 / 5.7 | 바탕 위 |
 | 식별색 `-text` on `-tint` | #265B50 / #684074 / #884332 / #434684 / #6E4D0F | 5.8 / 5.9 / 5.4 / 6.2 / 5.7 | tint 위 글자 |
 | primary · copper · ok · warn | 그대로 | 8.3 · 4.7 · 5.6 · 7.3 | |
+| `--color-dim` (R3) | rgb(74 58 40 / .28) | — | 예측·모드 창 뒤 어둡기 |
+| `--color-canvas-dark` / `--color-paper-label` (R3) | #2A2521 / rgb(251 248 239 / .85) | — | 캔버스 검은 면 / 캔버스 라벨 배경 |
 
 세로 화면 설계(1330×2000)는 R1 에서 뺐다(통째로 줄어듦). R2 에서 세로 배치.
 
