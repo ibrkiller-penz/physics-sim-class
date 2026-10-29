@@ -105,10 +105,20 @@
     status: onStatus,
     autoPredict: true,
     onPredictOpen: function () { SK.requestRender(); },    // 예측 창이 떠 있는 동안 궤적·기록(결과 층)을 숨긴다
-    onPredictClose: function () { SK.requestRender(); }
+    onPredictClose: function () { SK.requestRender(); },
+    // R6(A1): 심플 모드 — 12역학01-02 핵심(v₀·θ, 수평 거리, v_x 그대로·v_y 부호). h·g·m 은 더 보기 시트(패널)에.
+    // 실험 카드: '45° 가장 멀리' 카드는 따로 없어 가장 가까운 둘 — ② 30°와 60°(같은 사거리), ⑤ 최고점에서 속도는?(v₀ 20 · 45°)
+    simple: {
+      task: '속력과 각도를 바꿔 공이 어디까지 가는지 봐요',
+      params: ['v0', 'theta'], situation: ['planet'], meters: ['x', 'vx', 'vy'],
+      presets: [2, 4], predict: 'button',
+      extras: [{ key: 'energy', label: '에너지 막대' }]
+    }
   };
   SK.init(CFG);
   SK.el.band.style.gridTemplateColumns = 'minmax(0, 6fr) minmax(0, 3fr)';
+  // R6(A2): 모드를 바꾸면 범례·캔버스 글자를 다시 (물리 상태는 그대로)
+  if (SK.onMode) SK.onMode(function () { legendKey = ''; if (run) updateLegend(SK.params); SK.requestRender(); });
   (function putToday() {
     var pop = SK.el.top.querySelector('.info-pop');
     if (pop) pop.insertBefore(h('p', { class: 'pe-today' }, [h('b', { text: '오늘 알아볼 것' }), TODAY]), pop.firstChild);
@@ -218,14 +228,15 @@
   }
   function updateLegend(p) {
     if (SK.predicting()) { legend.hidden = true; legendKey = ''; return; }
-    var key = [p.showV, p.showA, p.cmp, p.flash, run && run.analytic, run && run.theta > 0].join(',');
+    var simple = SK.isSimple && SK.isSimple();
+    var key = [p.showV, p.showA, p.cmp, p.flash, run && run.analytic, run && run.theta > 0, simple].join(',');
     if (key === legendKey) return;
     legendKey = key;
     legend.innerHTML = '';
     function row(kind, text) { legend.appendChild(h('span', { class: 'pe-legend__row' }, [legendSVG(kind), text])); }
     if (p.showV) { row('v', '속도'); row('vc', '수평·수직 속도'); }
     if (p.showA) row('a', run && !run.analytic ? '가속도' : '가속도 (= g, 아래로)');
-    if (p.flash) row('flash', '0.1 s 마다 찍은 공');
+    if (p.flash && !simple) row('flash', '0.1 s 마다 찍은 공');   // R6(A2): 심플은 섬광 범례 숨김(점은 그대로)
     if (p.cmp) row('cmp', run && run.theta > 0 ? '옆으로 안 가는 공' : '떨어뜨린 공');
     legend.hidden = !legend.children.length;
   }
@@ -242,7 +253,7 @@
   meters.el.classList.add('pe-meters');
   // R4: 기호는 공통 수식 표기(symbol 'v_y' → v<sub>y</sub>). R3: '음수면 아래' 는 라벨 줄 끝에 (값 줄은 숫자·단위만)
   var vyLab = meters.el.querySelector('[data-key="vy"] .meter__label');
-  if (vyLab) vyLab.appendChild(h('span', { class: 'pe-meter-note', text: '(위 + · 아래 −)' }));
+  if (vyLab) vyLab.appendChild(h('span', { class: 'pe-meter-note', text: '(위+ 아래−)', title: '위로 가면 +, 아래로 가면 −' }));   // R6: caption 24u 에서 1920 끝 ')' 잘림 → 띄어쓰기·가운뎃점 줄임
 
   var energyBox = h('div', { class: 'pe-energy', 'aria-label': '에너지 막대' });
   SK.el.graph.appendChild(energyBox);
@@ -914,6 +925,7 @@
     // TOPY = 16:9 와 같은 값(축척 S 를 정함 → 모눈 1칸 그대로). TOPD = 칩 아래 실제 그리기 위쪽 = TOPY − EX
     var TOPY = Math.max(L.TOP, Math.min(Math.ceil((SK.stageInset().top + 24) / 20) * 20, 260));
     var TOPD = TOPY - EX;
+    var SIMPLE = SK.isSimple && SK.isSimple(), TS = SIMPLE ? 28 : 22;   // R6(A2): 심플 = 축·눈금·기록 글자 28u (좌표 계산은 그대로)
     var pred = SK.predicting();   // 예측 창이 떠 있는 동안: 결과 층(궤적·섬광·기록·지구 비교선) 숨김, 방향 화살표·앞 30% 점선만
     var S = Math.min((L.RIGHT - L.X0) / B.x, (L.GY - TOPY) / B.y);
     map.S = S;
@@ -921,6 +933,13 @@
     function sy(y) { return L.GY - y * S; }
     function mp(x, y) { return [sx(x), sy(y)]; }
     var cell = niceCell(S);
+    // 눈금 숫자 간격(모눈 칸 수). 심플: 숫자는 5 m 의 배수에만 (모눈 간격은 그대로). 5 m 배수가 두 개도 안 들어가면 보통 규칙
+    function tickEvery(minPx) {
+      var k = Math.max(1, Math.ceil(minPx / (cell * S)));
+      if (!SIMPLE || cell >= 5 || Math.max(B.x, B.y) < 10) return k;
+      while (Math.abs(k * cell / 5 - Math.round(k * cell / 5)) > 1e-6) k++;
+      return k;
+    }
     var C = {
       grid: SK.color('--color-grid'), line: SK.color('--color-line-strong'), ink: SK.color('--color-ink'),
       muted: SK.color('--color-ink-muted'), sunk: SK.color('--color-paper-sunk'), raised: SK.color('--color-paper-raised'),
@@ -950,9 +969,9 @@
     // 왼쪽 벽 자 (y축)
     ctx.strokeStyle = C.line; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(L.AX, L.GY); ctx.lineTo(L.AX, YMIN); ctx.stroke();
-    ctx.font = SK.font(400, 22); ctx.fillStyle = C.muted;   // 눈금 숫자 400
+    ctx.font = SK.font(400, TS); ctx.fillStyle = C.muted;   // 눈금 숫자 400
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-    var ky = Math.max(1, Math.ceil(32 / (cell * S))), yTickW = 0;
+    var ky = tickEvery(SIMPLE ? 44 : 32), yTickW = 0;
     for (var iy = 1; sy(iy * cell) >= TOPD - 30; iy++) {
       if (iy % ky) continue;
       var yy = sy(iy * cell);
@@ -961,29 +980,36 @@
       yTickW = Math.max(yTickW, ctx.measureText(numTxt(iy * cell)).width);
     }
     // x 눈금 (지면 아래) — 오른쪽 끝은 축 이름 자리
+    // R6(A3): 축 이름을 8u 올려(GY+40 → +32) 1920 에서 글자 아래가 캔버스 밖으로 잘리지 않게. 심플(28u)은 눈금 숫자와 같은 줄
+    // 심플: 같은 줄에 긴 이름을 두면 떨어진 공(사거리 ≈ 오른쪽 끝의 1/1.1)이 가려서 짧게 — 이름은 아래 측정 칸 '수평 거리 x'
+    var XT = SIMPLE ? '$x$ (m)' : '수평 거리 $x$ (m)', xTitleY = SIMPLE ? L.GY + 8 : L.GY + 32;
+    var xTitleL = W - 12 - SK.measure(ctx, XT, { size: TS, weight: 500 }).w;
+    ctx.font = SK.font(400, TS);
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    var kx = Math.max(1, Math.ceil(70 / (cell * S)));
+    var kx = tickEvery(SIMPLE ? 110 : 70);
     for (var ix = 0; sx(ix * cell) <= W - 110; ix++) {
       if (ix % kx) continue;
-      var xx = sx(ix * cell);
+      var xx = sx(ix * cell), xl = numTxt(ix * cell), xw = ctx.measureText(xl).width;
+      if (xx + xw / 2 > xTitleL - 16 && (SIMPLE || L.GY + 12 + TS > xTitleY)) break;   // 축 이름과 겹치는 눈금 숫자는 빼기
       ctx.fillRect(xx - 1, L.GY, 2, 8);
-      ctx.fillText(numTxt(ix * cell), xx, L.GY + 12);
+      ctx.fillText(xl, xx, SIMPLE ? L.GY + 10 : L.GY + 12);
     }
     // 축 이름: 그래프 바깥 가장자리 (x: 오른쪽 아래 끝, y: 왼쪽 위 끝)
     // R3: 지면 띠 안 글자 위계는 하나 (muted). R4: 축 이름 500 · 기호는 수식 표기. y축 제목은 눈금 숫자 왼쪽 바깥
-    var AXO = { size: 22, weight: 500, color: '--color-ink-muted', baseline: 'top' };
-    SK.text(ctx, '수평 거리 $x$ (m)', W - 12, L.GY + 40, { size: 22, weight: 500, color: '--color-ink-muted', baseline: 'top', align: 'right' });
+    var AXO = { size: TS, weight: 500, color: '--color-ink-muted', baseline: 'top' };
+    SK.text(ctx, XT, W - 12, xTitleY, { size: TS, weight: 500, color: '--color-ink-muted', baseline: 'top', align: 'right' });
     // R4: 캔버스 왼쪽 여백(ox)이 없는 태블릿에서 제목이 잘리지 않게 글자 높이(26)만큼은 안쪽으로 (16:9 는 여백이 있어 그대로)
-    var yTitleRight = L.AX - 12 - yTickW - 14, yTitleMin = 26 - view.ox / (view.scale || 1);
+    var yTitleRight = L.AX - 12 - yTickW - 14, yTitleMin = TS + 4 - view.ox / (view.scale || 1);
     if (yTitleMin > yTitleRight) {
       // R4 마무리: 여백이 없는 태블릿(ox 0)에서는 세로 제목이 눈금 숫자와 겹치므로 y축 위 끝에 가로로 (16:9 는 여백이 있어 아래 세로 제목 그대로)
-      SK.text(ctx, '높이 $y$ (m)', L.AX + 10, TOPD + 6, { size: 22, weight: 500, color: '--color-ink-muted', baseline: 'top', align: 'left' });
+      SK.text(ctx, '높이 $y$ (m)', L.AX + 10, TOPD + 6, { size: TS, weight: 500, color: '--color-ink-muted', baseline: 'top', align: 'left' });
     } else {
       ctx.save(); ctx.translate(Math.max(12, yTitleRight), (TOPD + L.GY) / 2); ctx.rotate(-Math.PI / 2);
-      SK.text(ctx, '높이 $y$ (m)', 0, 0, { size: 22, weight: 500, color: '--color-ink-muted', baseline: 'bottom', align: 'center' }); ctx.restore();
+      SK.text(ctx, '높이 $y$ (m)', 0, 0, { size: TS, weight: 500, color: '--color-ink-muted', baseline: 'bottom', align: 'center' }); ctx.restore();
     }
     // 눈금 크기: x 축 왼쪽 아래
-    SK.text(ctx, '모눈 1칸 = ' + numTxt(cell) + ' m', 8, L.GY + 40, AXO);
+    // 심플: 눈금 숫자 줄과 겹치므로 빼기(숫자만으로 읽음)
+    if (!SIMPLE) SK.text(ctx, '모눈 1칸 = ' + numTxt(cell) + ' m', 8, L.GY + 32, AXO);
 
     // 달·화성: 같은 조건으로 지구에서 던졌다면 (회색 점선)
     if (p.planet !== 'earth' && run.analytic && !pred) {
@@ -992,7 +1018,7 @@
       for (var k = 0; k <= 40; k++) { var tk = TE * k / 40; ep.push([vx0 * tk, Math.max(0, run.h + vy0 * tk - 0.5 * gE * tk * tk)]); }
       SK.drawPath(ctx, ep, { color: C.muted, dash: [6, 6], width: 2.5 }, mp);
       var eEnd = ep[ep.length - 1];
-      SK.placeLabel(ctx, [{ x: Math.min(sx(eEnd[0]) + 8, W - 150), y: L.GY - 24, text: '지구에서라면', anchor: 'left', color: '--color-ink-muted', size: 22 }]);
+      SK.placeLabel(ctx, [{ x: Math.min(sx(eEnd[0]) + 8, W - 150), y: L.GY - 24, text: '지구에서라면', anchor: 'left', color: '--color-ink-muted', size: TS }]);
     }
 
     // 기록·직전 실행 궤적 (색 + 선 모양) + 섬광 점
@@ -1009,7 +1035,7 @@
       }
       if (lab) {
         var e = series.path[series.path.length - 1];
-        recLabels.push({ x: Math.min(sx(e[0]), W - 110), y: Math.max(sy(e[1]) - 24, TOPD), text: lab, color: style.color, size: 22 });
+        recLabels.push({ x: Math.min(sx(e[0]), W - 110), y: Math.max(sy(e[1]) - 24, TOPD), text: lab, color: style.color, size: TS });
       }
     }
     if (!pred) {
@@ -1124,7 +1150,7 @@
       var ex = Math.min(bx, W - 30), ey = Math.max(by, YMIN + 30);
       var dx = bx - ex, dy = by - ey, dl = Math.hypot(dx, dy) || 1;
       SK.arrow(ctx, ex - dx / dl * 40, ey - dy / dl * 40, ex, ey, { color: '--color-ink', width: 4 });
-      SK.text(ctx, '화면 밖 (' + numTxt(st.x) + ', ' + numTxt(st.y) + ') m', W - 12, ey + 16, { size: 22, weight: 500, color: '--color-ink', align: 'right', baseline: 'top' });
+      SK.text(ctx, '화면 밖 (' + numTxt(st.x) + ', ' + numTxt(st.y) + ') m', W - 12, ey + 16, { size: TS, weight: 500, color: '--color-ink', align: 'right', baseline: 'top' });
     }
 
     // 당기기 미리 보기

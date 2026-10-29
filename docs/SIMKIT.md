@@ -1,9 +1,99 @@
-# SimKit — 공통 틀 사용 설명서 (개발자용, R2 고도화 2차 + R3 디테일 + R4 태블릿·글꼴·아이콘 + R5 세로 배치·예측 창·교사 발표)
+# SimKit — 공통 틀 사용 설명서 (개발자용, R2 고도화 2차 + R3 디테일 + R4 태블릿·글꼴·아이콘 + R5 세로 배치·예측 창·교사 발표 + R6 심플 모드)
 
 > 작성: 에듀테크1(디자인 리드) · 2026-10-28
 > 근거: `docs/개선/R1_계획.md` §2(디자인 방향)·§3(A1~A18, H1~H2) · 이전 판: `docs/04_팀장결정서.md`
 > 다섯 시뮬레이터는 이 틀 **위에서만** 만든다. `shared/` 를 고칠 일이 생기면 디자인 리드에게 요청한다.
 > 바로 동작하는 예제: `sims/_template/index.html` (= `shared/TEMPLATE.html`) — R2 새 API 를 모두 씀.
+
+---
+
+## 0R6. R6 에서 바뀐 것 (2026-10-30, 개발자1 · 팀장 마무리 0R6-6) — 먼저 읽기 · 개발자2·3 은 여기부터
+
+> 근거: `docs/개선/R6_계획.md` §1·§2·§3-S, `docs/개선/R6_참고_기술교과서칠판.md`(dongatech 칠판 수치). 바뀐 것: **심플 모드**(새 기능) · 단원색 띠 · `[심플|자세히]` 분절 · 교사 머리줄 · [그림 보기] 자리 · 예측 창 높이 · 실험 카드 제목 · 확인창 판정 제외 · 되돌리기 두 번 누르기 · z 토큰 · `--fs-caption` 24u.
+> 확인 캡처: `_review/R6/개발자1/` (`S17_*`: 허브·포물선 × 심플·자세히 × 1920·1280·1180·1024·820, `rt_a/rt_b`: 모드 왕복 전후 픽셀 차이 0, `base_*`: HEAD 기준). 포물선 심플 캡처는 **검사용 주입**(`simple` 선언을 sim.js 에 넣지 않고 페이지 밖에서 넣음)이다 — 실제 선언은 A1.
+
+### 0R6-1. 켜는 법 · 상태 API
+| 무엇 | 내용 |
+|---|---|
+| 선언 | `SimKit.init({ …, simple: {…} })` — **없으면 토글이 숨고 늘 자세히**(하위 호환, `sims/_template` 그대로) |
+| 우선순위 | 주소 `?simple=1`(심플) / `?simple=0`(자세히) → 저장 `localStorage['physsim.mode'] = 'simple'\|'full'`(허브·sim 공통, 읽기·쓰기 모두 try/catch) → 기본 자세히. 쿼리는 읽은 뒤 저장한다. 토글로 바꾸면 주소의 `simple=` 도 `history.replaceState` 로 맞춘다 |
+| `SK.isSimple()` | 지금 심플이면 true (render 안에서 캔버스 글자·범례를 바꿀 때) |
+| `SK.setSimple(on, {save})` | 바꾸기. `save:false` 면 저장·주소를 안 건드림. cfg.simple 없으면 무시 |
+| `SK.onMode(fn(simple))` | 바뀐 뒤 부른다(처음 열 때는 안 부름 — 처음 값은 `SK.isSimple()`) |
+| 키 **M** | 심플 ↔ 자세히(`installKeys` 스위치, 입력칸 포커스·예측 창이 떠 있을 때 제외). **Esc** 는 열린 시트를 먼저 닫는다 |
+| 첫 진입 | 알림 1회 '자세히 모드는 오른쪽 위에서 바꿔요' (`physsim.simpleToastShown`) |
+| 전환 | `html.is-simple` 클래스 하나 + **노드 이동**(재생성 없음). 120ms 투명도만(줄이기면 0), `SK.view.resize()` → `cfg.onResize`. 모드 왕복 뒤 `SK.ui`·기록·예측·고른 카드·실행 위치 그대로 |
+
+### 0R6-2. `cfg.simple` 선언
+```js
+SimKit.init({
+  …,
+  simple: {
+    task: '속력과 각도를 바꿔 공이 어디까지 가는지 봐요',   // 안내줄 한 줄(40u, 넘치면 …). 함수(p) 가능. 예측을 고른 뒤엔 '▶ 실행으로 내 예측을 확인해요'
+    params: ['v0', 'theta'],          // 레일로 옮길 addVar/addChoice/addToggle key 1~3개(4개째부터 무시). 없는 key 는 경고 후 생략
+    situation: ['planet'],            // (선택) 상황 choice key 0~1개 — 레일 맨 위 카드, 옵션은 큰 칩(64u)·2개면 두 단추
+    meters: ['x', 'vx', 'vy'],        // 큰 측정 칸 1~3개 — SK.meters 의 key, 또는 {key,label,unit,decimals,symbol,q}
+    presets: [2, 4],                  // '실험 ▾' 시트에 보일 setPresets 인덱스(또는 name). 생략 = 전부
+    predict: 'button',                // 'button'(기본: 안내줄 [예측 ▸]) | 'off' | {예측 옵션 객체 — [예측 ▸] 가 이것을 연다}
+    extras: [{ key: 'energy', label: '에너지 막대' }]   // (선택) 더 보기 시트 아래 줄 켬/끔 단추 (addToggle key)
+  }
+});
+```
+- **레일**: 노드를 그대로 옮긴다(`.simple-item`, 원래 부모·다음 형제 기억 → 되돌릴 때 역순). 모드에 따라 sim 이 `el.hidden = true` 로 숨기는 컨트롤은 레일에서도 숨고, 레일 칸 수(`--sn`)가 저절로 줄어든다. `chooseMode` 가 접어 둔(`is-folded`) 모드 choice 도 레일에서는 펼쳐진다(`is-mode-ctl`). 심플에서 숨는 것: ⚡/↻ 꼬리표·범위 줄·힌트·`btn__sub`·5자 넘는 눈금 글자(`.var__ticks span.is-long`).
+- **측정 칸**: 값은 기존 계기판 경로 그대로 — `meters.set/update` 가 같은 key 의 `.simple-meter` 도 쓴다. **`simpleOnly:true`** 항목은 일반 계기판에 그리지 않고 심플 칸에서만 보인다. 계기판 밖 값은 **`SK.setMeter(key, v)`**(일반·심플 함께).
+  ```js
+  var meters = SK.meters(null, [ …기존…, { key: 'dy', label: '줄무늬 간격 Δy', unit: 'mm', decimals: 2, simpleOnly: true } ]);
+  meters.set('dy', lam * L / d);      // 또는 SK.setMeter('dy', …)
+  ```
+- **예측**: 심플에서는 `SK.predict()` 가 저절로 불려도(첫 화면·카드·모드 뒤) **창을 띄우지 않고 미뤄 둔다**(Promise 는 null 로 끝남, 마지막 옵션을 기억). 안내줄 [예측 ▸] = 지금 카드의 예측 → `simple.predict` 객체 → 미뤄 둔 예측. sim 이 심플에서 꼭 바로 열어야 하면 `SK.predict({…, simple:true})`.
+- **모드 창**: `SK.chooseMode` 는 심플에서 창을 띄우지 않고 지금 값으로 시작한다(바꾸기는 `situation` 칩/두 단추). 심플로 바꿀 때 떠 있던 모드 창은 닫힌다.
+- **실험 시트**: 카드 2열, 고르면 `SK.applyPreset(i, {noConfirm:true})` 후 닫힘. 심플에서는 `autoPredict` 와 `confirmPresetWithRecords` 를 쓰지 않는다.
+- **더 보기 시트**(⋯ 더 보기): 위 = 원래 `.sim-panel`(+ `.rec-big`·`.think-board`) **노드 통째**(해설 카드는 패널 스크롤 안 그대로 — 두 겹 스크롤 없음), 아래 도구 줄 = 단계 4칩(=`goStep`, 비교 → 기록 표 판, 정리 → 질문 판) · [◀ 뒤로][앞으로 ▶] · [기록하기 n/5] · [기본값으로 ↺](두 번) · `extras` · 교사면 [수업 안내(교사)][수업 정보] · [자세히 모드로 ▸]. 숨은(레일 밖) 기록 값이 기본값과 다르면 `⋯ 더 보기 ●`. 실행이 끝나면 알림 '실험이 끝났어요 [해설 보기 ▸]' → 시트가 해설 카드 위치로 열린다. `SK.openSheet('more'|'presets')`, `SK.closeSheet()`.
+- **T(조작판 접기)** 는 심플에서 쓰지 않는다(알림만).
+
+### 0R6-3. 심플 배치 (전부 `html.is-simple` 로 시작 — 없으면 한 줄도 안 켜짐 · `shell.css` 끝)
+| 화면 | 자리 (u = 1920 설계 px) |
+|---|---|
+| 16:9 (1920·1280) | 띠 12 · 머리줄 y12~84 · 안내줄 y96~156 · **무대 x40 y168 1360×(672+extra)** · 레일 x1424 y168 456×792(카드 ≤248, 아래 정렬, 4칸이면 `is-dense`) · 측정 y856 1360×104(3칸) · 막대 y992 h88 [▶ 실행 360][↺ 다시 200][속도 220] …… [실험 ▾ 240][⋯ 더 보기 240] · 시트 오른쪽 820×(y168~막대 위 16) |
+| 4:3 가로 (`landscape and max-aspect-ratio:17/10` — 1180×820·1024×768) | 무대 전폭 1840, 아래에서부터 막대 88 · 레일 한 줄 216(n칸) · 측정 104, 무대 = 남는 높이 · 시트 폭 1040 |
+| 세로 (`portrait and min-width:601`) | **1p = 폭/820**: 띠 10 · 머리 64 · 안내 56 · 무대 788×(남는 높이) · 측정 3×252×88 · 레일 n×(788×104, [이름·값 \| − 슬라이더 +]) · 막대 72 [▶ 실행 280][↺ 다시 168][실험 148][⋯ 148] (속도 단추는 숨김 — [ ] 키). 예측 창은 무대 아래(측정·레일 자리) |
+| 공통 | 측정 칸이 없으면(`meters` 비움) 무대가 그 자리까지 커진다. 예측·모드 창·표 크게 보기 = 심플 무대 사각형, [그림 보기] 는 무대 오른쪽 위. 교사 칩·[수업 안내]·[수업 정보]는 머리줄에서 숨고 시트로 |
+
+**심플 클래스 이름표**: `.sim-colorbar` · `.mode-seg`/`.mode-seg__opt[aria-pressed]` · `.simple-task`(`__text`·`__predict`) · `.simple-rail`(`.simple-item`, `--simple-item--situation/param`, `.is-dense`) · `.simple-meters`/`.simple-meter[data-key]`(`__label`·`__value`·`__unit`) · `.simple-bar`(`.simple-run`·`.simple-again`·`.simple-speed`·`.simple-presets-btn`·`.simple-more-btn`·`.simple-more-dot`) · `.sheet-scrim` · `.sheet.sheet--more`(`__head`·`__body`·`__tools`·`__steps`·`__row`·`__extras`) · `.sheet.sheet--presets`(`__cards`·`__card`). 슬라이더 변수 `--sn`(레일 칸 수, sim.js 가 씀). 무대 변수 `--sx --sy --sw --sh --meter-y --rail-y --bar-y`(심플 블록 안).
+
+**토큰**(새 이름만, 일반 토큰을 덮지 않음): `--tap-simple 64u` · `--btn-main-h 72u` · `--bar-simple-h 88u` · `--fs-simple-min max(18px,28u)` · `--fs-simple-title 44u` · `--fs-simple-label 32u` · `--fs-simple-body 32u` · `--fs-simple-value 72u` · `--fs-simple-meter 64u` · `--radius-simple-sm/md/lg 12/20/32u` · z: `--z-sheet 40` · `--z-modal 50`(.dialog-layer, 값 그대로) · `--z-notice 55`.
+
+### 0R6-4. 두 모드 공통으로 바뀐 것
+- **단원색 띠** `.sim-colorbar`: 무대 맨 위 전폭, 일반 8u(머리줄 버튼 위 여백 10u 안 — 좌표 영향 없음) · 심플 12u. 색 = `--sim`.
+- **`[심플 | 자세히]` 분절**: 머리줄 도구 줄 맨 앞(두 모드 같은 자리), 일반 52u·심플 64u, 고른 쪽 = 진한 바탕 + ✓, `aria-pressed` 쌍. 세로 아이콘화 규칙에 안 걸려 글자 유지. CSS 는 허브와 함께 쓰므로 `base.css` 끝.
+- **교사 머리줄(S8)**: 교사 모드에서 [수업 정보 · 교사용 ▾]·[도움말]·[전체 화면] → 아이콘 56u(이름은 aria-label), 성취기준 → 한 칩 `[12역학01-02] 외 1`(누르면 수업 정보의 성취기준 줄), 제목 32u·두 줄까지(`title` 속성 = 전체 제목). 1280 포물선·슬릿·충돌·궤도·렌즈 `?teacher=1` 제목 '…' 0.
+- **[그림 보기](S6)**: 창이 위(`place:'top'`)면 오른쪽 아래 **80u 위로**(포물선 x축 이름을 안 가림). 세로에서도 보인다(실험 화면 오른쪽 위).
+- **예측 창(S7)**: 보기 3개가 모두 14자 이하(그림 없음)면 `.is-short` — 한 줄 3칸, 높이 상한 58% → 42%. 세로에서는 창 = 내용 높이(아래 남는 자리는 패널이 그대로 보이고 눌림). 모드 창 보기 4개면 2열.
+- **예측 창 Space(S14)**: 흔들림 + 창 안 안내 '보기를 고르거나 [예측 없이 바로 실행]을 눌러요'(3초, 경고색). '예측 없이 바로 실행' = 윤곽선 단추.
+- **실험 카드(S11)**: 제목 두 줄까지(넘치면 …, keep-all), ✓ 배지는 카드 안쪽 오른쪽 위 4u. 값 줄은 22u(하한 13px) — 24u 면 '각도 30° → 60°' 가 잘린다.
+- **확인창 판정 제외(S12)**: `addVar/addChoice/addToggle({…, confirm:false})` 인 key 는 기록에는 남지만 카드 확인창의 '값 n개' 에서 빠진다(예: 렌즈 `type`). `SK.applyPreset(i, {noConfirm:true})` 는 확인창 없이 적용.
+- **기본값으로 되돌리기(S15)**: 막대 버튼·R 키·시트 버튼 = 두 번 누르기(첫 누름은 버튼 글자 '한 번 더 누르면 되돌려요' 3초, 경고색, 폭 고정). 바꾼 값이 없으면 바로. `SK.resetDefaults()`(API)는 그대로 한 번에.
+- **`--fs-caption` 22u → `max(13px, 24u)`(S13)**: 계기판 라벨·꼬리표·힌트·범위 줄이 24u. 캔버스 `SimKit.audit.smallText(22)` 5종 × 1280·1180·820 = 0건. HTML 13px 미만은 ①②③ 원 안 숫자·아래첨자·아이콘 단추(글자 0)뿐.
+- **허브(S9·S10)**: 교사 칩 왼쪽 `[심플 | 자세히]`(64u), `buildQuery({simple, teacher})` 가 [열기]·보조 링크를 다시 만든다(`data-base` 기준). 심플이면 [열기] 안에 작은 칩 '심플'. `?simple=1` 로 열면 켜진 채. 세로는 페이지 스크롤(카드 높이 auto, 푸터 흐름 안). 카드 2 보조 링크 = 44u 칩 '빛 실험'·'전자 실험'(한 줄). 키 M.
+
+### 0R6-5. 시뮬레이터 개발자 반영 목록 (D1~D3)
+| # | 무엇 | 누가 |
+|---|---|---|
+| D1 | `simple:{…}` 선언 — R6_계획 §1-6 표의 params·situation·meters·presets·extras 그대로. 없는 측정(`dy`·`look`·`res`)은 `SK.meters` 에 `simpleOnly:true` 로 넣거나 `{key,label,unit}` + `SK.setMeter` | A1 · B1·B3 · C1·C7 |
+| D2 | 캔버스: `SK.isSimple()` 이면 축·범례 글자 28u 이상, 눈금 숫자 덜, 보조 범례 숨김(물리·좌표 계산은 그대로). 무대 크기가 바뀌므로 `cfg.onResize(view)` 가 `view.extra` 로 배치를 다시 잡는지 확인. 심플↔자세히 왕복 전후 같은 그림인지 | A2 · B2·B7 · C1·C6 |
+| D3 | 모드 의존: 궤도는 심플 진입 때 `SK.onMode(fn)` 에서 mode 를 cannon 으로(이전 값 기억 → 자세히로 돌아가면 복귀). 슬릿 `chooseMode` 는 공통 틀이 심플에서 안 띄움(`send` 를 `situation` 에). 렌즈 `type` 에 `confirm:false`. 심플에서 숨기는 sim 고유 HTML(무대 위 버튼·창)은 `html.is-simple` 선택자로 sim CSS 에서 | B1 · C1·C4·C5 |
+| 검사 | `_review/R6/<이름>/`: 심플·자세히 × 1920·1280·1180·1024·820 + 모드 왕복(`key:KeyM` 두 번) 전후 픽셀 비교 + 콘솔 0 | 모두 |
+
+### 0R6-6. 팀장 마무리(통합 검사 뒤 공통 틀에 더한 것)
+- **숫자 키 1~5(심플)**: `simplePresetList()` 에 있는 카드만 적용(없는 카드는 알림 'n번 카드는 자세히 모드에서 골라요'), 적용은 `{noConfirm:true}`.
+- **실험 시트 높이** = 내용 높이(`.sheet--presets { top:auto; max-height:… }`, 막대 위에 붙음). 카드 2장이면 그만큼만.
+- **심플 측정 칸 이름의 용어 풀이 괄호** `.term-inline` 은 공통 CSS 에서 숨김(sim CSS 에서 따로 숨길 필요 없음).
+- **예측 창 높이**: 일반 `.is-short.is-many` 42% → 50%(질문이 두 줄이면 보기가 잘림 — 내용이 작으면 그만큼만), 심플은 `.is-many` 58%. 모드 창 `.mode-card` 48% → 56%(1920 에서 보기 2장 아래 잘림).
+- **글자 하한**: `--fs-meta max(13px, 24u)`, `--fs-control max(14px, 26u)` — 1024×768 에서 12.8/13.9px 이던 공통 글자. 1280 이상은 값이 같아 좌표 영향 없음.
+- **슬릿 세로**: [그림 보기] 를 무대 왼쪽 위로(sim CSS, 오른쪽 위 '확대창' 제목을 가리던 것). 충돌 세로 심플 측정 `p` 값 26p·단위 14px(kg·m/s '…' 잘림).
+- 검사 캡처 `_review/R6/팀장/`: 허브+5종 × 심플(처음·실행 끝)·자세히 × 1920·1280·1180·1024·820 = 66장, `fix_*`(수정 전후), `rt_*`(모드 왕복: 값 유지), `diff_*`(R6 전 기준과 자세히 모드 차이 — 머리줄 분절·caption 24u·[그림 보기] 자리뿐), `sweep_*`(키 1·2·M·3·M·Esc 콘솔 0).
+
+**projectile 개발자(A) 메모**: 1920 계기판 `수직 속도 v_y (위 + · 아래 −)` 의 끝 ')' 가 caption 24u 로 잘린다(sim 고유 `.pe-meter-note`) — A3 때 함께. 실험 카드 ① '45° 가장 멀리' 카드는 없어서 검사 주입은 `presets:[2, 4]`('30°와 60°'·'최고점에서 속도는?').
 
 ---
 

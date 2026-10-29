@@ -246,6 +246,7 @@
   var SK = root.SimKit;
   var DT = 1 / 600;                        // 고정 화면 시간 간격 (s)
   var SX = 240, X0 = 625, RAIL0 = 334, RAIL = RAIL0;      // 1 m = 240u, x=0 → 625u, 레일 y
+  var TS = 22, CS = 1;                     // R6(B7): 심플이면 캔버스 글자 28u · 수레 높이 1.5배 (물리·좌표 계산은 그대로)
   var K = 1;                               // R5(R4 b): 세로 여유가 있을 때 장면 세로 축척(수레 높이·화살표·글자) — 16:9 는 1
   var LOW = { x: 16, y: 432, w: 1218, h: 218 };   // 아래 그래프 판 (R5: 트랙 설명 아래 · 세로 여유가 있으면 장면을 키우고 남는 만큼 h 가 늘어남)
   var GX = 214;                            // 그래프 그리는 곳 왼쪽 (탭 칸 오른쪽)
@@ -297,8 +298,9 @@
         return '예측 질문의 답을 먼저 골라요';
       } },
       { text: function () {
-        if (SK.running) return '부딪치는 순간은 저절로 느려져요';
-        if (SK.started && !SK.finished) return '멈췄어요 — 아래 ▶ 이어서 실행';
+        if (SK.running) return st && st.slow < 0.999 ? '부딪치는 순간이라 느리게 보여 줘요' : '부딪치는 순간은 저절로 느려져요';
+        // R6(B5): 자동 슬로 모션(×1/40)은 멈춘 것처럼 보여 이때 Space·▶ 를 다시 누르면 t ≈ 0.40 s(부딪치는 순간)에서 선다 — 사용자가 멈춘 것(버그 아님)
+        if (SK.started && !SK.finished) { syncBadge(); return st && (st.phase === 'hit' || st.slow < 0.999) ? '부딪치는 순간에서 멈췄어요 — ▶ 이어서' : '멈췄어요 — 아래 ▶ 이어서 실행'; }
         if (SK.finished && SK.canRecord()) return '그래프 탭 3개를 보고 위쪽 기록하기 버튼으로 저장해요';
         if (SK.finished) return '값 하나만 바꿔 다시 실행해요';
         return '아래 ▶ 실행을 누르고 지켜봐요';
@@ -347,6 +349,13 @@
       a.push(kindLabel(p.e));
       a.push('범퍼 ' + TAU_NAME[p.tau]);
       return a;
+    },
+    // R6(B3): 심플 모드 — 12물리01-03 핵심(충돌 전후 운동량 합 보존, 비탄성에서 K 감소). v₂·e·범퍼·장면은 더 보기(패널)
+    simple: {
+      task: function (p) { return p.mode === 'collide' ? '질량과 속도를 바꿔 부딪쳐 보고 운동량 합을 비교해요' : '▶ 실행하고 운동량 합이 그대로인지 봐요'; },
+      params: ['m1', 'm2', 'v1'], situation: ['kind'],
+      meters: ['p', 'k', { key: 'verdict', label: '판정', unit: '' }],
+      presets: [0, 1, 2], predict: 'button'
     }
   });
   SK.el.band.style.gridTemplateColumns = 'minmax(0, 1fr)';
@@ -532,7 +541,7 @@
       change: '충돌 종류: 튕기기', fixed: 'm₁ = m₂ = 1 kg · v₁ = +2, v₂ = 0 m/s · 범퍼 보통',
       values: { mode: 'collide', kind: 'elastic', e: 1, tau: 0.05, m1: 1, m2: 1, v1: 2, v2: 0 },
       predict: { question: '같은 질량의 A(2 m/s)가 멈춘 B와 부딪혀 튕겨요. 어떻게 될까?',
-        choices: ['A는 멈추고 B가 2 m/s로', '둘 다 1 m/s로 함께', 'A가 뒤로 튕겨 나와요'],
+        choices: ['B만 2 m/s로', '둘 다 1 m/s로', 'A가 뒤로 튕김'],   // R6(B4): 14자 이하 → 한 줄 3칸(창이 낮아져 수레·트랙이 보임)
         answer: 1, why: '질량이 같고 튕기면 두 수레가 속도를 서로 바꿔요. 운동량 합(2 kg·m/s)과 운동 에너지 합(2 J)이 둘 다 그대로인 답은 이것뿐이에요. ‘둘 다 1 m/s’는 운동 에너지가 1 J로 줄어드는 달라붙기의 결과예요.' },
       onApply: function () { setTab('p'); }
     },
@@ -540,7 +549,7 @@
       name: '달라붙으면', tag: '탐구 재현', changes: '튕김 → 붙음',
       change: '충돌 종류만: 튕기기 → 달라붙기', fixed: 'm₁ = m₂ = 1 kg · v₁ = +2, v₂ = 0 m/s · 범퍼 보통',
       values: { mode: 'collide', kind: 'stick', e: 0, tau: 0.05, m1: 1, m2: 1, v1: 2, v2: 0 },
-      predict: { question: '이번엔 두 수레가 부딪쳐 달라붙어요. 부딪친 뒤 운동량의 합은?', choices: ['줄어들어요', '그대로 2 kg·m/s예요', '늘어나요'],
+      predict: { question: '이번엔 두 수레가 부딪쳐 달라붙어요. 부딪친 뒤 운동량의 합은?', choices: ['줄어들어요', '그대로 2 kg·m/s', '늘어나요'],
         info: '끝나면 그래프의 ‘운동 에너지’ 탭도 함께 봐요.',
         answer: 2, why: '두 수레가 주고받는 힘은 크기가 같고 방향이 반대라서, A가 잃은 운동량을 B가 그대로 얻어요. 줄어드는 것은 운동 에너지(2 J → 1 J)예요.' },
       onApply: function () { setTab('p'); }
@@ -567,7 +576,7 @@
       change: '범퍼: 딱딱 0.01 s → 푹신 0.2 s', fixed: '벽 · 달라붙기 · 수레 1 kg, +2 m/s',
       values: { mode: 'wall', kind: 'stick', e: 0, tau: 0.01, m1: 1, v1: 2 },
       predict: { question: '딱딱한 범퍼를 푹신한 범퍼(에어백)로 바꾸면 무엇이 달라질까?',
-        choices: ['운동량 변화가 작아져요', '시간이 길어져 힘이 작아져요', '운동량이 사라져요'],
+        choices: ['운동량 변화가 작아져요', '시간이 길어 힘이 작아져요', '운동량이 사라져요'],
         info: '딱딱 범퍼로 한 번, ‘푹신’ 범퍼로 한 번 기록해 비교해요.',
         answer: 2, why: '멈출 때까지의 운동량 변화(충격량, 힘-시간 그래프의 넓이)는 2 N·s로 같아요. 부딪쳐 있는 시간이 0.01 s → 0.2 s로 20배 길어지니, 평균 힘은 200 N → 10 N으로 1/20이 돼요. 운동량은 사라지지 않고 벽(지구)으로 넘어가요.' },
       onApply: function () { setTab('f'); }
@@ -621,6 +630,9 @@
   lowerEl.appendChild(tabBox);
   SK.el.stage.appendChild(lowerEl);
   var lowerEmpty = SK.empty(lowerEl, '운동량·힘·에너지 그래프');
+  var lowerEmptyS = SK.empty(lowerEl, '운동량 합 막대');   // R6(B7) 심플
+  lowerEmptyS.show(false);
+  if (SK.onMode) SK.onMode(function () { SK.requestRender(); SK.update(); });
   function setTab(id) {
     tab = id; seen[id] = true;
     for (var k in tabBtns) tabBtns[k].setAttribute('aria-selected', String(k === id));
@@ -662,7 +674,7 @@
       var list = [['A', st.xA, st.P.m1]];
       if (st.xB !== null) list.push(['B', st.xB, st.P.m2]);
       for (var i = 0; i < list.length; i++) {
-        var x = sx(list[i][1]), hgt = CM.cartH(list[i][2]);
+        var x = sx(list[i][1]), hgt = CM.cartH(list[i][2]) * CS;
         if (pt.x > x - CM.HW * SX - 10 && pt.x < x + CM.HW * SX + 10 && pt.y > RAIL - 18 * K - hgt * K - 20 && pt.y < RAIL + 10 * K) return list[i][0];
       }
       return null;
@@ -981,11 +993,13 @@
   function render(view, p) {
     if (!st) return;
     var ctx = view.ctx, P = st.P;
+    var simple = !!(SK.isSimple && SK.isSimple());
+    TS = simple ? 28 : 22; CS = simple ? 1.5 : 1;
     placeLower(view);
     drawTrack(ctx, P);
     if (p.showCM && P.mode !== 'wall') drawCM(ctx, P);
     drawCarts(ctx, P);
-    if (!SK.predicting()) drawLower(ctx, p, P);   // R2: 예측 창이 떠 있는 동안 결과 층(그래프 판) 숨김
+    if (!SK.predicting()) { if (simple) drawLowerSimple(ctx, P); else drawLower(ctx, p, P); }   // R2: 예측 창이 떠 있는 동안 결과 층(그래프 판) 숨김
     updateHTML(p, P);
   }
 
@@ -998,16 +1012,16 @@
       ctx.fillStyle = col(big ? '--color-line-strong' : '--color-line');
       ctx.fillRect(x - 1, RAIL + 12 * K, 2, (big ? 12 : 7) * K);
       // R5: 숫자는 눈금선 끝(+24)에서 7u 더 띄워 +42 — 선이 숫자에 닿지 않음
-      if (big) text(ctx, (i > 0 ? '+' : i < 0 ? '−' : '') + Math.abs(i / 2) + (i === 4 ? ' m' : ''), x, RAIL + 42 * K, { size: 22 * K, w: 400, color: '--color-ink-muted', align: 'center' });
+      if (big) text(ctx, (i > 0 ? '+' : i < 0 ? '−' : '') + Math.abs(i / 2) + (i === 4 ? ' m' : ''), x, RAIL + (TS + 20) * K, { size: TS * K, w: 400, color: '--color-ink-muted', align: 'center' });
     }
     // 트랙 설명은 눈금 숫자 아래 두 줄 간격(R5: +64 → +80) · 글 속 화살표 글자는 빼고 말로
-    text(ctx, '마찰 없는 트랙 · 오른쪽이 + 방향 · 눈금 0.5 m', sx(-2) - 10, RAIL + 80 * K, { size: 22 * K, w: 400, color: '--color-ink-muted' });
+    if (TS === 22) text(ctx, '마찰 없는 트랙 · 오른쪽이 + 방향 · 눈금 0.5 m', sx(-2) - 10, RAIL + 80 * K, { size: 22 * K, w: 400, color: '--color-ink-muted' });
     if (P.mode === 'wall') {
       var wx = sx(CM.XW), wt = RAIL - 170 * K;
       ctx.fillStyle = col('--color-paper-sunk'); ctx.fillRect(wx, wt, 32, RAIL + 12 * K - wt);
       ctx.strokeStyle = col('--color-line-strong'); ctx.lineWidth = 3; ctx.strokeRect(wx, wt, 32, RAIL + 12 * K - wt);
       hatch(ctx, wx, wt, 32, RAIL + 12 * K - wt, '--color-line-strong', 16);
-      text(ctx, '벽', wx + 16, wt - 18 * K, { size: 24 * K, w: 500, align: 'center' });
+      text(ctx, '벽', wx + 16, wt - 18 * K, { size: (TS + 2) * K, w: 500, align: 'center' });
     }
   }
 
@@ -1034,32 +1048,40 @@
   }
 
   function drawCart(ctx, x, m, color, name) {
-    var hgt = CM.cartH(m) * K, bw = 2 * CM.HW * SX, cx = sx(x);
+    var hgt = CM.cartH(m) * K * CS, bw = 2 * CM.HW * SX, cx = sx(x);
     var top = RAIL - 18 * K - hgt;
     ctx.fillStyle = col(color);
     rr(ctx, cx - bw / 2, top, bw, hgt, 8); ctx.fill();
     ctx.fillStyle = col('--color-ink');
     [-0.28, 0.28].forEach(function (f) { ctx.beginPath(); ctx.arc(cx + f * bw, RAIL - 9 * K, 9 * K, 0, Math.PI * 2); ctx.fill(); });
+    var num = fmt(m, m % 0.5 ? 2 : 1), mt = num + ' kg';
+    if (CS > 1) {
+      // R6(B7) 심플: 수레 높이 1.5배 — 이름 · 질량 · kg 세 줄(28u, 몸통 폭 72u 안)
+      var gap = Math.min(30, hgt / 3);
+      text(ctx, name, cx, top + gap * 0.5 + 2, { size: name.length > 1 ? 28 : 32, w: 500, color: '--color-ink-inverse', align: 'center' });
+      text(ctx, num, cx, top + gap * 1.5 + 2, { size: 28, w: 500, color: '--color-ink-inverse', align: 'center' });
+      text(ctx, 'kg', cx, top + gap * 2.5 + 2, { size: 28, w: 400, color: '--color-ink-inverse', align: 'center' });
+      return { cx: cx, top: top, mt: null, color: color };
+    }
     text(ctx, name, cx, top + 20 * K, { size: (name.length > 1 ? 22 : 24) * K, w: 500, color: '--color-ink-inverse', align: 'center' });
-    // R3: 수레 안쪽(폭 − 8)에 안 들어가면 단위 빼고 숫자만
-    var mt = fmt(m, m % 0.5 ? 2 : 1) + ' kg';
-    if (textW(ctx, mt, { size: 22 * K, w: 500 }) > bw - 8) mt = fmt(m, m % 0.5 ? 2 : 1);
+    // R6(B3): 단위 병기 — '1.0 kg'(22u 폭 64.6u)이 몸통 72u 안에 들어가게 여백 8 → 4. 그래도 넘치면(K>1 등) 숫자만
+    if (textW(ctx, mt, { size: 22 * K, w: 500 }) > bw - 4) mt = num;
     text(ctx, mt, cx, top + 43 * K, { size: 22 * K, w: 500, color: '--color-ink-inverse', align: 'center' });
     return { cx: cx, top: top, mt: mt, color: color };
   }
   /** R3: 힘 화살표가 수레 글자를 덮으면 글자를 수레색 외곽선과 함께 다시 그린다 ('1.0 kg' 잘림 방지) */
   function relabel(ctx, c) {
-    if (!c) return;
+    if (!c || !c.mt) return;
     text(ctx, c.mt, c.cx, c.top + 43 * K, { size: 22 * K, w: 500, color: '--color-ink-inverse', align: 'center', halo: c.color, haloWidth: 6 });
   }
 
   function velLabel(cx, top, v) {
     var y = top - 26 * K;
-    if (Math.abs(v) < 0.005) return { x: cx, y: y - 22 * K, text: '0 m/s (정지)', color: '--color-q-velocity', size: 22 * K, dot: true, ay: y };
+    if (Math.abs(v) < 0.005) return { x: cx, y: y - TS * K, text: '0 m/s (정지)', color: '--color-q-velocity', size: TS * K, dot: true, ay: y };
     var L = Math.max(-200, Math.min(200, v * 34));
     if (cx + L > 1236) L = Math.max(24, 1236 - cx);          // 실험 화면 밖으로 나가지 않게
     if (cx + L < 14) L = Math.min(-24, 14 - cx);
-    return { x: Math.max(60 * K, Math.min(1250 - 60 * K, cx + L / 2)), y: y - 22 * K, text: sgn(v, 1) + ' m/s', color: '--color-q-velocity', size: 22 * K, ax: cx, ay: y, L: L };
+    return { x: Math.max(60 * K, Math.min(1250 - 60 * K, cx + L / 2)), y: y - TS * K, text: sgn(v, 1) + ' m/s', color: '--color-q-velocity', size: TS * K, ax: cx, ay: y, L: L };
   }
 
   function drawCarts(ctx, P) {
@@ -1081,7 +1103,7 @@
     var a = drawCart(ctx, xA, P.m1, '--color-rec-1', sep ? '대포' : 'A');
     var b = P.mode === 'wall' ? null : drawCart(ctx, xB, P.m2, '--color-rec-2', sep ? '포탄' : 'B');
     if (drag) {
-      text(ctx, '놓는 순간의 빠르기가 처음 속도가 돼요', sx(drag.x), RAIL - 18 * K - CM.cartH(drag.who === 'A' ? P.m1 : P.m2) * K - 50 * K, { size: 22 * K, w: 500, color: '--color-primary', align: 'center' });
+      text(ctx, '놓는 순간의 빠르기가 처음 속도가 돼요', sx(drag.x), RAIL - 18 * K - CM.cartH(drag.who === 'A' ? P.m1 : P.m2) * K * CS - 50 * K, { size: TS * K, w: 500, color: '--color-primary', align: 'center' });
       return;
     }
     // 속도 화살표 + 라벨 (라벨은 겹치면 placeLabel 이 비켜 줌)
@@ -1091,7 +1113,7 @@
       if (l.dot) { ctx.fillStyle = col('--color-q-velocity'); ctx.beginPath(); ctx.arc(l.ax !== undefined ? l.ax : l.x, l.ay, 6 * K, 0, Math.PI * 2); ctx.fill(); }
       else SK.arrow(ctx, l.ax, l.ay, l.ax + l.L, l.ay, { color: '--color-q-velocity', width: 5 * K });
     });
-    if (sep && st.phase === 'pre') labs.push({ x: (sx(xA) + sx(xB)) / 2, y: RAIL - 82 * K, text: '눌린 용수철', color: '--color-ink-muted', size: 22 * K });
+    if (sep && st.phase === 'pre') labs.push({ x: (sx(xA) + sx(xB)) / 2, y: RAIL - 82 * K, text: '눌린 용수철', color: '--color-ink-muted', size: TS * K });
     SK.placeLabel(ctx, labs.map(function (l) { return { x: l.x, y: l.y, text: l.text, color: l.color, size: l.size, anchor: 'center' }; }));
     // 힘 화살표 한 쌍 (충돌 중)
     var F = CM.force(st);
@@ -1106,19 +1128,20 @@
       relabel(ctx, a); relabel(ctx, b);
       var who = P.mode === 'wall' ? '벽이' : sep ? '포탄이' : 'B가';
       // R4: 양끝 ← → 는 SVG 아이콘(arrow-left/right) · 글자는 에스코어 500
-      var LO = { size: 24, w: 500, color: '--color-copper-text' }, IC = 24, GAP = 6;
+      var LO = { size: TS + 2, w: 500, color: '--color-copper-text' }, IC = TS + 2, GAP = 6;
       var lab1 = (sep ? '대포' : 'A') + '가 받는 힘 ' + fs + '   |   ' + who + ' 받는 힘 ' + fs, lab2 = '   크기 같고 방향 반대';
       var w1 = textW(ctx, lab1, LO), w2 = textW(ctx, lab2, LO);
       // R2(C4): 힘 라벨 상자는 장면 위쪽(모서리 칩 아래) — 트랙 설명과 겹치지 않게
       var tw = IC + GAP + w1 + GAP + IC + w2 + 28, lx = Math.max(16, Math.min(1234 - tw, cx - tw / 2));
       var ly = Math.max(84, Math.min(118, SK.stageInset().top + 8));
-      ctx.fillStyle = col('--color-copper-tint'); rr(ctx, lx, ly, tw, 38, 8); ctx.fill();
+      var bh = TS + 16;
+      ctx.fillStyle = col('--color-copper-tint'); rr(ctx, lx, ly, tw, bh, 8); ctx.fill();
       ctx.strokeStyle = col('--color-copper'); ctx.lineWidth = 2; ctx.stroke();
       var tx = lx + 14;
-      SK.drawIcon(ctx, 'arrow-left', tx + IC / 2, ly + 19, IC, { color: '--color-copper-text', width: 2.6 }); tx += IC + GAP;
-      text(ctx, lab1, tx, ly + 19, LO); tx += w1 + GAP;
-      SK.drawIcon(ctx, 'arrow-right', tx + IC / 2, ly + 19, IC, { color: '--color-copper-text', width: 2.6 }); tx += IC;
-      text(ctx, lab2, tx, ly + 19, LO);
+      SK.drawIcon(ctx, 'arrow-left', tx + IC / 2, ly + bh / 2, IC, { color: '--color-copper-text', width: 2.6 }); tx += IC + GAP;
+      text(ctx, lab1, tx, ly + bh / 2, LO); tx += w1 + GAP;
+      SK.drawIcon(ctx, 'arrow-right', tx + IC / 2, ly + bh / 2, IC, { color: '--color-copper-text', width: 2.6 }); tx += IC;
+      text(ctx, lab2, tx, ly + bh / 2, LO);
     }
   }
 
@@ -1133,7 +1156,7 @@
     ctx.lineWidth = 3; ctx.stroke();
     ctx.beginPath(); ctx.moveTo(x - 11, RAIL + 6 * K); ctx.lineTo(x + 11, RAIL + 6 * K); ctx.moveTo(x, RAIL + 6 * K - 11); ctx.lineTo(x, RAIL + 6 * K + 11); ctx.stroke();
     ctx.restore();
-    text(ctx, '질량 중심 $v$ = ' + sgn(vcm, 2) + ' m/s (일정)', x, RAIL - 208 * K, { size: 22 * K, w: 500, align: 'center' });
+    text(ctx, '질량 중심 $v$ = ' + sgn(vcm, 2) + ' m/s (일정)', x, RAIL - 208 * K, { size: TS * K, w: 500, align: 'center' });
   }
 
   /* ---------- 아래 그래프 판: 탭 하나만 ---------- */
@@ -1146,6 +1169,39 @@
     ctx.save();
     if (tab === 'p') drawPBars(ctx, b, P); else if (tab === 'f') drawFT(ctx, b, P); else drawKBars(ctx, b, P);
     ctx.restore();
+  }
+
+  /** R6(B7) 심플: 그래프 탭 없이 '운동량 합 전 / 후' 막대 한 쌍만 (글자 28u 이상). 벽 장면은 수레 운동량 전 / 후 */
+  function drawLowerSimple(ctx, P) {
+    if (!SK.started) return;
+    var x = LOW.x, y = LOW.y, w = LOW.w, h = LOW.h;
+    ctx.fillStyle = col('--color-paper'); rr(ctx, x, y, w, h, 12); ctx.fill();
+    ctx.strokeStyle = col('--color-line'); ctx.lineWidth = 1.5; ctx.stroke();
+    var wall = P.mode === 'wall', hit = st.phase !== 'pre', done = st.phase === 'post';
+    var now = hit ? CM.pNow(st) : null;
+    var title = wall ? '수레 운동량 $p$ (전 → 후)' : '운동량 합 $p$ (전 → 후)';
+    text(ctx, title, x + 24, y + 30, { size: 30, w: 500 });
+    if (done && !wall && Math.abs(P.pa - P.pb) < 1e-6) {
+      var tw = textW(ctx, title, { size: 30, w: 500 });
+      SK.drawIcon(ctx, 'check', x + 24 + tw + 30, y + 30, 28, { color: '--color-ok', width: 3 });
+      text(ctx, '그대로', x + 24 + tw + 52, y + 30, { size: 28, w: 500, color: '--color-ok' });
+    }
+    text(ctx, '단위 kg·m/s', x + w - 24, y + 30, { size: 28, w: 400, color: '--color-ink-muted', align: 'right' });
+    var mx = Math.max(0.5, Math.abs(P.pb), Math.abs(P.pa), now === null ? 0 : Math.abs(now));
+    var labW = 200, x0 = x + 24 + labW, x1 = x + w - 200, zx = (x0 + x1) / 2, half = (x1 - x0) / 2;
+    var top = y + 62, rh = (h - 72) / 2, bh = Math.min(48, rh - 16);
+    ctx.strokeStyle = col('--color-line-strong'); ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(zx, top + 4); ctx.lineTo(zx, top + 2 * rh - 4); ctx.stroke();
+    [['부딪치기 전', P.pb], [done ? '부딪친 뒤' : hit ? '부딪치는 중' : '부딪친 뒤', now]].forEach(function (r, i) {
+      var cy = top + rh * i + rh / 2;
+      text(ctx, r[0], x + 24, cy, { size: 28, w: 500, color: '--color-ink' });
+      if (r[1] === null) { text(ctx, '부딪친 뒤 나와요', zx + 16, cy, { size: 28, w: 400, color: '--color-ink-muted' }); return; }
+      var xb = zx + r[1] / mx * half, bx = Math.min(zx, xb), bw = Math.abs(xb - zx);
+      ctx.fillStyle = col('--color-ink'); ctx.fillRect(bx, cy - bh / 2, bw, bh);
+      hatch(ctx, bx, cy - bh / 2, bw, bh, '--color-paper', 12, 1, 0.5);
+      var right = r[1] >= 0, tx = right ? Math.max(zx, xb) + 12 : Math.min(zx, xb) - 12;
+      text(ctx, sgn(r[1], 2), tx, cy, { size: 32, w: 500, align: right ? 'left' : 'right' });
+    });
   }
 
   function niceMax(v, step) { return Math.max(step, Math.ceil(v / step - 1e-9) * step); }
@@ -1363,6 +1419,19 @@
 
   /* ---------- HTML 갱신 (계기판·배지·안내) ---------- */
   /** R3: 계기판 값 한 포맷 — 부딪치기 전 '처음', 부딪친 뒤 '처음 → 지금' · 단위는 끝에 한 번(.meter__unit) · 화살표는 .arrow(작게) */
+  /** R6(B5): 멈춘 뒤에는 슬로 모션 배지를 내린다(그리기가 멈춰 지난 상태가 남지 않게) */
+  function syncBadge() { if (!SK.running && badgeEl && !badgeEl.hidden) badgeEl.hidden = true; }
+  /** R6(B3): 실행 전 계기판 빈 줄 아래에 질량 요약 한 줄 'm₁ = 1.0 kg · m₂ = 1.0 kg' */
+  var massEl = null;
+  function massLine(p) {
+    if (!massEl) {
+      massEl = SK.h('span', { class: 'cm-massline' });
+      meterEmpty.el.appendChild(massEl);
+    }
+    var t = p.mode === 'wall' ? '$m_1$ = ' + fmt(p.m1, 1) + ' kg'
+      : (p.mode === 'separate' ? '대포 $m_1$ = ' : '$m_1$ = ') + fmt(p.m1, 1) + ' kg · ' + (p.mode === 'separate' ? '포탄 $m_2$ = ' : '$m_2$ = ') + fmt(p.m2, 1) + ' kg';
+    if (massEl._t !== t) { massEl._t = t; SK.setText(massEl, t); }
+  }
   function pairText(before, now, hit) { return hit ? before + ' → ' + now : before; }
   function decorateArrows() {
     meters.el.querySelectorAll('.meter__value .num').forEach(function (el) {
@@ -1378,8 +1447,18 @@
   }
   function updateHTML(p, P) {
     var hit = st.phase !== 'pre';
+    var simple = !!(SK.isSimple && SK.isSimple());
     meterEmpty.show(!SK.started);
-    lowerEmpty.show(!SK.started);
+    lowerEmpty.show(!SK.started && !simple);
+    lowerEmptyS.show(!SK.started && simple);
+    massLine(p);
+    var verdict = '부딪친 뒤 나와요';
+    if (st.phase === 'post' && P.meet) {
+      var dk = P.ka - P.kb;
+      verdict = (P.mode === 'wall' ? '운동량 바뀜(벽)' : Math.abs(P.pa - P.pb) < 1e-6 ? '운동량 같음' : '운동량 바뀜') + ' ·\n운동 에너지 ' +
+        (dk < -0.005 ? '줄어듦' : dk > 0.005 ? '늘어남' : '그대로');
+    } else if (st.end) verdict = '부딪치지 않았어요';
+    if (SK.setMeter) SK.setMeter('verdict', verdict);
     meters.update({
       v1: hit ? pairText(sgn(st.vA0, 1), sgn(st.vA, 1), true) : sgn(st.vA, 1),
       v2: P.mode === 'wall' ? '0.0' : hit ? pairText(sgn(st.vB0, 1), sgn(st.vB, 1), true) : sgn(st.vB, 1),

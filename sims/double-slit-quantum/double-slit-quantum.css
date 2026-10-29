@@ -68,7 +68,7 @@
 .dsq-label { font: var(--font-weight-semibold) var(--fs-caption)/1.2 var(--font-sans); color: var(--color-ink-muted); white-space: nowrap; }
 .dsq-mrow { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .dsq-mval {
-  font: var(--font-weight-bold) calc(26 * var(--u))/1.1 var(--font-num);
+  font: var(--font-weight-bold) max(13px, calc(26 * var(--u)))/1.1 var(--font-num);
   font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--color-ink); white-space: nowrap;
 }
 .dsq-mval.is-empty { font: var(--font-weight-semibold) var(--fs-caption)/1.2 var(--font-sans); color: var(--color-ink-muted); }
@@ -94,12 +94,12 @@
 .dsq-eq { grid-template-columns: auto minmax(0, 1fr); column-gap: var(--space-3); row-gap: calc(4 * var(--u)); }
 .dsq-eq__f { margin: 0; min-width: 0; white-space: nowrap; line-height: 1.2; }
 .dsq-eq__f > b {
-  font: var(--font-weight-medium) calc(24 * var(--u))/1.2 var(--font-sans);
+  font: var(--font-weight-medium) max(13px, calc(24 * var(--u)))/1.2 var(--font-sans);
   color: var(--sim-text, var(--color-ink)); white-space: nowrap;
 }
 .dsq-eq__l2 { justify-content: flex-end; text-align: right; min-width: 0; }
 .dsq-eq__l1 { grid-column: 1 / -1; font-family: var(--font-sans); }
-.dsq-eq__l1 .dsq-val { font-size: calc(22 * var(--u)); margin-right: var(--space-3); }
+.dsq-eq__l1 .dsq-val { font-size: max(13px, calc(22 * var(--u))); margin-right: var(--space-3); }
 .dsq-eq b { font-weight: var(--font-weight-bold); }
 .dsq-val { display: inline-flex; align-items: center; white-space: nowrap; margin-right: var(--space-2); font-size: var(--fs-caption); font-weight: var(--font-weight-semibold); }
 .dsq-val .dsq-dot { width: calc(14 * var(--u)); height: calc(14 * var(--u)); margin-right: calc(5 * var(--u)); }
@@ -152,11 +152,11 @@
 }
 .dsq-step__name {
   display: flex; align-items: center; gap: calc(6 * var(--u));
-  font: var(--font-weight-bold) calc(24 * var(--u))/1.2 var(--font-sans); color: var(--color-ink-muted);
+  font: var(--font-weight-bold) max(13px, calc(24 * var(--u)))/1.2 var(--font-sans); color: var(--color-ink-muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .dsq-step__name .circ { font-size: calc(17 * var(--u)); width: calc(24 * var(--u)); height: calc(24 * var(--u)); }
-.dsq-step__val { font: var(--font-weight-medium) calc(22 * var(--u))/1.2 var(--font-num); font-variant-numeric: tabular-nums; color: var(--color-ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dsq-step__val { font: var(--font-weight-medium) max(13px, calc(22 * var(--u)))/1.2 var(--font-num); font-variant-numeric: tabular-nums; color: var(--color-ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dsq-step.is-now { border-color: var(--color-sim-slit); background: var(--sim-tint, var(--color-paper-raised)); }
 .dsq-step.is-now .dsq-step__name, .dsq-step.is-now .dsq-step__val { color: var(--color-sim-slit-text, var(--color-ink)); }
 .dsq-step.is-done .dsq-step__name { color: var(--color-ok-text, var(--color-ok)); }
@@ -176,3 +176,16 @@
 .dsq-eq__l2 { grid-column: 2; grid-row: 1; }
 .dsq-eq__l1 { grid-column: 2; grid-row: 2; justify-content: flex-end; }
 .dsq-eq__f .frac { font-size: 1.05em; }
+
+/* R6(B6): 1024·1180·820 에서 13px 아래로 내려가던 글자(띠 측정 단계 값·식 칸 값 칩)에 하한 — 위 max(13px, …) */
+/* R6(B1) 심플: 모드 두 단추('빛 | 전자 하나씩') 는 레일 맨 위 상황 칸 */
+html.is-simple .simple-rail [data-key="entry"] .seg { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* 심플 레일: 이름 옆 '(빛깔을 정함)' 같은 보조 설명은 숨김(28u 에서 세 줄이 됨) · d 눈금은 양끝만(0.1 · 0.25 가 붙어 보임) */
+html.is-simple .simple-rail .dsq-labsub { display: none; }
+html.is-simple .simple-rail [data-key="d"] .var__ticks span:nth-child(2),
+html.is-simple .simple-rail [data-key="dR"] .var__ticks span:nth-child(2) { display: none; }
+
+/* R6(팀장): 세로(태블릿)에서는 [그림 보기] 가 오른쪽 위 '확대창' 제목을 가린다 → 무대 왼쪽 위(빈 곳)로 */
+@media (orientation: portrait) and (min-width: 601px) {
+  html:not(.is-simple) .sim .predict__peek, html:not(.is-simple) .sim .is-top > .predict__peek { left: var(--space-4); right: auto; }   /* 무대 왼쪽 위(레이저 위 빈 곳) */
+}

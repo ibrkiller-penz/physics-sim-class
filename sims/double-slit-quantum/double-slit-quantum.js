@@ -160,6 +160,8 @@
   }
   var emitAcc = 0, flyers = [], lastDot = null, flash = { top: -9, bottom: -9 };
   var hadRun = false;
+  var SIMPLE = false;         // R6(B2): 심플 모드면 캔버스 글자 28u · 측정 칸·안내 숨김 (render 처음에 SK.isSimple() 로 맞춤)
+  var simpleSeen = false;     // R6(B2): 심플에서 빛 무늬는 처음 ▶ 실행한 뒤부터 보인다(그 전엔 '▶ 실행하면 줄무늬가 나와요')
   /* 측정: a·b = 두 점(mm), n = 칸 수, geo = 잰 조건(바뀌면 지움), guide = 손가락 안내 상자 */
   var meas = { a: null, b: null, n: 1, drag: false, fresh: false, y0: 0, guide: true, geo: null, snapA: false, snapB: false };
   var quietClear = false;     // 모드를 바꿀 때는 '다른 조건' 안내 없이 지움
@@ -415,10 +417,10 @@
     function inZoom(pt) { return pt.x >= ZX && pt.x <= ZX + ZW && pt.y >= ZY && pt.y <= ZY + ZH; }
     cv.addEventListener('pointerdown', function (e) {
       var pt = SK.view.toLogical(e);
-      if (inRect(pt, BTN.how) && !howHidden()) { meas.guide = !meas.guide; SK.requestRender(); return; }
+      if (inRect(pt, BTN.how) && !howHidden() && !SIMPLE) { meas.guide = !meas.guide; SK.requestRender(); return; }
       meas.guide = false;                       // 손가락 안내는 첫 누름에 사라진다 (다시: '측정 방법 ?')
       if (SK.predicting()) { SK.requestRender(); return; }
-      if (inZoom(pt)) {
+      if (inZoom(pt) && !SIMPLE) {   // R6(B2): 심플은 확대창에서 재지 않는다(값은 측정 칸 Δy)
         var s = snapY(Math.max(-Z_RANGE, Math.min(Z_RANGE, zoomToY(pt.y))));
         if (meas.a !== null && meas.b === null) { meas.b = s.y; meas.snapB = s.snap; meas.fresh = false; }
         else { meas.a = s.y; meas.snapA = s.snap; meas.b = null; meas.snapB = false; meas.fresh = true; meas.y0 = pt.y; }
@@ -426,9 +428,9 @@
         try { cv.setPointerCapture(e.pointerId); } catch (err) { /* 무시 */ }
         SK.requestRender(); SK.update(); e.preventDefault(); return;
       }
-      if (inRect(pt, BTN.minus)) { setN(meas.n - 1); return; }
-      if (inRect(pt, BTN.plus)) { setN(meas.n + 1); return; }
-      if (inRect(pt, BTN.clear)) { clearMeasure(); SK.requestRender(); SK.update(); return; }
+      if (!SIMPLE && inRect(pt, BTN.minus)) { setN(meas.n - 1); return; }
+      if (!SIMPLE && inRect(pt, BTN.plus)) { setN(meas.n + 1); return; }
+      if (!SIMPLE && inRect(pt, BTN.clear)) { clearMeasure(); SK.requestRender(); SK.update(); return; }
       // 슬릿을 직접 눌러 막기·열기
       if (cur) {
         var g = cur.g, sx = slitX(g), sep = slitSep(g);
@@ -445,8 +447,8 @@
     });
     cv.addEventListener('pointermove', function (e) {
       var pt = SK.view.toLogical(e);
-      var btnOver = inRect(pt, BTN.minus) || inRect(pt, BTN.plus) || inRect(pt, BTN.clear) || inRect(pt, BTN.how);
-      cv.style.cursor = inZoom(pt) ? 'crosshair' : btnOver ? 'pointer' : '';
+      var btnOver = !SIMPLE && (inRect(pt, BTN.minus) || inRect(pt, BTN.plus) || inRect(pt, BTN.clear) || inRect(pt, BTN.how));
+      cv.style.cursor = inZoom(pt) && !SIMPLE ? 'crosshair' : btnOver ? 'pointer' : '';
       if (!meas.drag || e.pointerId !== active) return;
       var s = snapY(Math.max(-Z_RANGE, Math.min(Z_RANGE, zoomToY(pt.y))));
       if (meas.fresh) { if (Math.abs(pt.y - meas.y0) > 8) { meas.b = s.y; meas.snapB = s.snap; } }
@@ -574,7 +576,7 @@
     }
     var name = { wave: '레이저', photon: '약한 빛', electron: '전자총', marble: '구슬 발사기' }[k];
     txt(ctx, name, x + w / 2, y + h + 22, { align: 'center', w: 500 });
-    if (isQuantum(k) || k === 'marble') txt(ctx, '하나씩', x + w / 2, y + h + 50, { align: 'center', w: 400, color: '--color-ink-muted' });
+    if (isQuantum(k) || k === 'marble') txt(ctx, '하나씩', x + w / 2, y + h + 28 + FS, { align: 'center', w: 400, color: '--color-ink-muted' });
   }
 
   function drawSlitPlate(ctx, p, g) {
@@ -676,13 +678,26 @@
   }
 
   /** 예측 중 스크린·확대창 자리에 '?' (결과 층 숨김) */
-  function drawHidden(ctx, x, y, w, h) {
+  function drawHidden(ctx, x, y, w, h, msg) {
     darkFace(ctx, x, y, w, h);
     darkEdge(ctx, x, y, w, h);
+    if (SIMPLE) {   // R6(B2): 심플은 '?' 대신 할 일 글(확대창) · 좁은 스크린 띠는 빈 칸
+      if (w < 200) return;
+      (msg || ['▶ 실행하면', '줄무늬가 나와요']).forEach(function (t, i, a) {
+        txt(ctx, t, x + w / 2, y + h / 2 + (i - (a.length - 1) / 2) * 44, { align: 'center', size: 32, w: 500, color: '--color-ink-inverse' });
+      });
+      return;
+    }
     SK.drawIcon(ctx, 'help', x + w / 2, y + h / 2, Math.min(72, w * 0.8), { color: '--color-ink-inverse', width: 2.4 });
   }
+  /** R6(B2): 심플에서 아직 볼 것이 없을 때(빛: 처음 실행 전 · 하나씩: 점 0개) 확대창·스크린을 글로 가린다 */
+  function simpleVeil(p) {
+    if (!SIMPLE) return null;
+    if (p.send === 'wave') return simpleSeen ? null : ['▶ 실행하면', '줄무늬가 나와요'];
+    return count > 0 ? null : ['▶ 실행하면', '점이 쌓여요'];
+  }
   function drawScreen(ctx, p, hide) {
-    if (hide) drawHidden(ctx, SCR_X, SCR_TOP, SCR_W, SCR_H);
+    if (hide || simpleVeil(p)) drawHidden(ctx, SCR_X, SCR_TOP, SCR_W, SCR_H);
     else {
       darkFace(ctx, SCR_X, SCR_TOP, SCR_W, SCR_H);
       ctx.save(); roundRect(ctx, SCR_X, SCR_TOP, SCR_W, SCR_H, 8); ctx.clip();
@@ -769,11 +784,12 @@
   function drawZoom(ctx, p, hide) {
     var u = unitY(p);
     // 머리: 이름 + '측정 방법 ?' 칩
-    txt(ctx, '확대창 · 가운데 ±' + Z_RANGE + ' ' + u, ZX, BTN.how.y + BTN.how.h / 2, { w: 500, color: '--color-sim-slit-text' });
+    txt(ctx, SIMPLE ? '확대창 ±' + Z_RANGE + ' ' + u : '확대창 · 가운데 ±' + Z_RANGE + ' ' + u, ZX, BTN.how.y + BTN.how.h / 2, { w: 500, color: '--color-sim-slit-text' });
     // R3 §6-3: 예측·모드 창이 떠 있으면 '측정 방법' 버튼을 그리지 않는다(창 옆으로 비치지 않게)
-    if (p.send === 'electron' && !howHidden()) txt(ctx, '실제 크기 아님 · 줄무늬를 보려고 키운 눈금', ZX + ZW, BTN.how.y - 22, { align: 'right', color: '--color-ink-muted' });   // R5
-    if (!howHidden()) canvasBtn(ctx, BTN.how, '측정 방법', { fill: meas.guide ? '--color-sim-slit-tint' : '--color-paper-raised', radius: BTN.how.h / 2, lw: 1, icon: 'help' });
-    if (hide) { drawHidden(ctx, ZX, ZY, ZW, ZH); drawMeasureRows(ctx, p, true); return; }
+    if (p.send === 'electron' && !howHidden() && !SIMPLE) txt(ctx, '실제 크기 아님 · 줄무늬를 보려고 키운 눈금', ZX + ZW, BTN.how.y - 22, { align: 'right', color: '--color-ink-muted' });   // R5 (심플은 아래 식 줄 '모형:' 으로)
+    if (!howHidden() && !SIMPLE) canvasBtn(ctx, BTN.how, '측정 방법', { fill: meas.guide ? '--color-sim-slit-tint' : '--color-paper-raised', radius: BTN.how.h / 2, lw: 1, icon: 'help' });
+    var veil = simpleVeil(p);
+    if (hide || veil) { drawHidden(ctx, ZX, ZY, ZW, ZH, veil); if (SIMPLE) drawSimpleFormula(ctx, p); else drawMeasureRows(ctx, p, true); return; }
     darkFace(ctx, ZX, ZY, ZW, ZH);
     ctx.save(); roundRect(ctx, ZX, ZY, ZW, ZH, 8); ctx.clip();
     if (p.send === 'wave') ctx.drawImage(zpatCv, ZX, ZY, ZW, ZH);
@@ -795,8 +811,8 @@
       ctx.beginPath(); ctx.moveTo(ZX + 70, py); ctx.lineTo(ZX + ZW, py); ctx.stroke(); ctx.setLineDash([]);
       txt(ctx, lab, ZX + ZW - 12, py - 16, { align: 'right', w: 500, color: '--color-focus-on-dark' });
     }
-    if (meas.a !== null) line(meas.a, 'A', meas.snapA);
-    if (meas.b !== null) {
+    if (meas.a !== null && !SIMPLE) line(meas.a, 'A', meas.snapA);
+    if (meas.b !== null && !SIMPLE) {
       line(meas.b, 'B', meas.snapB);
       var xa = ZX + ZW - 70;
       if (Math.abs(meas.a - meas.b) * ZPX > 26) SK.arrow(ctx, xa, yToZoom(meas.a), xa, yToZoom(meas.b), { color: '--color-focus-on-dark', width: 3, head: 12 });
@@ -807,8 +823,20 @@
     // 스크린 위 확대 범위 표시
     ctx.strokeStyle = SK.color('--color-sim-slit'); ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
     ctx.strokeRect(SCR_X - 3, yToScr(Z_RANGE), SCR_W + 6, 2 * Z_RANGE * PX_MM); ctx.setLineDash([]);
+    if (SIMPLE) { drawSimpleFormula(ctx, p); return; }   // R6(B2): 심플은 측정 3단계·안내 대신 값 넣은 식 한 줄
     drawMeasureRows(ctx, p, false);
     drawGuide(ctx, p);
+  }
+  /** R6(B1·B2) 심플: 확대창 아래(측정 칸 자리)에 이론 무늬 간격 — 식 · 값 넣은 식 · 답 (28u 이상) */
+  function drawSimpleFormula(ctx, p) {
+    var g = cur.g, y = MY + 30;
+    if (p.send === 'marble') { txt(ctx, '구슬: 줄무늬 없음', ZX, y, { w: 500 }); txt(ctx, '그림자 띠 두 개', ZX, y + 44, { color: '--color-ink-muted' }); return; }
+    if (!fringeMode(g)) { txt(ctx, '줄무늬 없음', ZX, y, { w: 500 }); txt(ctx, p.slit !== 'both' ? '슬릿이 하나라서' : '어느 슬릿인지 알면', ZX, y + 44, { color: '--color-ink-muted' }); return; }
+    txt(ctx, '$Δy$ = $λL$ ÷ $d$', ZX, y, { w: 500, color: '--color-sim-slit-text' });
+    var sub = p.send === 'electron' ? '모형: ' + fmtN(p.V) + ' V · $d$ ' + p.dR + '칸 · $L$ ' + p.LR + '칸'
+      : p.lam + ' nm × ' + SK.fmt(p.L, 1) + ' m ÷ ' + SK.fmt(p.d, 2) + ' mm';
+    txt(ctx, sub, ZX, y + 44, { color: '--color-ink' });
+    txt(ctx, '= ' + SK.fmt(fringe(g), 1) + ' ' + unitY(p), ZX, y + 92, { w: 500, size: 32, color: '--color-sim-slit-text' });
   }
   /** 측정 방법 안내 (처음 한 번 · '측정 방법 ?' 으로 다시) — R5: 확대창을 가리지 않게 확대창 **아래**(측정 칸 자리)에.
       캔버스 그림이라 누르면 그대로 아래로 전달되고(pointerdown 에서 접힘 → 측정·버튼 처리) 첫 누름에 사라진다 */
@@ -855,16 +883,31 @@
   function render(view, p) {
     var ctx = view.ctx;
     if (!cur) return;
+    SIMPLE = !!(SK.isSimple && SK.isSimple());
+    FS = SIMPLE ? 28 : 22;   // R6(B2): 심플 캔버스 글자 28u
     var g = cur.g, hide = resultsHidden();
     var geo = drawSlitPlate(ctx, p, g);
     drawWaves(ctx, p, g, geo, hide);
     drawSource(ctx, p);
     if (p.send !== 'wave' && !hide) drawFlyers(ctx, p, g, geo);
     drawScreen(ctx, p, hide);
-    if (!hide) drawProfile(ctx, p);
+    if (!hide && !simpleVeil(p)) drawProfile(ctx, p);
     drawRuler(ctx, p);
     drawZoom(ctx, p, hide);
     updateBand(p);
+    updateSimpleMeters(p);
+  }
+  /** R6(B1): 심플 측정 칸 — 이론 Δy = λL/d(심플은 측정 3단계를 숨기므로 자물쇠 없이) · 쌓인 점 N(하나씩 보낼 때만) */
+  function updateSimpleMeters(p) {
+    if (!SK.setMeter || !cur) return;
+    var g = cur.g;
+    SK.setMeter('dy', p.send === 'marble' || !fringeMode(g) ? '줄무늬 없음' : fringe(g));
+    SK.setMeter('count', p.send === 'wave' ? '—' : fmtN(count));
+    if (!SIMPLE || !SK.el.slide) return;
+    var cu = SK.el.slide.querySelector('.simple-meter[data-key="dy"] .simple-meter__unit');
+    if (cu && cu.textContent !== unitY(p)) cu.textContent = unitY(p);
+    var cc = SK.el.slide.querySelector('.simple-meter[data-key="count"]');
+    if (cc && cc.hidden !== (p.send === 'wave')) cc.hidden = p.send === 'wave';
   }
 
   /* ==================================================================
@@ -1033,7 +1076,7 @@
       updatePanel();
     },
     step: function (dt, p) {
-      hadRun = true;
+      hadRun = true; simpleSeen = true;
       if (!cur) return;
       if (p.send === 'wave') {
         if (SK.time >= WAVE_END && !SK.finished) SK.finish();
@@ -1062,8 +1105,18 @@
       return s;
     },
     autoPredict: true,
-    confirmPresetWithRecords: true
+    confirmPresetWithRecords: true,
+    // R6(B1): 심플 모드 — 12물리03-01(λ·d 와 무늬 간격) · 12전자03-01(하나씩 쌓이면 무늬). L·V·빠르기·슬릿·측정기는 더 보기(패널).
+    // 모드에 따라 숨는 키(빛 λ·d / 전자 dR)는 공통 틀이 레일에서 저절로 뺀다. 'entry' = 모드 창과 같은 값(빛/전자) 큰 두 단추
+    simple: {
+      task: function () { return entrance === 'physics' ? '파장과 슬릿 간격을 바꿔 줄무늬 간격을 봐요' : '전자를 하나씩 보내 점이 어디에 쌓이는지 봐요'; },
+      params: ['lam', 'd', 'dR'], situation: ['entry'],
+      meters: [{ key: 'dy', label: '줄무늬 간격', symbol: 'Δy', unit: 'mm', decimals: 1 }, { key: 'count', label: '쌓인 점', unit: '개', decimals: 0 }],
+      presets: ['빨강과 파랑', '슬릿 간격 2배', '전자 하나씩', '측정기를 켜면?'],
+      predict: 'button'
+    }
   });
+  if (SK.onMode) SK.onMode(function () { ui.eqKey = null; SK.requestRender(); });
 
   layoutFor(SK.view.extra);
   makeOffscreens();
@@ -1118,6 +1171,15 @@
   SK.panel('values').appendChild(ui.speedBox);
 
   /* ---- 상황 바꾸기 ---- */
+  // R6(B1): 모드(빛으로 재기 / 전자 하나씩) 선택지 — chooseMode 가 같은 값의 이 선택지를 찾아 접어 두고(자세히),
+  // 심플 레일에서는 큰 두 단추로 펼친다. 기록·확인창·기본값 되돌리기에서는 빠진다(record:false · confirm:false)
+  SK.addChoice('situation', {
+    key: 'entry', label: '무엇을 볼까?', apply: 'live', record: false, confirm: false,
+    options: [{ value: 'physics', label: '빛' }, { value: 'quantum', label: '전자 하나씩' }], value: 'physics',
+    onChange: function (v) { if (v !== entrance) pickEntrance(v); }
+  });
+  SK.controls.entry.el.classList.add('is-folded', 'is-mode-ctl');
+  SK.defs.entry.initial = undefined;   // 묶음 [기본값으로]가 모드를 '빛'으로 되돌리지 않게   // 자세히 패널에서는 처음부터 접힘(모드 줄 '실험 고르기'로 바꿈)
   SK.addChoice('situation', {
     key: 'send', label: '무엇을 보낼까?', style: 'cards', apply: 'restart',
     options: [
@@ -1597,7 +1659,7 @@
     SK.help({ how: HELP[v].how,
       concepts: v === 'quantum' ? [C_ELECTRON, C_DETECT, C_INTER, C_SPACING, C_MYTH] : [C_INTER, C_SPACING, C_ELECTRON, C_DETECT, C_MYTH],
       terms: TERMS,
-      keys: v === 'quantum' ? [['K', '1만 개 한꺼번에 보내기'], ['M', '측정기 켜고 끄기'], ['W', '물결(파면) 보기'], ['Shift + 1·2·3', '보내는 빠르기 느리게·보통·빨리 감기']] : [['W', '물결(파면) 보기']] });
+      keys: v === 'quantum' ? [['K', '1만 개 한꺼번에 보내기'], ['D', '측정기 켜고 끄기'], ['W', '물결(파면) 보기'], ['Shift + 1·2·3', '보내는 빠르기 느리게·보통·빨리 감기']] : [['W', '물결(파면) 보기']] });
   }
 
   /* ---- 모드 (두 갈래): 허브가 ?mode=physics|quantum 으로 넘김 ---- */
@@ -1615,6 +1677,9 @@
     ui.eqKey = null;
   }
   function pickEntrance(v) {
+    if (SK.get('entry') !== v) SK.set('entry', v, { silent: true });   // R6: 모드 창에서 고른 값을 심플 두 단추에도
+    // R6: '보낼 것'의 기본값을 모드에 맞춤 — 하나씩 보내기에서 [기본값으로]가 숨은 '빛(레이저)'로 돌리거나 '더 보기 ●'가 늘 켜지지 않게
+    if (SK.defs.send) SK.defs.send.initial = v === 'physics' ? 'wave' : 'electron';
     applyEntranceUI(v);
     if (v === 'physics') SK.set('send', 'wave', { silent: true });
     else { SK.set('send', 'electron', { silent: true }); SK.set('rate', 20, { silent: true }); }
@@ -1626,8 +1691,8 @@
   SK.onKey(function (e) {
     if (e.shiftKey && /^Digit[123]$/.test(e.code)) { if (!e.repeat && entrance === 'quantum') setRateLevel(+e.code.slice(5) - 1); return true; }
     if (e.shiftKey) return false;
-    if (e.repeat && /^Key[MKW]$/.test(e.code)) return true;
-    if (e.code === 'KeyM') {
+    if (e.repeat && /^Key[DKW]$/.test(e.code)) return true;
+    if (e.code === 'KeyD') {   // R6: 측정기(detector) 키 M → D — M 은 공통 틀의 심플 ↔ 자세히
       if (entrance !== 'quantum') return false;
       if (SK.get('send') === 'wave') SK.notice('측정기는 하나씩 보낼 때 써요', 'info');
       else SK.set('det', !SK.get('det'));

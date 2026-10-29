@@ -112,3 +112,16 @@
 
 /* R5: '빛의 길 보기' 설명 — 칩 행 바로 아래 한 줄 고정(칩을 누르면 그 광선의 길로 바뀜, 높이는 그대로) */
 .lens-raynote { margin-top: var(--space-1); min-height: 1.4em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- R6 심플 모드 (html.is-simple) ---------- */
+/* 측정 줄: 상 거리 · 배율 · 상의 모습(문구가 길어 넓은 칸, 40u) */
+html.is-simple .simple-meter[data-key="look"] { flex: 2.2 1 0; }
+html.is-simple .simple-meter[data-key="look"] .simple-meter__value { font-size: max(18px, calc(40 * var(--u))); line-height: 1.15; color: var(--sim-text); }
+html.is-simple .simple-meter[data-key="look"] .simple-meter__value.is-text { font-weight: var(--font-weight-medium); }
+@media (orientation: portrait) and (min-width: 601px) {
+  html.is-simple .simple-meter[data-key="look"] { flex: 2.4 1 0; }
+  html.is-simple .simple-meter[data-key="look"] .simple-meter__value { font-size: calc(26 * var(--p)); white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+}
+
+/* R6: 심플 측정 칸 이름에는 용어 풀이 괄호를 붙이지 않는다(공통 틀 rich 의 첫 등장 풀이) */
+html.is-simple .simple-meter__label .term-inline { display: none; }

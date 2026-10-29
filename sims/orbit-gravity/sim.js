@@ -274,7 +274,7 @@
   var deepView = null, deepKey = '';
   var kEl = null, seqEl = null, altNote = null, compareBtn = null;
   var hudEl = null, viewEl = null, kStepEl = null, kDone = false;
-  var modeCtl = null, lastSwitchAt = 0, DEFAULT_SEQ = null;
+  var modeCtl = null, lastSwitchAt = 0, DEFAULT_SEQ = null, preSimpleMode = null;   // R6: 심플 들어가기 전 모드
   function hideResults() { return SK.predicting && SK.predicting(); }   // 예측 창이 떠 있는 동안 결과 층(궤적·기록) 숨김
 
   /* ------------------------------------------------------------------
@@ -396,6 +396,13 @@
     SK.records = s.records; SK.ghost = s.ghost;
     curMode = newM;
     if (oldM && oldM !== newM) lastSwitchAt = Date.now();
+    // R6(C1): 심플은 대포 모드 전용. 숫자 키(카드 ②~④) 등으로 위성·케플러가 되면 자세히 모드로 넘겨 준다
+    if (newM !== 'cannon' && SK.isSimple && SK.isSimple()) setTimeout(function () {
+      if (!SK.isSimple() || curMode === 'cannon') return;
+      preSimpleMode = null;
+      SK.setSimple(false, { save: true });
+      SK.notice(MODES[curMode].label + '은(는) 자세히 모드에서 봐요', 'info');
+    }, 0);
     if (modeCtl && modeCtl.sync) modeCtl.sync(newM);
     if (seq && seq.mode !== newM) seq = null;
     if (!seq && DEFAULT_SEQ) seq = DEFAULT_SEQ[newM] || null;
@@ -445,6 +452,15 @@
     standards: ['12역학01-03', '12역학01-04', '12역학01-05'],
     today: MODES.cannon.today,
     stepTasks: tasksFor('cannon'),
+    // R6(C1) 심플 모드: 대포 모드 고정 · 발사 속력 하나 + 천체 칩 · 결과/지금 속력 + 속력 띠(넓은 칸) · 카드 ①·⑤
+    simple: {
+      task: '발사 속력을 바꿔 쏴요 — 몇 km/s부터 떨어지지 않고 돌까요?',
+      params: ['v0'],
+      situation: ['body'],
+      meters: ['sres', 'sv', { key: 'vband', label: '발사 속력 v₀', unit: '' }],
+      presets: [0, 4],
+      predict: 'button'
+    },
     dt: SK_DT,                      // 화면 1/120 초마다 한 단계 (대포 기본: 1 단계 = 1 s → 화면 1초 = 2분)
     stageFit: true,
     onResize: function (view) { view.offsetY = view.extra / 2; },   // R4: 태블릿 세로 여유는 위아래 반씩 — 중심 천체가 가운데, 궤도가 위아래로 더 보임
@@ -795,7 +811,10 @@
   meterSets.cannon = SK.meters(null, [
     { key: 'v', label: '지금 속력', symbol: 'v', unit: 'km/s', decimals: 2, q: 'velocity', size: 'md' },
     { key: 'alt', label: '고도', unit: 'km', decimals: 0, size: 'md' },
-    { key: 'res', label: '결과', unit: '', size: 'md' }
+    { key: 'res', label: '결과', unit: '', size: 'md' },
+    // R6(C1): 심플 측정 칸 전용 — 결과(추락·궤도·탈출 글자+색) · 지금 속력. 위성 모드의 'v' 와 key 가 겹치지 않게 따로
+    { key: 'sres', label: '결과', unit: '', simpleOnly: true },
+    { key: 'sv', label: '지금 속력', symbol: 'v', unit: 'km/s', decimals: 2, q: 'velocity', simpleOnly: true }
   ]);
   meterSets.sat = SK.meters(null, [
     { key: 'v', label: '속력', symbol: 'v', unit: 'km/s', decimals: 2, q: 'velocity', size: 'md' },
@@ -820,6 +839,9 @@
         alt: jup ? null : Math.max(0, landed ? 0 : (r - cn.b.R) / 1000),
         res: jup ? '범위 밖' : resWord(cn.res)
       });
+      var sr = jup ? ['범위 밖', 'out', '결과'] : simpleRes(p);
+      meterSets.cannon.update({ sres: sr[0], sv: (jup || hideResults()) ? null : (landed && cn.vImp !== null ? cn.vImp : Math.sqrt(cn.vx * cn.vx + cn.vy * cn.vy) / 1000) });
+      paintSimpleRes(sr);
     } else if (curMode === 'sat' && sat) {
       var s = satCalc(p.alt);
       var useMin = s.T < 7200;
@@ -831,6 +853,32 @@
       meterSets.kepler.update({ ratio: st.n ? st.mean : null, n: st.n });
     }
   }
+  /** R6(C1): 심플 측정 칸 '결과' — 쏘기 전에는 발사 속력이 어느 구간인지(속력 띠와 같은 색·글자), 날아가는 중·끝나면 결과.
+      돌려줌: [값 글자, 색 이름(fall·orbit·escape·idle·out), 칸 이름] */
+  function zoneOf(v0, b) { return v0 < b.vCirc ? 'fall' : v0 < b.vEsc ? 'orbit' : 'escape'; }
+  var ZONE_WORD = { fall: '추락', orbit: '궤도', escape: '탈출' };
+  function simpleRes(p) {
+    if (hideResults()) return ['예측한 뒤에', 'idle', '결과'];
+    if (!cn.res) {
+      if (SK.started) return ['나는 중', 'idle', '결과'];
+      var z = zoneOf(p.v0, cn.b);
+      return [ZONE_WORD[z] + ' 구간', z, '이 속력이면'];
+    }
+    var r = cn.res === '추락' ? 'fall' : cn.res === '탈출' ? 'escape' : 'orbit';
+    return [resWord(cn.res), r, '결과'];
+  }
+  var resCell = null, resSig = '';
+  function paintSimpleRes(sr) {
+    if (!SK.isSimple()) return;
+    if (!resCell || !resCell.isConnected) { resCell = SK.el.slide.querySelector('.simple-meter[data-key="sres"]'); resSig = ''; }
+    if (!resCell) return;
+    var sig = sr[1] + '|' + sr[2];
+    if (sig === resSig) return;
+    resSig = sig;
+    resCell.setAttribute('data-res', sr[1]);
+    var lb = resCell.querySelector('.simple-meter__label');
+    if (lb && lb.textContent !== sr[2]) lb.textContent = sr[2];
+  }
   /** 결과 세 가지 말 (계기판·기록 표) */
   function resWord(res) {
     if (!res) return SK.started ? '나는 중' : '쏘기 전';
@@ -839,16 +887,24 @@
     return '궤도 유지';
   }
 
-  var bandLegend = null;
+  var bandLegend = null, bandBox = null, bandHome = null;
   (function makeBandGraph() {
     var area = h('div', { class: 'graph-box__canvas' });
     bandTitle = h('span', { class: 'og-band__title', text: '' });
-    bandLegend = h('span', { class: 'og-band__legend', text: '' });
+    bandLegend = h('span', { class: 'og-band__legend', text: '', title: '▼ = 지금 발사 속력 · ● = 기록한 속력' });
     var box = h('div', { class: 'graph-box og-band' }, [h('div', { class: 'graph-box__title og-band__head' }, [bandTitle, bandLegend]), area]);
     SK.el.graph.appendChild(box);
+    bandBox = box; bandHome = SK.el.graph;
     bandView = SK.canvas(area, { fit: false, bg: '--color-paper-raised' });
     bandView.onResize = function () { drawBand(); };
   })();
+  /** R6(C1): 심플에서는 속력 띠를 측정 줄의 넓은 칸(vband)으로 옮긴다 — 같은 캔버스(노드 이동), 자세히로 돌아오면 제자리 */
+  function placeBand() {
+    if (!bandBox) return;
+    var cell = SK.isSimple() ? SK.el.slide.querySelector('.simple-meter[data-key="vband"]') : null;
+    if (cell) { if (bandBox.parentNode !== cell) cell.appendChild(bandBox); }
+    else if (bandBox.parentNode !== bandHome) bandHome.appendChild(bandBox);
+  }
   function drawBand() {
     if (!bandView) return;
     bandView.clear();
@@ -869,15 +925,19 @@
       bandLegend.appendChild(/^[▼●▲■◆★]+$/.test(part) ? h('span', { class: 'og-band__sym', 'aria-hidden': 'true', text: part }) : document.createTextNode(part));
     });
   }
-  /** 가로 속력 막대 (R5). 막대(높이 20~30u): 구간 색·이름(22u, 가운데) + 기록 기호(●▲■◆★) + 지금 표식(막대 안 ▼ + 세로선)
-      경계 숫자(22u)는 막대 **아래** 고정 간격 2u — 띠 제목 줄의 범례와 떨어져 겹치지 않는다 */
+  /** 가로 속력 막대. R6(C2) 자세히: 제목 줄 24u(HTML) · 막대 40u(구간 이름 24u, 막대 안 세로 가운데) · 눈금 줄 20u(경계 숫자 22u, 경계 x 에 맞춰 막대 아래).
+      R6(C1) 심플: 막대 · 아래 줄 = 경계 숫자 28u(마지막 숫자에 단위) + 범례 '▼ 지금 · ● 기록'(숫자와 안 겹치는 쪽 끝) — 제목 줄 없음 */
   function speedBar(ctx, W, H, o) {
-    var x0 = 12, x1 = W - 12, NUM = 22, GAP = 2;
-    var bh = Math.max(20, Math.min(30, H - NUM - GAP - 2)), by = 1;
+    var simple = SK.isSimple();
+    // 심플: 칸 높이(1920 기준 약 88u)에 맞춰 글자·막대를 함께 키운다(세로 태블릿은 칸이 u 보다 커서 k ≈ 1.5)
+    var k = simple ? Math.max(1, Math.min(1.3, H / 88)) : 1;
+    var x0 = simple ? 4 : 12, x1 = W - (simple ? 4 : 12), NUM = simple ? Math.round(28 * k) : 22, ROW = simple ? 32 * k : 20, GAP = simple ? 4 : 1;
+    var by = simple ? 2 : 0;
+    var bh = Math.max(20, Math.min(simple ? 56 * k : 40, H - by - GAP - ROW));
     var ry = by + bh + GAP;                                       // 숫자 줄 위 끝
     function X(v) { return x0 + (x1 - x0) * Math.max(0, Math.min(1, v / o.max)); }
     ctx.save();
-    var ZL = { size: 22, weight: 500 };
+    var ZS = simple ? Math.round(28 * k) : 24, ZL = { size: ZS, weight: 500 };
     var nx = o.now !== null && o.now !== undefined ? X(o.now) : null;
     (o.zones || []).forEach(function (z) {
       var a = X(z.from), b = X(z.to);
@@ -890,30 +950,64 @@
         var left = nx - a, right = b - nx;
         if (left >= tw + 20) cx = a + left / 2; else if (right >= tw + 20) cx = nx + right / 2;
       }
-      text(ctx, z.label, cx, by + bh / 2 + 1, { size: 22, weight: 500, align: 'center', color: z.text || '--color-ink' });
+      text(ctx, z.label, cx, by + bh / 2 + 1, { size: ZS, weight: 500, align: 'center', color: z.text || '--color-ink' });
     });
     ctx.strokeStyle = col('--color-line-strong'); ctx.lineWidth = 1; ctx.strokeRect(x0, by, x1 - x0, bh);
     var mk = (o.marks || []).slice().sort(function (a, b) { return a.v - b.v; });
-    for (var mi = 1; mi < mk.length; mi++) {   // 경계 숫자 둘이 가까우면(달·화성) 왼쪽 것은 오른쪽 맞춤, 오른쪽 것은 왼쪽 맞춤
-      if (X(mk[mi].v) - X(mk[mi - 1].v) < 60) { mk[mi - 1] = Object.assign({}, mk[mi - 1], { align: 'right' }); mk[mi] = Object.assign({}, mk[mi], { align: 'left' }); }
+    mk = mk.map(function (m, i) { return Object.assign({}, m, { text: m.text + (simple && o.unit && i === mk.length - 1 ? ' ' + o.unit : '') }); });   // 심플: 마지막 숫자에 단위 한 번
+    for (var mi = 1; mi < mk.length; mi++) {   // 경계 숫자 둘이 가까우면(달·화성, 좁은 칸) 왼쪽 것은 오른쪽 맞춤, 오른쪽 것은 왼쪽 맞춤
+      var need = (SK.measure(ctx, mk[mi - 1].text, { size: NUM, weight: 500 }).w + SK.measure(ctx, mk[mi].text, { size: NUM, weight: 500 }).w) / 2 + 12;
+      if (X(mk[mi].v) - X(mk[mi - 1].v) < Math.max(60, need)) { mk[mi - 1] = Object.assign({}, mk[mi - 1], { align: 'right' }); mk[mi] = Object.assign({}, mk[mi], { align: 'left' }); }
     }
+    var numBoxes = [];
     mk.forEach(function (m) {
       var mx = X(m.v);
       ctx.beginPath(); ctx.moveTo(mx, by); ctx.lineTo(mx, by + bh + GAP); ctx.strokeStyle = col('--color-ink'); ctx.lineWidth = 2.5; ctx.stroke();
       var al = m.align || 'center', tx = mx;
       if (al === 'left') tx = mx + 4; else if (al === 'right') tx = mx - 4;
-      text(ctx, m.text, tx, ry, { size: NUM, weight: 500, align: al, base: 'top', color: '--color-ink' });
+      var t = m.text;
+      var tw = SK.measure(ctx, t, { size: NUM, weight: 500 }).w;
+      var left = al === 'left' ? tx : al === 'right' ? tx - tw : tx - tw / 2;
+      if (left < x0) { left = x0; tx = x0; al = 'left'; } else if (left + tw > x1) { left = x1 - tw; tx = x1; al = 'right'; }
+      numBoxes.push([left, left + tw]);
+      text(ctx, t, tx, ry + ROW / 2, { size: NUM, weight: 500, align: al, base: 'middle', color: '--color-ink' });   // 숫자 줄 세로 가운데
     });
     (o.dots || []).forEach(function (d) {
-      text(ctx, d.mark, X(d.v), by + bh / 2 + 1, { size: 22, weight: 500, align: 'center', color: d.color, halo: true });
+      text(ctx, d.mark, X(d.v), by + bh / 2 + 1, { size: simple ? Math.round(28 * k) : 22, weight: 500, align: 'center', color: d.color, halo: true });
     });
     if (nx !== null) {
+      var tri = simple ? 16 * k : 11, tw2 = simple ? 11 * k : 8;
       ctx.fillStyle = col('--color-sim-orbit');
-      ctx.beginPath(); ctx.moveTo(nx, by + 11); ctx.lineTo(nx - 8, by); ctx.lineTo(nx + 8, by); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = col('--color-sim-orbit'); ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(nx, by + tri); ctx.lineTo(nx - tw2, by); ctx.lineTo(nx + tw2, by); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = col('--color-sim-orbit'); ctx.lineWidth = simple ? 4 : 3;
       ctx.beginPath(); ctx.moveTo(nx, by); ctx.lineTo(nx, by + bh); ctx.stroke();
     }
+    // 심플: 아래 줄 범례 — 경계 숫자와 겹치지 않는 쪽 끝(오른쪽 먼저)
+    if (simple && o.legend) {
+      var LS = Math.round(28 * k), lw = legendWidth(ctx, o.legend, LS);
+      var free = function (a, b) { return numBoxes.every(function (bx) { return b + 16 < bx[0] || a - 16 > bx[1]; }); };
+      var lx = free(x1 - lw, x1) ? x1 - lw : free(x0, x0 + lw) ? x0 : null;
+      if (lx !== null) drawLegend(ctx, o.legend, lx, ry + ROW / 2, LS);
+    }
     ctx.restore();
+  }
+  /** 심플 범례 '▼ 지금 · ● 기록' — ▼ 는 막대의 표식과 같은 삼각형(그림), 나머지는 글자 */
+  function legendWidth(ctx, parts, size) {
+    var w = 0;
+    parts.forEach(function (pt) { w += pt === '▼' ? size * 0.75 + 6 : SK.measure(ctx, pt, { size: size, weight: 400 }).w; });
+    return w;
+  }
+  function drawLegend(ctx, parts, x, y, size) {
+    parts.forEach(function (pt) {
+      if (pt === '▼') {
+        var s = size * 0.375;
+        ctx.fillStyle = col('--color-sim-orbit');
+        ctx.beginPath(); ctx.moveTo(x + s, y + s); ctx.lineTo(x, y - s * 0.7); ctx.lineTo(x + 2 * s, y - s * 0.7); ctx.closePath(); ctx.fill();
+        x += size * 0.75 + 6; return;
+      }
+      text(ctx, pt, x, y, { size: size, weight: 400, align: 'left', color: '--color-ink-chip' });
+      x += SK.measure(ctx, pt, { size: size, weight: 400 }).w;
+    });
   }
   function recDots(filter, val) {
     var out = [];
@@ -928,7 +1022,7 @@
     var b = BODIES[SK.params.body] || EARTH;
     if (b.key === 'jupiter') { setBandTitle('목성 탈출 속도 59.5 km/s — 범위 밖', ''); return; }
     var hid = hideResults();
-    setBandTitle('발사 속력 $v_0$', hid ? '예측한 뒤에 보여요' : '▼ 지금 위치 · ●▲ 기록한 속력');   // R5: 범례를 말로(제목 줄 오른쪽), 숫자는 막대 아래
+    setBandTitle('발사 속력 $v_0$', hid ? '예측한 뒤에 보여요' : '▼ 지금 · ● 기록');   // R6(C2): 짧은 범례(제목 줄 오른쪽), 숫자는 막대 아래
     var vc = +b.vCirc.toFixed(1), ve = +b.vEsc.toFixed(1), MAX = 13;
     speedBar(ctx, W, H, {
       max: MAX,
@@ -939,12 +1033,13 @@
       ],
       marks: hid ? [] : [{ v: vc, text: SK.fmt(vc, 1) }, { v: ve, text: SK.fmt(ve, 1) }],
       dots: hid ? [] : recDots(function (r) { return (r.values.bk || r.params.body) === b.key; }, function (r) { return r.params.v0; }),
-      now: SK.params.v0
+      now: SK.params.v0,
+      unit: 'km/s', legend: hid ? null : ['▼', ' 지금 · ● 기록']
     });
   }
   function bandSat(ctx, W, H) {
     var s = satCalc(SK.params.alt), hid = hideResults();
-    setBandTitle('위성 속력 $v$', hid ? '예측한 뒤에 보여요' : '▼ 지금 위치 · ●▲ 기록한 속력');   // R5: 지금 값은 왼쪽 계기판에 있음
+    setBandTitle('위성 속력 $v$', hid ? '예측한 뒤에 보여요' : '▼ 지금 · ● 기록');   // R5: 지금 값은 왼쪽 계기판에 있음
     speedBar(ctx, W, H, {
       max: 8.5,
       zones: [{ from: 0, to: 8.5, color: '--color-paper-sunk', label: '' }],
@@ -1038,7 +1133,7 @@
       text(ctx, '목성 탈출 속도 59.5 km/s', V.cx, V.cy + V.s + 40, { size: 26, weight: 500, align: 'center', halo: true });
       text(ctx, '발사 속력 범위(최대 12 km/s) 밖이에요', V.cx, V.cy + V.s + 76, { size: 22, align: 'center', color: '--color-ink-muted', halo: true });
       updateViewBtns(V.key, false);
-      SK.placeLabel(ctx, labels.map(function (l) { return keepIn(ctx, l); }));
+      SK.placeLabel(ctx, simpleLabels(labels).map(function (l) { return keepIn(ctx, l); }));
       return;
     }
     // 기록·직전 궤적 (색 + 선 모양). 궤적은 천체 반지름 R 단위라 같은 천체 기록만 겹친다. 예측 창이 떠 있으면 숨김
@@ -1058,7 +1153,7 @@
       if (eq[0] > 10 && eq[0] < 1240 && eq[1] > vTop() + 10 && eq[1] < vBot() - 10) labels.push({ x: eq[0] + 12, y: eq[1] - 16, text: (st.mark ? st.mark + ' ' : '') + SK.fmt(r.params.v0, 1) + ' km/s', anchor: 'left', size: 22, color: st.color });
     });
     if (!hid && SK.ghost && SK.ghost.series.path && (SK.ghost.values.bk || SK.ghost.params.body) === b.key) SK.drawPath(ctx, SK.ghost.series.path, SK.ghostStyle(), map);
-    if (other && !hid) labels.push({ x: 24, y: vBot() - 36, text: '다른 천체 기록 ' + other + '개는 표에서 비교해요', anchor: 'left', size: 22, color: '--color-ink-muted' });
+    if (other && !hid) labels.push({ x: 24, y: vBot() - 36, text: '다른 천체 기록 ' + other + '개는 ' + (SK.isSimple() ? '더 보기의 표' : '표') + '에서 비교해요', anchor: 'left', size: 22, color: '--color-ink-muted' });
     // 지금 궤적
     var pts = p.trail ? c.path : c.path.slice(-10);
     var cur = pts.concat([[c.x / R, c.y / R]]);
@@ -1093,7 +1188,12 @@
     updateViewBtns(V.key, off && c.res !== '원 궤도');
     // 천체 이름(가운데 글자)과 라벨이 포개지지 않게
     var nameBox = V.key !== 'near' ? [{ x: V.cx - 60, y: V.cy - 16, w: 120, h: 52 }] : [];
-    SK.placeLabel(ctx, labels.map(function (l) { return keepIn(ctx, l); }), { avoid: nameBox });
+    SK.placeLabel(ctx, simpleLabels(labels).map(function (l) { return keepIn(ctx, l); }), { avoid: nameBox });
+  }
+  /** R6(D2): 심플에서는 실험 화면 라벨을 28u 이상으로 (자리 계산은 placeLabel·keepIn 이 크기를 읽어 다시 한다) */
+  function simpleLabels(labels) {
+    if (SK.isSimple()) labels.forEach(function (l) { l.size = Math.max(l.size || 22, 28); });
+    return labels;
   }
 
   /* ------------------------------------------------------------------
@@ -1515,6 +1615,12 @@
       nb.addEventListener('click', function (e) { if (e.detail) nb.blur(); if (why) { SK.notice(why, 'info'); return; } goSeq(next); });
       row.appendChild(nb);
     } else if (all) row.appendChild(SK.iconify(h('span', { class: 'og-seq__done', text: '모두 기록했어요 ✓' })));
+    // R6(C3): 칩 줄 단위를 한 번 — 칩 바로 뒤('4 6 7.9 10 11.2 km/s')
+    if (seq.unit && seq.unit.trim()) {
+      var unitEl = h('span', { class: 'og-seq__unit', text: seq.unit.trim() });
+      var firstNext = row.querySelector('.og-seq__next, .og-seq__done');
+      if (firstNext) row.insertBefore(unitEl, firstNext); else row.appendChild(unitEl);
+    }
     seqEl.appendChild(SK.iconify(h('p', { class: 'og-seq__title', text: '순서대로 바꿔 쏘기 · ✓ = 기록함' }), { all: true }));
     seqEl.appendChild(row);
   }
@@ -1837,4 +1943,26 @@
       if (changed && CFG.autoPredict && !SK.records.length && MODES[v].preset !== undefined) SK.applyPreset(MODES[v].preset);
     }
   });
+
+  /* ------------------------------------------------------------------
+     20. R6 심플 모드 — 대포 모드 고정(위성·케플러는 자세히 전용). 들어갈 때 모드를 기억했다가 자세히로 돌아오면 되돌린다.
+         속력 띠는 측정 줄의 넓은 칸으로 옮긴다(placeBand). 같은 값·기록 그대로(노드 이동)
+     ------------------------------------------------------------------ */
+  function onSimple(on) {
+    if (on) {
+      var m = SK.get('mode');
+      if (m !== 'cannon') { preSimpleMode = m; SK.set('mode', 'cannon'); }
+    } else if (preSimpleMode) {
+      var pm = preSimpleMode; preSimpleMode = null;
+      if (SK.get('mode') === 'cannon') SK.set('mode', pm);
+    }
+    resCell = null;
+    // 더 보기 시트: 레일로 옮긴 값(발사 속력·천체)만 있던 '수치 바꾸기'·'상황 바꾸기' 묶음은 빈 머리만 남으므로 숨김
+    [SK.panel('values'), SK.panel('situation')].forEach(function (pn) { if (pn && pn.parentNode) pn.parentNode.classList.toggle('og-simple-empty', !!on); });
+    placeBand(); drawBand();
+    if (curMode === 'cannon' && cn) updateMeters(SK.params);
+    SK.requestRender();
+  }
+  SK.onMode(onSimple);
+  setTimeout(function () { if (SK.isSimple()) onSimple(true); }, 0);   // 처음부터 심플(?simple=1·저장값)이면 — 공통 틀의 enterSimple·chooseMode 뒤
 })();

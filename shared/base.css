@@ -557,7 +557,7 @@ html:not(.cursor-hidden) .menu__item:hover { color: var(--color-primary); }
 .notice--ok      { background: var(--color-ok); color: var(--color-ink-inverse); }
 
 .dialog-layer {
-  position: absolute; inset: 0; z-index: 50;
+  position: absolute; inset: 0; z-index: var(--z-modal);   /* R6: z 토큰 (값 50 그대로) */
   display: grid; place-items: center;
   background: rgb(28 26 23 / 0.28);
   animation: fade-in var(--dur-base) var(--dur-ease) both;
@@ -1028,6 +1028,12 @@ html:not(.cursor-hidden) .btn--outline:not(:disabled):hover { border-color: var(
 .preset-card.is-long .preset-card__name { font-size: var(--fs-control); line-height: 1.2; }
 .preset-card__key { flex: none; color: var(--sim-text); font-family: var(--font-num); }
 .preset-card__title { min-width: 0; text-wrap: initial; }   /* R5: balance 제거('같은 / 질량끼리' 깨짐) */
+/* R6(S11): [번호 고정 폭 | 제목 블록] — 제목은 두 줄까지(넘치면 …), 낱말 단위 줄바꿈, 둘째 줄도 제목 시작에 맞춤 */
+.preset-card__changes { font-size: max(13px, calc(22 * var(--u))); letter-spacing: -0.01em; }   /* R6: 카드 값 줄은 22u(하한 13px) — 24u 면 '각도 30° → 60°' 가 잘린다 */
+.preset-card__title {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  word-break: keep-all; overflow-wrap: anywhere;
+}
 .preset-card__changes {
   display: flex; align-items: center; gap: var(--space-2); min-width: 0;
   font: var(--font-weight-semibold) var(--fs-caption)/1.2 var(--font-num); color: var(--color-ink-chip);
@@ -1042,14 +1048,14 @@ html:not(.cursor-hidden) .btn--outline:not(:disabled):hover { border-color: var(
 .preset-card__picked { display: none !important; } /* R3: 떠 있는 배지 대신 값 줄 앞 글자 */
 .preset-card__changes { align-self: end; }
 /* R5: 고른 카드 ✓ 는 값 줄 앞 글자가 아니라 오른쪽 위 원형 배지(28u). 카드 모서리에 반쯤 걸쳐(바깥 8u) 이름·값 줄 폭을 먹지 않는다 */
-.preset-card[aria-pressed="true"]::after {
-  content: ""; position: absolute; z-index: 1; right: calc(-8 * var(--u)); top: calc(-8 * var(--u));
-  width: calc(28 * var(--u)); height: calc(28 * var(--u)); border-radius: 50%;
+.preset-card[aria-pressed="true"]::after {   /* R6(S11): 배지는 카드 안쪽 오른쪽 위 4u (모서리 밖으로 나가 잘리던 것) */
+  content: ""; position: absolute; z-index: 1; right: calc(4 * var(--u)); top: calc(4 * var(--u));
+  width: calc(26 * var(--u)); height: calc(26 * var(--u)); border-radius: 50%;
   background: var(--color-primary); box-shadow: 0 0 0 calc(2 * var(--u)) var(--color-paper);
   pointer-events: none;
 }
 .preset-card[aria-pressed="true"]::before {
-  content: ""; position: absolute; z-index: 2; right: calc(-3 * var(--u)); top: calc(-3 * var(--u));
+  content: ""; position: absolute; z-index: 2; right: calc(8 * var(--u)); top: calc(8 * var(--u));
   width: calc(18 * var(--u)); height: calc(18 * var(--u));
   background-color: var(--color-paper);
   -webkit-mask: var(--ico-check) center / contain no-repeat; mask: var(--ico-check) center / contain no-repeat;
@@ -1133,12 +1139,18 @@ html.is-teacher .predict__top:has(> .btn.teacher-only) { padding-right: calc(260
 .predict.is-many, .predict.has-figure { max-height: 58%; }   /* 보기 3개 이상·그림 있는 창 — 보기가 다 보이게 (sim 은 질문을 줄여 42% 안으로) */
 .predict__peek > .btn__key { display: inline-block; }
 .predict__hint { margin-right: auto; font: var(--font-weight-medium) var(--fs-caption)/1.4 var(--font-sans); color: var(--color-ink-chip); }
-.predict__skip {
-  min-height: var(--tap); padding: 0 var(--space-2);
-  font: var(--font-weight-semibold) calc(26 * var(--u))/1 var(--font-sans); color: var(--color-ink-chip);
-  text-decoration: underline; text-underline-offset: calc(5 * var(--u));
+/* R6(S14): '예측 없이 바로 실행' = 윤곽선 단추(44u 이상, 줄 높이는 [예측하기]와 같은 --tap) */
+.predict__skip.btn {
+  min-height: var(--tap); min-width: 0; padding: 0 var(--space-4);
+  font: var(--font-weight-medium) var(--fs-meta)/1 var(--font-sans); color: var(--color-ink);
+  border-width: calc(2 * var(--u));
 }
 html:not(.cursor-hidden) .predict__skip:hover { color: var(--color-primary); }
+.predict__hint.is-alert { color: var(--color-warn-text); }
+/* R6(S7): 보기 3개가 모두 짧으면(14자 이하) 한 줄 3칸 — 보기 3개 창의 높이 상한도 58% → 42% */
+.predict.is-short .predict__choices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.predict.is-short .predict__choices > :nth-child(odd):last-child { grid-column: auto; }
+.predict.is-short.is-many { max-height: 50%; }   /* R6(팀장): 42% 면 질문이 두 줄일 때 보기가 잘린다(궤도 1280) — 내용이 작으면 그만큼만 */
 .predict__ok { min-height: var(--tap); padding: 0 var(--space-7); font-size: var(--fs-body); }
 /* R5: '그림 보기' — 창 밖(층의 오른쪽 위, 창이 위면 오른쪽 아래)에 떠 있는 버튼. 누르고 있는 동안(또는 V 키) 창이 거의 투명, 어둡기 0 */
 .predict__peek {
@@ -1147,7 +1159,7 @@ html:not(.cursor-hidden) .predict__skip:hover { color: var(--color-primary); }
   font-size: var(--fs-meta); border-width: calc(2 * var(--u)); box-shadow: var(--shadow-md);
   touch-action: none;
 }
-.is-top > .predict__peek { top: auto; bottom: var(--space-4); }
+.is-top > .predict__peek { top: auto; bottom: calc(80 * var(--u)); }   /* R6(S6): 창이 위면 오른쪽 아래 — 80u 올려 x축 이름(포물선 '수평 거리 x (m)')을 가리지 않게 */
 .predict__peek > .ico { width: calc(30 * var(--u)); height: calc(30 * var(--u)); }
 .predict-layer.is-peek, .mode-layer.is-peek { background: transparent; }
 .predict-layer.is-peek .predict, .mode-layer.is-peek .mode-card { filter: opacity(0.06); pointer-events: none; }   /* opacity 는 등장 애니메이션(fill both)이 덮어써 filter 로 */
@@ -1245,7 +1257,7 @@ html:not(.cursor-hidden) .predict__skip:hover { color: var(--color-primary); }
 .mode-layer { z-index: 22; display: block; background: var(--color-dim); backdrop-filter: none; }
 .mode-card {
   position: absolute; left: 50%; margin-left: calc(-475 * var(--u)); bottom: calc(10 * var(--u));
-  width: calc(950 * var(--u)); max-width: calc(100% - 32 * var(--u)); max-height: 48%; overflow: auto;   /* R5: 100% − 60u → 48% (보기 설명 3줄까지 스크롤 없이) */
+  width: calc(950 * var(--u)); max-width: calc(100% - 32 * var(--u)); max-height: 56%; overflow: auto;   /* R5: 100% − 60u → 48%, R6(팀장) 56% (1920 에서 보기 2장 아래가 잘림 — 개발자2 보고) */
   gap: var(--space-2); padding: var(--space-3) var(--space-5);
 }
 .mode-card.predict--top { top: calc(10 * var(--u)); bottom: auto; }
@@ -1398,17 +1410,20 @@ html.reveal-locked:not(.is-teacher) .reveal > summary::before { width: auto; hei
 
 /* ---------- R5 세로 태블릿: 예측·모드 창은 패널 자리(실험 화면을 가리지 않는다) ------------- */
 @media (orientation: portrait) and (min-width: 601px) {
-  .predict__peek { display: none; }   /* 세로에서는 창이 그림을 안 가린다 */
   .predict-layer, .mode-layer, .sim.is-collapsed .predict-layer, .sim.is-collapsed .mode-layer {
     left: var(--x); top: var(--panel-top); width: calc(1250 * var(--u)); border-radius: var(--radius-lg);
     height: calc(100vh - 228 * var(--u) - var(--panel-top));
     background: transparent;
+    overflow: visible; pointer-events: none;   /* R6(S7): 창은 내용 높이 — 아래 남는 자리는 패널이 그대로 보이고 눌린다 */
   }
+  .predict-layer > *, .mode-layer > * { pointer-events: auto; }
   .predict, .mode-card, .predict--top, .mode-card.predict--top, .predict.is-many, .predict.has-figure {
-    left: 0; right: 0; top: 0; bottom: 0; margin: 0;
-    width: auto; max-width: none; max-height: none;
+    left: 0; right: 0; top: 0; bottom: auto; margin: 0;
+    width: auto; max-width: none; max-height: 100%;
   }
   .predict, .mode-card { align-content: start; overflow: auto; }
+  /* R6(S6): [그림 보기] 를 세로에서도 — 실험 화면(캔버스) 오른쪽 위에 고정 */
+  .predict__peek, .is-top > .predict__peek { display: inline-flex; top: calc(140 * var(--u) + var(--space-4) - var(--panel-top)); bottom: auto; right: var(--space-4); }
 }
 
 /* ---------- R5 분수 {{frac:분자|분모}} (rich) — 가로선 분수, 분자·분모 0.85배 ------------------- */
@@ -1457,3 +1472,29 @@ html:not(.cursor-hidden) .sim-top__std-more:hover { background: var(--color-prim
 .info-pop__std.is-flash { background: var(--color-primary-tint); }
 .info-pop__auto { justify-self: stretch; }
 .info-pop__auto .check { width: 100%; }
+
+/* ---------- R6 [심플 | 자세히] 분절 (시뮬레이터 머리줄·허브 공통) ------------------------------------------ */
+/* [심플 | 자세히] — 두 모드에서 같은 자리(도구 줄 맨 앞). 고른 쪽 = 진한 바탕 + ✓ */
+.mode-seg {
+  flex: none; display: inline-flex; align-items: stretch;
+  height: calc(52 * var(--u));
+  border: calc(2 * var(--u)) solid var(--color-line-strong); border-radius: var(--radius-md);
+  overflow: hidden; background: var(--color-paper-raised);
+}
+.mode-seg[hidden] { display: none; }
+.mode-seg__opt {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1);
+  min-width: calc(116 * var(--u)); padding: 0 var(--space-4);
+  font: var(--font-weight-medium) var(--fs-meta)/1 var(--font-sans); color: var(--color-ink-chip);
+  white-space: nowrap;
+}
+.mode-seg__opt + .mode-seg__opt { border-left: calc(2 * var(--u)) solid var(--color-line-strong); }
+.mode-seg__opt[aria-pressed="true"] { background: var(--color-primary); color: var(--color-paper); }
+.mode-seg__opt[aria-pressed="true"]::before {
+  content: ""; width: 0.9em; height: 0.9em; flex: none; background-color: currentColor;
+  -webkit-mask: var(--ico-check) center / contain no-repeat; mask: var(--ico-check) center / contain no-repeat;
+}
+html:not(.cursor-hidden) .mode-seg__opt[aria-pressed="false"]:hover { background: var(--color-primary-tint); color: var(--color-primary); }
+
+/* R6(S13): --fs-caption 24u 뒤에도 하단 띠(88u) 안 빈 그래프 안내는 한 줄 — 22u(하한 13px) */
+.sim-band .empty { font-size: max(13px, calc(22 * var(--u))); white-space: nowrap; }

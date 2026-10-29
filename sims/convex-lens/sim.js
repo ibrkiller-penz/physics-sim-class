@@ -103,6 +103,10 @@
   var Y_TOP = AXIS / SY, Y_BOT = -(RAIL - 6 - AXIS) / SY;  // 광선을 그리는 세로 범위(cm)
   // 정면 보기 창 (R2): 머리 66u(= --tap, 누르면 접힘) + 몸통(물체 칸 | 스크린 칸, 같은 배율로 자동 확대) · 캡션은 창 밖 아래
   var WIN = { x: 908, y: 12, w: 330, top: 66, body: 196, objW: 104 };
+  var WIN_Y0 = 12;   // R6(C5): onResize 가 정한 창 윗선. 예측 창이 떠 있는 동안([그림 보기] 단추가 오른쪽 위에 있음)만 64u+12u 아래로
+  var PEEK_DROP = 64 + 12;
+  /** R6(D2): 심플 모드 캔버스 글자 하한 28u (자세히는 그대로) */
+  function FS(n) { return SK.isSimple() ? Math.max(28, n) : n; }
   var winOpen = true;
   var rayPaths = [], hoverRay = -1, pinH = false;   // 광선 위에 마우스를 올리거나 누르면 높이(보조 길이) 표시
   var RAY_SPEED = 560;                       // 실행 연출: 빛이 나아가는 빠르기 (u/s)
@@ -233,14 +237,24 @@
     ],
     // R2(A4): 카드를 누르면 값이 먼저 바뀌므로, 예측 창이 떠 있는 동안 상(像)·정면 창·계기판 결과를 숨긴다 (광선은 보임)
     autoPredict: true,
-    onPredictOpen: function () { SK.requestRender(); },
-    onPredictClose: function () { SK.requestRender(); },
+    onPredictOpen: function () { SK.requestRender(); SK.update(); },
+    onPredictClose: function () { SK.requestRender(); SK.update(); },
+    // R6(C7) 심플 모드: 물체 거리·초점거리 둘 + 상 거리·배율·상의 모습. 카드 ②③④. 더 보기 아래 줄 '빛 다발' 켬/끔
+    simple: {
+      task: '물체를 렌즈 쪽으로 옮기면 상은 어떻게 변할까요?',
+      params: ['s', 'f'],
+      meters: ['si', 'm', 'look'],
+      presets: [1, 2, 3],
+      predict: 'button',
+      extras: [{ key: 'fan', label: '빛 다발' }]
+    },
     dt: 1 / 120,
     stageFit: true,
     // R4: 태블릿 세로 여유는 위아래 반씩(광축이 가운데). 정면 창은 보이는 위 끝에 붙이고, 광선은 넓어진 위까지
     onResize: function (view) {
       view.offsetY = view.extra / 2;
-      WIN.y = 12 - view.offsetY;
+      WIN_Y0 = 12 - view.offsetY;
+      WIN.y = WIN_Y0;
       // R5(R4 b): 세로 여유가 있으면(4:3·세로 태블릿) 세로 축척 k 로 물체·광선·렌즈·F 표식·번호를 키운다.
       // 광축은 그대로 가운데, 광학대·손잡이는 k 만큼 아래로(보이는 cm 범위 유지). 16:9 는 k = 1 → 예전과 같은 값
       KS = view.extra > 0 ? Math.min(1.4, (view.h + view.extra) / view.h) : 1;
@@ -319,6 +333,7 @@
   SK.addToggle('situation', { key: 'screen', label: '스크린 놓기', value: true, record: false, onText: '켜짐', offText: '꺼짐 (치움)' });
   SK.addChoice('situation', {
     key: 'type', label: '물체 종류', apply: 'live', value: 'arrow',
+    confirm: false,   // R6(C4/S12): 기록에는 남기되 카드 확인창의 '바뀌는 값' 에서는 뺀다 — 카드 ③·④ 는 s 하나만 바뀜
     onChange: function () { changed(); syncUI(); },
     options: [{ value: 'arrow', label: '화살표' }, { value: 'candle', label: '촛불' }, { value: 'F', label: '글자 F' }, { value: 'far', label: '먼 풍경' }]
   });
@@ -349,7 +364,8 @@
   meters = SK.meters(null, [
     { key: 'si', label: '상 거리', unit: 'cm', decimals: 0, size: 'md' },
     { key: 'm', label: '{{배율}}', unit: '배', decimals: 1, size: 'md' },
-    { key: 'sharp', label: '{{선명도}}', unit: '%', decimals: 0, size: 'md' }
+    { key: 'sharp', label: '{{선명도}}', unit: '%', decimals: 0, size: 'md' },
+    { key: 'look', label: '상의 모습', unit: '', simpleOnly: true }   // R6(C7): 심플 측정 칸 전용 — 하단 띠 '상의 모습' 한 줄과 같은 문구
   ]);
   var siLabel = meters.el.querySelector('.meter[data-key="si"] .meter__label');
   kindEls = {
@@ -421,8 +437,8 @@
       onApply: presetApplied
     },
     {
-      name: '프로젝터 크게', tag: '생활 속', changes: 's 30 → 15 cm',
-      change: '물체(슬라이드 F) 15 cm → 상을 더 크게 하려면?', fixed: 'f 10 cm, 물체 높이 4 cm, 스크린 30 cm',
+      name: '프로젝터 크게', tag: '생활 속', changes: '확대 실상',   // R6(C4): 부제 (바뀌는 값 s 30 → 15 cm 은 말풍선 change 에)
+      change: '물체 거리 30 → 15 cm (슬라이드 F) — 확대 실상, 상을 더 크게 하려면?', fixed: 'f 10 cm, 물체 높이 4 cm, 스크린 30 cm',
       values: preset({ type: 'F', s: 15, screenX: 30 }),
       predict: {
         question: '프로젝터 화면(상)을 키우려면 슬라이드(보여 줄 그림)를 어느 쪽으로?',
@@ -433,8 +449,8 @@
       onApply: presetApplied
     },
     {
-      name: '돋보기로 보기', tag: '생활 속', changes: 's 30 → 5 cm',
-      change: '물체 5 cm (초점 안쪽), 스크린 치움', fixed: 'f 10 cm, 물체 높이 4 cm',
+      name: '돋보기로 보기', tag: '생활 속', changes: '허상 · 안 맺힘',   // R6(C4): 허상이라 '고장' 으로 읽히지 않게 (카드 한 줄 9자 — '스크린에' 는 말풍선 change 에)
+      change: '물체 거리 30 → 5 cm (초점 안쪽), 스크린 치움 — 허상이라 스크린에는 안 맺혀요', fixed: 'f 10 cm, 물체 높이 4 cm',
       values: preset({ type: 'F', s: 5, screenX: 15, screen: false }),
       predict: {
         question: '물체를 초점 안쪽(5 cm)에 두고 렌즈 너머로 보면?',
@@ -742,7 +758,7 @@
     if (v !== SK.get(drag.key)) SK.set(drag.key, v);
     SK.requestRender();
   }
-  function inWinHead(pt) { return pt.x >= WIN.x && pt.x <= WIN.x + WIN.w && pt.y >= WIN.y && pt.y <= WIN.y + WIN.top; }
+  function inWinHead(pt) { return !SK.isSimple() && pt.x >= WIN.x && pt.x <= WIN.x + WIN.w && pt.y >= WIN.y && pt.y <= WIN.y + WIN.top; }
   /** 점에서 가장 가까운 작도 광선 번호(0~2) — 16u 안이면. 광선 위에 올리거나 누르면 높이 보조 길이를 보여 준다 */
   function nearRay(pt) {
     var best = -1, bd = 16;
@@ -814,7 +830,10 @@
   var HID_TIP = '숨긴 초점거리는 정리 단계에서 답 확인하기로 공개돼요';
   function status(p) {
     var fT = p.hideF ? (SK.isTeacher() ? '$f$ ' + p.f + ' cm (학생에겐 숨김)' : '$f$ ? cm (숨김)') : '$f$ ' + p.f + ' cm';
-    return [fT, '스크린 ' + (p.screen ? '켜짐' : '꺼짐'), '가림판 ' + BLOCKER_TEXT[p.blocker]];
+    var out = [fT, '스크린 ' + (p.screen ? '켜짐' : '꺼짐'), '가림판 ' + BLOCKER_TEXT[p.blocker]];
+    // R6(C4): 허상(카드 ④ 돋보기 등)이면 한 줄 — '고장' 으로 읽히지 않게. 예측 창이 떠 있는 동안은 답이 되므로 숨김
+    if (!SK.predicting() && Phys.image(p).kind === 'virtual') out.push('스크린에는 맺히지 않아요 · 렌즈 너머로 보이는 허상');
+    return out;
   }
   /** 상태 칩 'f ? cm' 에 숨김 이유 말풍선 (칩은 공통 틀이 만든다) */
   function tipStatus() {
@@ -899,7 +918,7 @@
   var LQ = [], rayNumBottom = -1;   // 광선 끝 번호 ①②③ 중 가장 아래 y (실상 라벨을 그 아래에)
   function q(text, x, y, o) {
     o = o || {};
-    var size = Math.max(22, o.size || 22);
+    var size = FS(Math.max(22, o.size || 22));
     LQ.push({ text: text, x: x, y: y, anchor: o.align || 'center', size: size, weight: Math.min(500, o.weight || 500), color: o.color || '--color-ink', leader: o.leader });   // R4: 글꼴은 공통(SK.text), 기호는 $…$
   }
 
@@ -912,6 +931,7 @@
     var pred = SK.predicting();
     var showRes = done && !pred;
     LQ = []; rayNumBottom = -1;
+    WIN.y = WIN_Y0 + (pred ? PEEK_DROP : 0);   // R6(C5): [그림 보기] 단추(예측 층 오른쪽 위)가 창 머리를 가리지 않게
 
     drawBench(ctx, p, showF);
     drawOverlays(ctx);
@@ -927,10 +947,10 @@
     if (showF) drawFMarks(ctx, p);
     drawHandles(ctx, p);
     if (!p.screen) drawEye(ctx);
-    var avoid = [winBox()].concat(rulerBoxes);
+    var avoid = (SK.isSimple() ? [] : [winBox()]).concat(rulerBoxes);   // R6: 심플에서는 정면 창을 그리지 않음
     if (showF) [-2, -1, 1, 2].forEach(function (m) { var x = X(m * p.f); if (x >= XL && x <= XR) { avoid.push({ x: x - 26 * KS, y: RAIL - 40 - 24 * KS, w: 52 * KS, h: 40 + 24 * KS }); avoid.push({ x: x - 10 * KS, y: AXIS - 10 * KS, w: 20 * KS, h: 20 * KS }); } });
     SK.placeLabel(ctx, LQ, { avoid: avoid });
-    drawWindow(ctx, p, im, sc, bl, done, pred);
+    if (!SK.isSimple()) drawWindow(ctx, p, im, sc, bl, done, pred);
     updateBand(p, im, sc, done, pred);
     tipStatus();
   }
@@ -954,12 +974,13 @@
       line(ctx, x, RAIL, x, RAIL - (cm % 10 === 0 ? 16 : major ? 12 : 6));
     }
     ctx.restore();
-    // 눈금 숫자 22u: 흰 칩 위 (손잡이·받침대 선이 지나가도 읽히게)
-    for (cm = -50; cm <= 100; cm += 5) {
-      label(ctx, String(Math.abs(cm)), X(cm), RAIL + 30, { size: 22, weight: 500, color: '--color-ink-muted' });
+    // 눈금 숫자 22u: 흰 칩 위 (손잡이·받침대 선이 지나가도 읽히게). R6(D2) 심플: 28u · 10 cm 마다
+    var simple = SK.isSimple();
+    for (cm = -50; cm <= 100; cm += simple ? 10 : 5) {
+      label(ctx, String(Math.abs(cm)), X(cm), RAIL + (simple ? 32 : 30), { size: FS(22), weight: 500, color: '--color-ink-muted' });
     }
     // 단위: 숫자 줄 오른쪽 끝 바로 아래 ('100' 오른쪽은 화면 끝이라 자리가 없음). 스크린 손잡이가 오른쪽 끝에 오면 숨김
-    if (!(p.screen && X(p.screenX) > XR - 150)) label(ctx, '(cm)', XR + 20, RAIL + 56, { size: 22, align: 'right', color: '--color-ink-muted', weight: 500 });
+    if (!(p.screen && X(p.screenX) > XR - 150)) label(ctx, '(cm)', XR + 20, RAIL + (simple ? 62 : 56), { size: FS(22), align: 'right', color: '--color-ink-muted', weight: 500 });
     // 광축 위 F · 2F 점 (글자는 광학대 위 삼각형에 한 벌만 — drawFMarks)
     if (showF) {
       [[-2, '2F'], [-1, 'F'], [1, 'F'], [2, '2F']].forEach(function (m) {
@@ -979,7 +1000,7 @@
       ctx.fillStyle = C('--color-sim-lens'); ctx.strokeStyle = C('--color-ink'); ctx.lineWidth = 2;
       ctx.lineJoin = 'miter'; ctx.beginPath(); ctx.moveTo(x, RAIL - 1); ctx.lineTo(x - 13 * KS, RAIL - 1 - 24 * KS); ctx.lineTo(x + 13 * KS, RAIL - 1 - 24 * KS); ctx.closePath(); ctx.fill(); ctx.stroke();
       ctx.restore();
-      label(ctx, m[1], x, RAIL - 18 - 24 * KS, { size: Math.round(22 * KS), weight: 500, color: '--color-sim-lens-text', bg: '--color-paper-raised' });
+      label(ctx, m[1], x, RAIL - 18 - 24 * KS, { size: FS(Math.round(22 * KS)), weight: 500, color: '--color-sim-lens-text', bg: '--color-paper-raised' });
     });
   }
 
@@ -1036,6 +1057,7 @@
         }
         pts.push([X(xEnd), Y(r.y + ray.outS * xEnd)]);
       }
+      if (r.main && SK.isSimple()) st = { color: st.color, dash: st.dash, width: Math.max(5, st.width) };   // R6(C6): 심플 광선 굵기 5u
       if (r.main && hoverRay === r.n) st = { color: st.color, dash: st.dash, width: st.width + 2.5 };
       var len = polyLen(pts);
       if (len > longest) longest = len;
@@ -1046,7 +1068,14 @@
         if (reveal === Infinity && !blocked) {
           var e = pts[pts.length - 1], right = e[0] > 1150;
           var ny = clamp(e[1], 24 - OFF(), RAIL - 30);
-          q(['①', '②', '③'][r.n], right ? e[0] - 14 * KS : e[0] + 14 * KS, ny, { size: Math.round(24 * KS), weight: 500, align: right ? 'right' : 'left', color: r.st.color, leader: false });
+          // R6(C6): 스크린에서 끝나는 광선의 번호는 광축 아래 고정 칸(①②③ 차례로 라벨 한 칸씩) — 스크린 이름·'실상' 과 몰리지 않게
+          var nx = right ? e[0] - 14 * KS : e[0] + 14 * KS;
+          if (!right && !far && p.screen && Math.abs(e[0] - X(p.screenX)) < 1) {
+            // 자세히: 세로로 한 칸씩(라벨 상자 높이 = 글자 1.2배 + 4u, + 2u 간격). 심플(28u): 광축 점과 치수선 글 사이가 좁아 가로 한 줄
+            if (SK.isSimple()) { ny = AXIS + (FS(24) * 0.6 + 12) * KS; nx = e[0] + (14 + r.n * (FS(24) + 14)) * KS; }
+            else ny = AXIS + (FS(24) * 1.2 + 6) * (r.n + 0.5) * KS;
+          }
+          q(['①', '②', '③'][r.n], nx, ny, { size: Math.round(24 * KS), weight: 500, align: right ? 'right' : 'left', color: r.st.color, leader: false });
           if (!right) rayNumBottom = Math.max(rayNumBottom, ny);
         }
       }
@@ -1143,8 +1172,10 @@
       if (cut) q('상이 생길 자리 (스크린이 빛을 먼저 막아요)', x + 14, Math.min(tipY + 26, RAIL - 110), { size: 22, align: 'left', color: '--color-ink-muted' });
       else {   // R3: 스크린에 맺히면 막대 오른쪽 40u · 광선 번호 ①②③ 아래
         var onScr = p.screen && Math.abs(p.screenX - si) < 3;
-        var rx = onScr ? X(p.screenX) + 5 + 40 : x + 16;
-        var ry = onScr && rayNumBottom > 0 ? rayNumBottom + 36 : tipY + 10;
+        // R6(C6): 스크린에 맺히면 광선 번호 칸(①②③, 광축 아래 고정) 오른쪽 옆 첫 줄 — 아래로 쌓지 않아 눈금·2F 와 떨어진다
+        var simpleRow = SK.isSimple();
+        var rx = onScr ? X(p.screenX) + 5 + (rayNumBottom > 0 ? (simpleRow ? (14 + 3 * (FS(24) + 14)) * KS : 14 + FS(24) * KS + 18) : 40) : x + 16;
+        var ry = onScr && rayNumBottom > 0 ? AXIS + (simpleRow ? FS(24) * 0.6 + 12 : (FS(24) * 1.2 + 6) * 0.5) * KS : tipY + 10;
         q('실상', rx, Math.min(ry, RAIL - 140), { size: 24, weight: 500, align: 'left', color: '--color-sim-lens-text', leader: false });
       }
       if (Y(hi) > RAIL - 4) q('상이 화면보다 커요 (' + fmt(Math.abs(hi), 1) + ' cm)', x + 14, RAIL - 130, { size: 22, align: 'left', color: '--color-sim-lens-text' });
@@ -1183,7 +1214,8 @@
     function dim(x1, x2, text, yy, col, img, below) {
       SK.dim(ctx, x1, yy, x2, yy, { color: col || '--color-ink-muted', lw: 2, head: 10, ends: 8 });
       // 글자는 구간 가운데. 허상 글이 구간보다 길면 한 줄 위로 · 스크린 막대와 12u 안이면 옆으로 비킨다
-      var tw = SK.measure(ctx, text, { size: 22, weight: 500 }).w + 12, cx = (x1 + x2) / 2, ty = below ? yy + 20 : yy - 20;
+      var DS = FS(22), dy = DS / 2 + 9;   // R6(C6): 글 = 치수선 바로 아래(위) — 글자 반 높이 + 9u, 종이 바탕
+      var tw = SK.measure(ctx, text, { size: DS, weight: 500 }).w + 12, cx = (x1 + x2) / 2, ty = below ? yy + dy : yy - dy;
       if (img && !below && x2 - x1 < tw - 16) ty -= 34;
       if (below) cx = Math.max(cx, Math.min(x1, x2) + 4 + tw / 2);   // 선 아래 글은 렌즈 왼쪽(물체 거리 구간)으로 넘어가지 않게
       var sx = p.screen ? X(p.screenX) : null;
@@ -1192,7 +1224,7 @@
         cx = sx <= cx ? sx + 5 + 12 + tw / 2 : sx - 5 - 12 - tw / 2;
       }
       SK.text.lastBox = null;
-      SK.text(ctx, text, cx, ty, { size: 22, weight: 500, align: 'center', color: col || '--color-ink-muted', bg: '--color-paper-raised', pad: [6, 2] });
+      SK.text(ctx, text, cx, ty, { size: DS, weight: 500, align: 'center', color: col || '--color-ink-muted', bg: '--color-paper-raised', pad: [6, 2] });
       if (SK.text.lastBox) rulerBoxes.push(SK.text.lastBox);
     }
     if (p.type !== 'far') dim(X(-p.s), LX, '물체 거리 ' + dist(p.s, true) + ' cm', y);
@@ -1228,7 +1260,7 @@
 
   function drawHandles(ctx, p) {
     function handle(key, x, text) {
-      var active = drag && drag.key === key, w = 112, hh = 52;
+      var active = drag && drag.key === key, w = SK.isSimple() ? 140 : 112, hh = SK.isSimple() ? 60 : 52;   // R6: 심플은 손잡이·글자 크게(28u)
       x = clamp(x, w / 2 + 4, 1250 - w / 2 - 4);      // 손잡이는 늘 실험 화면 안쪽에
       ctx.save();
       roundRect(ctx, x - w / 2, HY - hh / 2, w, hh, hh / 2);
@@ -1240,7 +1272,7 @@
       [-1, 1].forEach(function (d) {
         SK.drawIcon(ctx, d < 0 ? 'tri-left' : 'tri-right', x + d * (w / 2 - 13), HY, 30, { color: active ? '--color-paper-raised' : '--color-sim-lens', width: 1.5 });
       });
-      label(ctx, text, x, HY + 1, { size: 22, weight: 500, color: active ? '--color-paper-raised' : '--color-sim-lens-text' });
+      label(ctx, text, x, HY + 1, { size: FS(22), weight: 500, color: active ? '--color-paper-raised' : '--color-sim-lens-text' });
       if (active) {   // 끄는 동안 값 말풍선 (손잡이 위)
         var v = key === 's' ? p.s : p.screenX;
         label(ctx, dist(v, true) + ' cm', x, HY - 112, { size: 26, weight: 500, color: '--color-paper-raised', bg: '--color-ink', bgAlpha: 0.92 });
@@ -1367,6 +1399,7 @@
       }
       if (p.blocker !== 'none' && im.kind !== 'none') sub += ' · 밝기 ' + Math.round(Phys.blocker(p.blocker).bright * 100) + '%';
     }
+    meters.set('look', pred ? '실행하면 보여요' : main);   // R6(C7): 심플 측정 칸 — 상의 모습 문구
     var lt = virt && !hidden() && !pred ? '상 거리(앞쪽)' : hidden() ? '상 거리 (숨김)' : '상 거리';
     if (siLabel.textContent !== lt) siLabel.textContent = lt;
     var key = main + sub;
