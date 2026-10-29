@@ -67,6 +67,10 @@ h1, h2, h3, h4 {
   overflow: hidden;
   background: var(--color-paper);
 }
+/* R5: 세로 태블릿은 무대가 창 전체 — 위에 붙인다 */
+@media (orientation: portrait) and (min-width: 601px) { .app { place-items: start; } }
+/* R5: SK.px 가 --u 를 재는 자 (세로에서는 무대 폭/1920 이 u 가 아니다) */
+.u-probe { position: absolute; left: 0; top: 0; width: calc(1000 * var(--u)); height: 0; visibility: hidden; pointer-events: none; }
 
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes rise-in { from { opacity: 0; transform: translateY(calc(12 * var(--u))); } to { opacity: 1; transform: none; } }
@@ -575,7 +579,7 @@ html:not(.cursor-hidden) .menu__item:hover { color: var(--color-primary); }
 /* 서랍: '수업 안내'(교사용 대응표) — 오른쪽에서 나옴 */
 .drawer {
   position: absolute; top: 0; right: 0; bottom: 0; z-index: 45;
-  width: calc(900 * var(--u)); max-width: 100%;
+  width: calc(560 * var(--u)); max-width: 100%;   /* R5: 900 → 560u, 스크림 없이 도킹 — 열린 채 실험 화면 조작 가능 */
   display: grid; grid-template-rows: auto minmax(0, 1fr);
   background: var(--color-paper-raised);
   border-left: 1px solid var(--color-line-strong);
@@ -1016,14 +1020,14 @@ html:not(.cursor-hidden) .btn--outline:not(:disabled):hover { border-color: var(
   text-align: left;
 }
 .preset-card__name {
-  display: flex; gap: var(--space-2); align-items: flex-start;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-2); align-items: start;   /* R5: [번호|제목] 2열 — 두 줄째도 제목 시작에 맞춤 */
   height: calc(2 * 1.2 * 26 * var(--u)); overflow: hidden;
   font: var(--font-weight-bold) var(--fs-control)/1.2 var(--font-sans);
   word-break: keep-all; overflow-wrap: anywhere;
 }
 .preset-card.is-long .preset-card__name { font-size: var(--fs-control); line-height: 1.2; }
 .preset-card__key { flex: none; color: var(--sim-text); font-family: var(--font-num); }
-.preset-card__title { min-width: 0; text-wrap: balance; }
+.preset-card__title { min-width: 0; text-wrap: initial; }   /* R5: balance 제거('같은 / 질량끼리' 깨짐) */
 .preset-card__changes {
   display: flex; align-items: center; gap: var(--space-2); min-width: 0;
   font: var(--font-weight-semibold) var(--fs-caption)/1.2 var(--font-num); color: var(--color-ink-chip);
@@ -1037,7 +1041,20 @@ html:not(.cursor-hidden) .btn--outline:not(:disabled):hover { border-color: var(
 .preset-card__dot { display: none; }   /* R3(팀장): 한 색이 된 점은 뜻이 없고 값 줄('s 30 → 20 cm')을 잘리게 해 숨김 — 고른 카드만 ✓ */
 .preset-card__picked { display: none !important; } /* R3: 떠 있는 배지 대신 값 줄 앞 글자 */
 .preset-card__changes { align-self: end; }
-.preset-card[aria-pressed="true"] .preset-card__changes::before { content: "✓"; flex: none; color: var(--color-primary); font-weight: var(--font-weight-bold); }   /* R3(팀장): '✓ 고름 ·' 는 'h 20 m · 0°'·'v₀ 7.9 km/s' 가 잘려 ✓ 만 (카드 테두리·바탕이 이미 '고름') */
+/* R5: 고른 카드 ✓ 는 값 줄 앞 글자가 아니라 오른쪽 위 원형 배지(28u). 카드 모서리에 반쯤 걸쳐(바깥 8u) 이름·값 줄 폭을 먹지 않는다 */
+.preset-card[aria-pressed="true"]::after {
+  content: ""; position: absolute; z-index: 1; right: calc(-8 * var(--u)); top: calc(-8 * var(--u));
+  width: calc(28 * var(--u)); height: calc(28 * var(--u)); border-radius: 50%;
+  background: var(--color-primary); box-shadow: 0 0 0 calc(2 * var(--u)) var(--color-paper);
+  pointer-events: none;
+}
+.preset-card[aria-pressed="true"]::before {
+  content: ""; position: absolute; z-index: 2; right: calc(-3 * var(--u)); top: calc(-3 * var(--u));
+  width: calc(18 * var(--u)); height: calc(18 * var(--u));
+  background-color: var(--color-paper);
+  -webkit-mask: var(--ico-check) center / contain no-repeat; mask: var(--ico-check) center / contain no-repeat;
+  pointer-events: none;
+}
 .preset-card.is-reco:not([aria-pressed="true"]) .preset-card__changes::before { content: "추천 ·"; flex: none; color: var(--color-copper-text); font-weight: var(--font-weight-bold); }
 .preset-tip { width: max-content; max-width: calc(520 * var(--u)); font-size: var(--fs-caption); }
 .preset-tip__tag { color: var(--color-paper-sunk); font-weight: var(--font-weight-bold); }
@@ -1054,31 +1071,41 @@ html:not(.cursor-hidden) .btn--outline:not(:disabled):hover { border-color: var(
 .preset-info .circ { font-size: calc(17 * var(--u)); width: calc(22 * var(--u)); height: calc(22 * var(--u)); vertical-align: -0.15em; }
 
 /* ---------- 35. 예측 창: 실험 화면 아래쪽 카드 (x215 y420~790, 폭 900u) -------- */
+/* R5: 층은 .slide 의 자식 — 가로에서는 실험 화면 사각형(예전과 같은 자리), 세로에서는 패널 사각형(아래 @media) */
+.predict-layer, .mode-layer {   /* 실험 화면 테두리(1px) 안쪽 = 예전 inset:0 과 같은 상자 */
+  position: absolute; left: calc(var(--x) + 1px); top: calc(140 * var(--u) + 1px);
+  width: calc(1250 * var(--u) - 2px); height: calc(660 * var(--u) + var(--extra) - 2px);
+  border-radius: calc(var(--radius-lg) - 1px); overflow: hidden;
+}
+.sim.is-collapsed .predict-layer, .sim.is-collapsed .mode-layer { width: calc(1840 * var(--u) - 2px); height: calc(760 * var(--u) + var(--extra) - 2px); }
 .predict-layer {
-  position: absolute; inset: 0; z-index: 20; display: block;
+  z-index: 20; display: block;
   background: var(--color-dim); backdrop-filter: none;
   animation: fade-in var(--dur-base) var(--dur-ease) both;
 }
 .predict {
   position: absolute; left: 50%; margin-left: calc(-450 * var(--u)); bottom: calc(10 * var(--u));
   width: calc(900 * var(--u)); max-width: calc(100% - 32 * var(--u));
-  max-height: calc(100% - 120 * var(--u)); overflow: auto;
-  display: grid; gap: var(--space-3);
-  padding: var(--space-4) var(--space-6) var(--space-4);
+  max-height: 42%; overflow: auto;   /* R5: 그림을 덜 가리게 (예전 100% − 120u) */
+  display: grid; gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
   border-radius: var(--radius-lg);
   background: var(--color-paper-raised);
   border-top: calc(8 * var(--u)) solid var(--sim);
   box-shadow: var(--shadow-lg);
 }
-.predict__top { padding-right: calc(80 * var(--u)); min-height: calc(36 * var(--u)); }
+.predict__top { padding-right: calc(80 * var(--u)); min-height: calc(28 * var(--u)); }
+.predict__top > .btn.teacher-only { position: absolute; right: calc(80 * var(--u)); top: calc(8 * var(--u)); }   /* R5: 손들기 수 버튼은 ✕ 왼쪽 위 고정 */
+html.is-teacher .predict__top:has(> .btn.teacher-only) { padding-right: calc(260 * var(--u)); min-height: calc(56 * var(--u)); }   /* 팀장 R5: 교사 모드에서 질문이 [손들기 수] 밑으로 안 들어가게 */
+.predict--top { top: calc(10 * var(--u)); bottom: auto; }   /* R5: SK.predict({place:'top'}) */
 .predict__close { position: absolute; right: var(--space-2); top: var(--space-2); min-width: var(--tap); min-height: var(--tap); width: var(--tap); padding: 0; font-size: var(--fs-body); }
-.predict__q { font: var(--font-weight-bold) calc(34 * var(--u))/1.3 var(--font-serif); word-break: keep-all; text-wrap: balance; }
+.predict__q { font: var(--font-weight-bold) calc(30 * var(--u))/1.3 var(--font-serif); word-break: keep-all; text-wrap: balance; }
 .predict__info { font-size: var(--fs-meta); word-break: keep-all; }
 .predict__mid { display: grid; gap: var(--space-3); }
 .predict.has-figure .predict__mid { grid-template-columns: calc(300 * var(--u)) minmax(0, 1fr); align-items: start; }
 .predict__figure { border-radius: var(--radius-md); background: var(--color-paper); border: 1px solid var(--color-line); padding: var(--space-2); }
 .predict__figure svg { width: 100%; height: auto; }
-.predict__choices { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: var(--space-2); }
+.predict__choices { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: auto; gap: var(--space-2); }
 .predict__choices > :nth-child(odd):last-child { grid-column: 1 / -1; } /* R3: 보기 3개 → ③ 한 줄 전체 */
 .predict__choices .btn, .predict__opt {
   display: grid; grid-template-columns: calc(40 * var(--u)) minmax(0, 1fr) auto; align-items: start; justify-content: stretch;
@@ -1101,6 +1128,10 @@ html:not(.cursor-hidden) .btn--outline:not(:disabled):hover { border-color: var(
 .predict__unit { font: var(--font-weight-semibold) var(--fs-body)/1 var(--font-num); }
 .predict__range { font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-num); color: var(--color-ink-muted); }
 .predict__foot { display: flex; align-items: center; gap: var(--space-4); justify-content: flex-end; flex-wrap: wrap; }
+/* R5: 창이 42% 를 넘으면 가운데만 스크롤 — [예측하기]·[예측 없이 바로 실행] 줄은 늘 보인다 */
+.predict__foot { position: sticky; bottom: calc(-12 * var(--u)); z-index: 1; margin: 0 calc(-20 * var(--u)) calc(-12 * var(--u)); padding: var(--space-1) var(--space-5) var(--space-3); background: var(--color-paper-raised); }
+.predict.is-many, .predict.has-figure { max-height: 58%; }   /* 보기 3개 이상·그림 있는 창 — 보기가 다 보이게 (sim 은 질문을 줄여 42% 안으로) */
+.predict__peek > .btn__key { display: inline-block; }
 .predict__hint { margin-right: auto; font: var(--font-weight-medium) var(--fs-caption)/1.4 var(--font-sans); color: var(--color-ink-chip); }
 .predict__skip {
   min-height: var(--tap); padding: 0 var(--space-2);
@@ -1109,6 +1140,17 @@ html:not(.cursor-hidden) .btn--outline:not(:disabled):hover { border-color: var(
 }
 html:not(.cursor-hidden) .predict__skip:hover { color: var(--color-primary); }
 .predict__ok { min-height: var(--tap); padding: 0 var(--space-7); font-size: var(--fs-body); }
+/* R5: '그림 보기' — 창 밖(층의 오른쪽 위, 창이 위면 오른쪽 아래)에 떠 있는 버튼. 누르고 있는 동안(또는 V 키) 창이 거의 투명, 어둡기 0 */
+.predict__peek {
+  position: absolute; z-index: 2; right: var(--space-4); top: var(--space-4);
+  min-height: var(--tap); padding: 0 var(--space-4); gap: var(--space-2);
+  font-size: var(--fs-meta); border-width: calc(2 * var(--u)); box-shadow: var(--shadow-md);
+  touch-action: none;
+}
+.is-top > .predict__peek { top: auto; bottom: var(--space-4); }
+.predict__peek > .ico { width: calc(30 * var(--u)); height: calc(30 * var(--u)); }
+.predict-layer.is-peek, .mode-layer.is-peek { background: transparent; }
+.predict-layer.is-peek .predict, .mode-layer.is-peek .mode-card { filter: opacity(0.06); pointer-events: none; }   /* opacity 는 등장 애니메이션(fill both)이 덮어써 filter 로 */
 .predict__count { min-height: var(--tap); }
 
 /* ---------- 36. 결과 해설 (패널 카드 · 해설 보기 팝오버 공통) --------------- */
@@ -1200,15 +1242,16 @@ html:not(.cursor-hidden) .predict__skip:hover { color: var(--color-primary); }
 .term-list__alias { color: var(--color-ink-muted); }
 
 /* ---------- 39. 모드 고르기: 실험 화면 아래쪽 카드, 어둡기 0.25 ---------------- */
-.mode-layer { position: absolute; inset: 0; z-index: 22; display: block; background: var(--color-dim); backdrop-filter: none; }
+.mode-layer { z-index: 22; display: block; background: var(--color-dim); backdrop-filter: none; }
 .mode-card {
   position: absolute; left: 50%; margin-left: calc(-475 * var(--u)); bottom: calc(10 * var(--u));
-  width: calc(950 * var(--u)); max-width: calc(100% - 32 * var(--u)); max-height: calc(100% - 60 * var(--u)); overflow: auto;
-  gap: var(--space-3); padding: var(--space-5) var(--space-6);
+  width: calc(950 * var(--u)); max-width: calc(100% - 32 * var(--u)); max-height: 48%; overflow: auto;   /* R5: 100% − 60u → 48% (보기 설명 3줄까지 스크롤 없이) */
+  gap: var(--space-2); padding: var(--space-3) var(--space-5);
 }
+.mode-card.predict--top { top: calc(10 * var(--u)); bottom: auto; }
 .mode-card__q { font-size: calc(36 * var(--u)); }
 .mode-card__sub { font-size: var(--fs-caption); color: var(--color-ink-chip); word-break: keep-all; }
-.mode-opt { min-height: calc(150 * var(--u)); padding: var(--space-4); }
+.mode-opt { min-height: calc(120 * var(--u)); padding: var(--space-3) var(--space-4); }   /* R5: 150 → 120u */
 html:not(.cursor-hidden) .mode-opt:hover { border-color: var(--color-primary); background: var(--color-primary-tint); }
 .mode-opt__label { font-size: calc(28 * var(--u)); }
 .mode-opt__desc { font-size: var(--fs-caption); }
@@ -1313,6 +1356,7 @@ b, strong, th, h1, h2, h3, h4, h5, h6 { font-weight: var(--font-weight-medium); 
 .btn > .ico--trail { margin-left: calc(-4 * var(--u)); }
 .btn > .ico, .chip > .ico, .notice__act > .ico, .panel-more > .ico, .pop-menu button > .ico { vertical-align: 0; }
 .sim-top__hub > .ico { width: 0.9em; height: 0.9em; }
+.ico--portrait { display: none; }   /* R5: 세로 태블릿에서만 보이는 아이콘(shell.css 세로 블록) */
 .apply-ico > .ico { width: calc(20 * var(--u)); height: calc(20 * var(--u)); vertical-align: 0; }
 .task-step__num > .ico { width: calc(22 * var(--u)); height: calc(22 * var(--u)); stroke-width: 2.6; }
 .notice__mark > .ico { width: 0.8em; height: 0.8em; vertical-align: 0; stroke-width: 2.6; }
@@ -1331,7 +1375,6 @@ b, strong, th, h1, h2, h3, h4, h5, h6 { font-weight: var(--font-weight-medium); 
 .note-why > summary::after,
 .concept__more > summary::after,
 .think-card__hintbox > summary::before,
-.preset-card[aria-pressed="true"] .preset-card__changes::before,
 .mode-opt[aria-pressed="true"] .mode-opt__no::before {
   content: ""; display: inline-block; flex: none;
   width: 1em; height: 1em; vertical-align: -0.12em;
@@ -1349,7 +1392,68 @@ html.reveal-locked:not(.is-teacher) .reveal > summary::before { width: auto; hei
 .note-why[open] > summary::after, .concept__more[open] > summary::after { -webkit-mask-image: var(--ico-chev-up); mask-image: var(--ico-chev-up); }
 .think-card__hintbox > summary::before { margin-right: var(--space-1); -webkit-mask-image: var(--ico-chev-right); mask-image: var(--ico-chev-right); }
 .think-card__hintbox[open] > summary::before { -webkit-mask-image: var(--ico-chev-down); mask-image: var(--ico-chev-down); }
-.preset-card[aria-pressed="true"] .preset-card__changes::before { color: var(--color-primary); width: 0.9em; height: 0.9em; align-self: center; -webkit-mask-image: var(--ico-check); mask-image: var(--ico-check); }
 .preset-card[aria-pressed="true"] .preset-card__tag::before { content: "고름 · "; }
 .mode-opt[aria-pressed="true"] .mode-opt__no::before { order: 1; color: var(--color-primary); width: calc(26 * var(--u)); height: calc(26 * var(--u)); margin-left: var(--space-2); -webkit-mask-image: var(--ico-check); mask-image: var(--ico-check); }
 .mode-opt[aria-pressed="true"] .mode-opt__no::after { order: 2; content: "고름"; }
+
+/* ---------- R5 세로 태블릿: 예측·모드 창은 패널 자리(실험 화면을 가리지 않는다) ------------- */
+@media (orientation: portrait) and (min-width: 601px) {
+  .predict__peek { display: none; }   /* 세로에서는 창이 그림을 안 가린다 */
+  .predict-layer, .mode-layer, .sim.is-collapsed .predict-layer, .sim.is-collapsed .mode-layer {
+    left: var(--x); top: var(--panel-top); width: calc(1250 * var(--u)); border-radius: var(--radius-lg);
+    height: calc(100vh - 228 * var(--u) - var(--panel-top));
+    background: transparent;
+  }
+  .predict, .mode-card, .predict--top, .mode-card.predict--top, .predict.is-many, .predict.has-figure {
+    left: 0; right: 0; top: 0; bottom: 0; margin: 0;
+    width: auto; max-width: none; max-height: none;
+  }
+  .predict, .mode-card { align-content: start; overflow: auto; }
+}
+
+/* ---------- R5 분수 {{frac:분자|분모}} (rich) — 가로선 분수, 분자·분모 0.85배 ------------------- */
+.frac {
+  display: inline-grid; grid-template-rows: auto auto; justify-items: center; vertical-align: middle;
+  margin: 0 0.12em; font-size: 0.85em; line-height: 1.1; white-space: nowrap;
+}
+.frac__n { padding: 0 0.2em 0.06em; }
+.frac__d { padding: 0.06em 0.2em 0; border-top: max(1px, calc(2 * var(--u))) solid currentColor; justify-self: stretch; text-align: center; }
+
+/* ---------- R5 기록 표 크게 보기 (.rec-full — 무대 자식, 실험 화면 + 하단 띠 자리) ------------------- */
+.rec-box__head .rec-full-btn > .ico { width: calc(24 * var(--u)); height: calc(24 * var(--u)); }
+.rec-big .rec-box__head .btn:not([hidden]) ~ .rec-full-btn { margin-left: 0; }
+.rec-full {
+  position: absolute; z-index: 30; left: calc(40 * var(--u)); top: calc(140 * var(--u));
+  width: calc(1250 * var(--u)); height: calc(760 * var(--u) + var(--extra));
+  display: grid; grid-template-rows: auto minmax(0, 1fr);
+  border-radius: var(--radius-lg);
+  background: var(--color-paper-raised); border: 1px solid var(--color-line-strong); box-shadow: var(--shadow-lg);
+  animation: fade-in var(--dur-base) var(--dur-ease) both;
+}
+.rec-full__head {
+  display: flex; align-items: center; gap: var(--space-4);
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-6);
+  border-bottom: calc(2 * var(--u)) solid var(--color-ink);
+}
+.rec-full__title { font-size: var(--fs-h3); }
+.rec-full__count { font: var(--font-weight-medium) var(--fs-meta)/1 var(--font-num); color: var(--color-ink-muted); }
+.rec-full__hint { flex: 1; min-width: 0; font: var(--font-weight-regular) var(--fs-meta)/1.3 var(--font-sans); color: var(--color-ink-chip); word-break: keep-all; }
+.rec-full__close { min-height: var(--tap); padding: 0 var(--space-5); font-size: var(--fs-meta); }
+.rec-full__body { min-height: 0; overflow: auto; padding: var(--space-4) var(--space-6) var(--space-6); }
+.rec-full .rec-table { font-size: calc(28 * var(--u)); }
+.rec-full .rec-table th, .rec-full .rec-table td { padding: var(--space-3) var(--space-4); }
+.rec-full .rec-table th { white-space: normal; word-break: keep-all; vertical-align: bottom; line-height: 1.25; background: var(--color-paper-sunk); }
+.rec-full .rec-table .th-unit { font-size: var(--fs-meta); }
+.rec-full .rec-mark { font-size: calc(28 * var(--u)); }
+.rec-full .rec-warn { height: calc(34 * var(--u)); font-size: var(--fs-meta); }
+@media (orientation: portrait) and (min-width: 601px) {
+  .rec-full { left: calc(20 * var(--u)); width: calc(1250 * var(--u)); height: calc(100vh - 228 * var(--u) - 140 * var(--u)); }
+}
+
+/* ---------- R5 교사 모드 헤더 · 수업 정보 팝업 --------------------------------------------------- */
+.sim-top__std-more { cursor: pointer; color: var(--color-primary); }
+html:not(.cursor-hidden) .sim-top__std-more:hover { background: var(--color-primary-tint); }
+.info-pop__std { border-radius: var(--radius-sm); transition: background-color var(--dur-slow) var(--dur-ease); }
+.info-pop__std.is-flash { background: var(--color-primary-tint); }
+.info-pop__auto { justify-self: stretch; }
+.info-pop__auto .check { width: 100%; }

@@ -79,9 +79,31 @@
       text-decoration: underline; text-underline-offset: calc(4 * var(--u)); word-break: keep-all;
     }
     html:not(.cursor-hidden) .card__open:hover { filter: brightness(0.92); }
-    /* 성취기준 코드는 교사 모드(?teacher=1)에서만 */
-    .card__std { display: none; font: var(--font-weight-medium) var(--fs-caption)/1.3 var(--font-num); color: var(--color-ink-chip); text-align: center; }
-    html.is-teacher .card__std { display: block; }
+    /* 성취기준 코드는 교사 모드(?teacher=1 · 오른쪽 위 [교사 모드])에서만 — R5: 칩 모양 */
+    .card__std { display: none; justify-self: center; align-items: center; min-height: calc(34 * var(--u)); padding: 0 var(--space-3); border-radius: var(--radius-pill); background: var(--sim-tint); color: var(--sim-text); font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-num); text-align: center; white-space: nowrap; }
+    html.is-teacher .card__std { display: inline-flex; }
+    /* R5: 교사 모드 토글 (켜면 모든 [열기]·보조 링크가 ?teacher=1) */
+    .hub-teacher[aria-pressed="true"] { background: var(--color-primary-tint); border-color: var(--color-primary); color: var(--color-primary); }
+    .hub-teacher .hub-teacher__state { font-weight: var(--font-weight-regular); color: var(--color-ink-muted); }
+    .hub-teacher[aria-pressed="true"] .hub-teacher__state { color: var(--color-primary); font-weight: var(--font-weight-bold); }
+
+    /* R5: 가로 4:3 태블릿(1180×820·1024×768 — 16:9 보다 세로가 긴 가로 화면): 제목·카드를 가운데로 모으고
+       제목 아래·카드 아래 여백은 24u. 남는 세로는 위(메뉴 아래)와 아래(바닥 줄 위)로 똑같이 나눈다. 16:9 는 이 규칙 밖 */
+    @media (orientation: landscape) and (max-aspect-ratio: 17/10) {
+      .hub { grid-template-rows: calc(80 * var(--u)) minmax(0, 1fr) auto auto minmax(0, 1fr) calc(72 * var(--u)); }
+      .hub-nav { grid-row: 1; } .hub-head { grid-row: 3; padding-bottom: calc(24 * var(--u)); } .cards { grid-row: 4; } .hub-foot { grid-row: 6; }
+      .cards { align-items: stretch; padding-bottom: calc(24 * var(--u)); }
+      .card { height: auto; }
+    }
+    /* R5: 세로 태블릿(폭 601 이상): 카드 2열, 카드 높이는 내용만큼, 넘치면 카드 칸 안에서 스크롤 */
+    @media (orientation: portrait) and (min-width: 601px) {
+      .hub { padding: 0 calc(40 * var(--u)); grid-template-rows: calc(88 * var(--u)) auto minmax(0, 1fr) calc(80 * var(--u)); }
+      .hub-title { font-size: calc(60 * var(--u)); }
+      .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: max-content; align-items: start; align-content: start; overflow-y: auto; overscroll-behavior: contain; padding: calc(8 * var(--u)) calc(4 * var(--u)) calc(24 * var(--u)); }
+      .card { height: auto; max-height: none; }
+      .card__q { min-height: 0; }
+      .hub-foot { flex-wrap: wrap; gap: var(--space-1) var(--space-4); }
+    }
     .hub-foot { display: flex; align-items: center; justify-content: center; gap: var(--space-4); border-top: 1px solid var(--color-line); font: var(--font-weight-semibold) var(--fs-meta)/1.4 var(--font-sans); color: var(--color-ink-muted); }
     .hub-foot__credit { font-weight: var(--font-weight-regular); }
     .flow { display: flex; align-items: center; gap: var(--space-3); }
@@ -100,6 +122,7 @@
         </span>
         <span class="hub-nav__right">
           <button class="btn btn--outline hub-keys__btn" type="button" id="keysBtn" aria-expanded="false">키보드 조작 안내</button>
+          <button class="btn btn--outline hub-teacher" type="button" id="teacherBtn" aria-pressed="false" title="켜면 실험이 교사 모드(손들기 수·수업 안내·성취기준)로 열려요">교사 모드 <span class="hub-teacher__state">끔</span></button>
           <span class="hub-keys" id="keys" hidden role="note">
             <kbd>1</kbd><span>~ <kbd>5</kbd> 카드 바로 열기</span>
             <kbd>← →</kbd><span>카드 고르기 · <kbd>Enter</kbd> 열기</span>
@@ -197,7 +220,7 @@
       card.appendChild(go);
       card.addEventListener('click', function (e) {
         if (e.target.closest('a')) return;
-        location.href = openLinks[i].href;
+        location.href = openLinks[i].href;   // R5: 교사 모드면 href 에 ?teacher=1 이 이미 붙어 있다
       });
       card.style.cursor = 'pointer';
       box.appendChild(card);
@@ -205,7 +228,31 @@
 
     var keysBtn = document.getElementById('keysBtn'), keys = document.getElementById('keys');
     keysBtn.addEventListener('click', function () { keys.hidden = !keys.hidden; keysBtn.setAttribute('aria-expanded', String(!keys.hidden)); });
-    if (/[?&]teacher=1\b/.test(location.search)) document.documentElement.classList.add('is-teacher');
+
+    // R5: 교사 모드 토글 — 켜면 html.is-teacher(성취기준 칩) + 모든 [열기]·보조 링크에 ?teacher=1. URL ?teacher=1 이면 켜진 채 시작
+    var teacherBtn = document.getElementById('teacherBtn');
+    function withTeacher(href, on) {
+      var parts = href.split('#'), u = parts[0], q = '', i = u.indexOf('?');
+      if (i >= 0) { q = u.slice(i + 1); u = u.slice(0, i); }
+      var ps = q ? q.split('&').filter(function (x) { return x && x !== 'teacher=1'; }) : [];
+      if (on) ps.push('teacher=1');
+      return u + (ps.length ? '?' + ps.join('&') : '') + (parts.length > 1 ? '#' + parts[1] : '');
+    }
+    function setTeacher(on, save) {
+      document.documentElement.classList.toggle('is-teacher', on);
+      teacherBtn.setAttribute('aria-pressed', String(on));
+      teacherBtn.lastChild.textContent = on ? '켬' : '끔';
+      var as = box.querySelectorAll('a[href]');
+      for (var k = 0; k < as.length; k++) as[k].setAttribute('href', withTeacher(as[k].getAttribute('href'), on));
+      if (save) { try { localStorage.setItem('hub.teacher', on ? '1' : '0'); } catch (err) { /* 저장 안 돼도 이번에는 적용 */ } }
+    }
+    teacherBtn.addEventListener('click', function (e) {
+      setTeacher(teacherBtn.getAttribute('aria-pressed') !== 'true', true);
+      if (e.detail > 0) teacherBtn.blur();
+    });
+    var teacherOn = /[?&]teacher=1\b/.test(location.search);
+    if (!teacherOn) { try { teacherOn = localStorage.getItem('hub.teacher') === '1'; } catch (err) { teacherOn = false; } }
+    if (teacherOn) setTeacher(true, false);
 
     document.addEventListener('keydown', function (e) {
       if (e.ctrlKey || e.metaKey || e.altKey) return;

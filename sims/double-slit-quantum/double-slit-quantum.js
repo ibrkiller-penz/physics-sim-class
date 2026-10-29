@@ -12,7 +12,7 @@
      무늬 간격: Δy = λL/d   (650 nm, 0.25 mm, 2.0 m → 5.2 mm / 450 nm → 3.6 mm)
      점 뽑기:   [−30, 30] mm 를 0.05 mm 칸 1200 개로 나눈 누적 분포표의 역함수 표본
      드브로이:  λ = h / √(2 m_e e V)  (1000 V → 38.8 pm). 화면 무늬는 모형: λ_모형 = 650 nm × √(1000 V / V),
-                d = 0.05 mm × d(a.u.), L = 0.4 m × L(a.u.) 를 같은 식에 넣음 → 1000 V·5·5 에서 5.2 a.u.
+                d = 0.05 mm × d(칸), L = 0.4 m × L(칸) 를 같은 식에 넣음 → 1000 V·5·5 에서 5.2 칸 (R5: 영문 약자 대신 '칸' — 화면용 모형 단위)
 
    [화면 축척]  실험 화면 논리 좌표 1250×660 (stageH 660)
      스크린 세로 480u = 실제 ±30 mm → 8 u/mm · 확대창 400×400u = 가운데 ±15 mm (R2)
@@ -134,7 +134,7 @@
   var SNAP_MM = 1.5;                               // 밝은 줄 중심으로 끌어당기는 거리
   var FS = 22;                                     // 캔버스 글자 최소 (u) — 글꼴은 SK.text/SK.font (R4)
   var KIND_LABEL = { wave: '빛(레이저)', photon: '광자 하나씩', electron: '전자 하나씩', marble: '작은 구슬' };
-  var SLIT_LABEL = { both: '둘 다', top: '위만', bottom: '아래만' };
+  var SLIT_LABEL = { both: '둘 다 열기', top: '위쪽만 열기', bottom: '아래쪽만 열기' };
   var RATE_LEVELS = [1, 20, 1000];
   var DIST_KEYS = { lam: 1, d: 1, L: 1, V: 1, dR: 1, LR: 1, a: 1, slit: 1, det: 1 };
   var COUNT_WORD = ['', '한', '두', '세', '네', '다섯'];
@@ -185,7 +185,7 @@
   }
   function geoKey(g) { return [g.kind, g.lamNm, g.dMm, g.Lm, g.aMm, g.slit, g.det].join('|'); }
   function isQuantum(k) { return k === 'photon' || k === 'electron'; }
-  function unitY(p) { return p.send === 'electron' ? 'a.u.' : 'mm'; }
+  function unitY(p) { return p.send === 'electron' ? '칸' : 'mm'; }   // R5: 영문 약자(원자 단위로 오해) 대신 '칸'(화면용 모형 눈금)
 
   function makeCanvas(w, h) { var c = document.createElement('canvas'); c.width = Math.round(w * DS); c.height = Math.round(h * DS); return c; }
   function rgbStr(c, a) { return a === undefined ? 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')' : 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
@@ -336,9 +336,9 @@
   var N_MAX = 5;
   var MY = ZY + ZH;   // 확대창 아래 측정 칸 시작 y (500 + E)
   var BTN = {
-    minus: { x: ZX + 122, y: MY + 50, w: 56, h: 52 },
-    plus: { x: ZX + 226, y: MY + 50, w: 56, h: 52 },
-    clear: { x: ZX + ZW - 100, y: MY + 50, w: 100, h: 52 },
+    minus: { x: ZX + 154, y: MY + 50, w: 56, h: 52 },      // R5: 이름 '$n$ 칸으로 나눔' 폭만큼 오른쪽으로
+    plus: { x: ZX + 252, y: MY + 50, w: 56, h: 52 },
+    clear: { x: ZX + ZW - 84, y: MY + 50, w: 84, h: 52 },
     how: { x: ZX + ZW - 150, y: ZY - 52, w: 150, h: 44 }      // R3: 알약 44u · 제목과 세로 가운데
   };
   /** R4: 세로 여유 E(논리 u) 만큼 스크린·확대창을 늘린다. 16:9 는 E = 0 → R3 와 같은 좌표 */
@@ -486,8 +486,8 @@
       series: { I: pts },
       values: {
         lamT: lamText(p),
-        dT: el ? p.dR + ' a.u.' : SK.fmt(p.d, 2) + ' mm',
-        LT: el ? p.LR + ' a.u.' : SK.fmt(p.L, 1) + ' m',
+        dT: el ? p.dR + ' 칸' : SK.fmt(p.d, 2) + ' mm',
+        LT: el ? p.LR + ' 칸' : SK.fmt(p.L, 1) + ' m',
         count: p.send === 'wave' ? '—' : count,
         meas: mg === null ? '안 잼' : SK.fmt(mg, 2) + ' ' + unitY(p),
         theo: theoryText(p, g),
@@ -548,10 +548,10 @@
   /** R3: 캔버스 번호 원 — HTML .circ 와 같은 모양(원문자 글리프 대신) */
   function circNo(ctx, n, cx, cy, o) {
     o = o || {};
-    var r = o.r || 13;
+    var r = o.r || 15;      // R5: 글자 22u(하한)가 들어가게 13 → 15
     ctx.strokeStyle = SK.color(o.color || '--color-ink'); ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, 6.2832); ctx.stroke();
-    SK.text(ctx, String(n), cx, cy, { size: o.size || 17, weight: 500, align: 'center', color: o.color || '--color-ink' });
+    SK.text(ctx, String(n), cx, cy, { size: o.size || 22, weight: 500, align: 'center', color: o.color || '--color-ink' });
   }
 
   function drawSource(ctx, p) {
@@ -611,13 +611,10 @@
     // 거리 L
     var yL = SCR_BOT + 54, flashL = SK.isFlashing('L') || SK.isFlashing('LR');
     var lc = flashL ? '--color-ok' : '--color-line-strong';
-    SK.arrow(ctx, sx + 4, yL, SCR_X - 4, yL, { color: lc, width: flashL ? 4 : 2, head: 10 });
-    SK.arrow(ctx, SCR_X - 4, yL, sx + 4, yL, { color: lc, width: flashL ? 4 : 2, head: 10 });
-    var Ltxt = p.send === 'electron' ? '$L$ = ' + p.LR + ' a.u.' : '$L$ = ' + SK.fmt(p.L, 1) + ' m (그림은 줄임)';
-    var tw = SK.measure(ctx, Ltxt, { size: FS }).w + 20, cx = Math.max(SRC_R + tw / 2, (sx + SCR_X) / 2);
-    ctx.fillStyle = SK.color('--color-paper-raised');
-    ctx.fillRect(cx - tw / 2, yL - 15, tw, 30);
-    txt(ctx, Ltxt, cx, yL, { align: 'center', w: 400, color: flashL ? '--color-ok' : '--color-ink-muted' });
+    // R5: 양끝 채운 화살촉 치수선(SK.dim) · 라벨은 선 가운데(종이 바탕)
+    var Ltxt = p.send === 'electron' ? '$L$ = ' + p.LR + ' 칸' : '$L$ = ' + SK.fmt(p.L, 1) + ' m (그림은 줄임)';
+    SK.dim(ctx, sx + 4, yL, SCR_X - 4, yL, { label: Ltxt, size: FS, side: 'center', weight: 400, lw: flashL ? 4 : 2, head: 12, ends: 10,
+      color: lc, labelColor: flashL ? '--color-ok' : '--color-ink-muted', bg: '--color-paper-raised' });
     return { sx: sx, ys: ys };
   }
 
@@ -774,6 +771,7 @@
     // 머리: 이름 + '측정 방법 ?' 칩
     txt(ctx, '확대창 · 가운데 ±' + Z_RANGE + ' ' + u, ZX, BTN.how.y + BTN.how.h / 2, { w: 500, color: '--color-sim-slit-text' });
     // R3 §6-3: 예측·모드 창이 떠 있으면 '측정 방법' 버튼을 그리지 않는다(창 옆으로 비치지 않게)
+    if (p.send === 'electron' && !howHidden()) txt(ctx, '실제 크기 아님 · 줄무늬를 보려고 키운 눈금', ZX + ZW, BTN.how.y - 22, { align: 'right', color: '--color-ink-muted' });   // R5
     if (!howHidden()) canvasBtn(ctx, BTN.how, '측정 방법', { fill: meas.guide ? '--color-sim-slit-tint' : '--color-paper-raised', radius: BTN.how.h / 2, lw: 1, icon: 'help' });
     if (hide) { drawHidden(ctx, ZX, ZY, ZW, ZH); drawMeasureRows(ctx, p, true); return; }
     darkFace(ctx, ZX, ZY, ZW, ZH);
@@ -803,22 +801,6 @@
       var xa = ZX + ZW - 70;
       if (Math.abs(meas.a - meas.b) * ZPX > 26) SK.arrow(ctx, xa, yToZoom(meas.a), xa, yToZoom(meas.b), { color: '--color-focus-on-dark', width: 3, head: 12 });
     }
-    // 측정 방법 안내 (처음 한 번 · '측정 방법 ?' 으로 다시)
-    if (meas.guide && patternVisible(p) && fringeMode(cur.g)) {
-      var bx = ZX + 12, bh = 132, by = ZY + ZH - bh - 12, bw = ZW - 24;
-      ctx.fillStyle = SK.color('--color-paper-raised');
-      roundRect(ctx, bx, by, bw, bh, 10); ctx.fill();
-      ctx.strokeStyle = SK.color('--color-sim-slit'); ctx.lineWidth = 3; roundRect(ctx, bx, by, bw, bh, 10); ctx.stroke();
-      // R4: '◀' 글자 대신 SVG 아이콘(arrow-left) · 번호는 .circ 와 같은 원 · 글자 22u 통일
-      var bob = Math.sin(performance.now() / 260) * 4;
-      SK.drawIcon(ctx, 'arrow-left', bx + 22 + bob, by + 28, 26, { color: '--color-ink', width: 2.6 });
-      ['밝은 줄 가운데를 눌러요', '다른 밝은 줄을 눌러요', '사이 칸 수 $n$ 을 맞춰요'].forEach(function (s, i) {
-        var ly = by + 28 + i * 38;
-        circNo(ctx, i + 1, bx + 56, ly);
-        txt(ctx, s, bx + 78, ly, { w: 500 });
-      });
-      SK.requestRender();
-    }
     ctx.restore();
     ctx.strokeStyle = SK.color('--color-sim-slit'); ctx.lineWidth = 4;
     roundRect(ctx, ZX, ZY, ZW, ZH, 8); ctx.stroke();
@@ -826,8 +808,26 @@
     ctx.strokeStyle = SK.color('--color-sim-slit'); ctx.lineWidth = 2; ctx.setLineDash([6, 5]);
     ctx.strokeRect(SCR_X - 3, yToScr(Z_RANGE), SCR_W + 6, 2 * Z_RANGE * PX_MM); ctx.setLineDash([]);
     drawMeasureRows(ctx, p, false);
+    drawGuide(ctx, p);
   }
-  /** 확대창 아래 측정 칸: 잰 길이 → ÷ 칸 수 n [−][+] → = 한 칸 간격 */
+  /** 측정 방법 안내 (처음 한 번 · '측정 방법 ?' 으로 다시) — R5: 확대창을 가리지 않게 확대창 **아래**(측정 칸 자리)에.
+      캔버스 그림이라 누르면 그대로 아래로 전달되고(pointerdown 에서 접힘 → 측정·버튼 처리) 첫 누름에 사라진다 */
+  function drawGuide(ctx, p) {
+    if (!(meas.guide && patternVisible(p) && fringeMode(cur.g)) || howHidden()) return;
+    var bx = ZX, bh = 140, by = MY + 6, bw = ZW;
+    ctx.fillStyle = SK.color('--color-paper-raised');
+    roundRect(ctx, bx, by, bw, bh, 10); ctx.fill();
+    ctx.strokeStyle = SK.color('--color-sim-slit'); ctx.lineWidth = 3; roundRect(ctx, bx, by, bw, bh, 10); ctx.stroke();
+    var bob = Math.sin(performance.now() / 260) * 4;
+    SK.drawIcon(ctx, 'arrow-up', bx + 24, by + 30 - bob, 26, { color: '--color-ink', width: 2.6 });   // 위 확대창을 가리킴
+    ['밝은 줄 가운데를 눌러요', '다른 밝은 줄을 눌러요', '사이 칸 수 $n$ 을 맞춰요'].forEach(function (t, k) {
+      var ly = by + 30 + k * 40;
+      circNo(ctx, k + 1, bx + 62, ly);
+      txt(ctx, t, bx + 86, ly, { w: 500 });
+    });
+    SK.requestRender();
+  }
+  /** 확대창 아래 측정 칸: 잰 길이 → n 칸으로 나눔 [−][+] → = 한 칸 간격 */
   function drawMeasureRows(ctx, p, hide) {
     // R3: 예측·모드 창이 떠 있으면 창 옆으로 '+'·'지우기' 조각이 비치지 않게 측정 칸을 그리지 않는다
     if (hide || howHidden()) return;
@@ -837,7 +837,7 @@
     txt(ctx, '잰 길이 A~B', ZX, MY + 24, LAB);
     txt(ctx, dist === null ? (meas.a === null || hide ? '–' : 'B 를 눌러요') : SK.fmt(dist, 1) + ' ' + u,
       ZX + ZW, MY + 24, dist === null ? { align: 'right', w: 400, color: '--color-ink-muted' } : { align: 'right', size: 26, w: 500, color: '--color-ink' });
-    txt(ctx, '÷ 칸 수 $n$', ZX, BTN.minus.y + BTN.minus.h / 2, LAB);
+    txt(ctx, '$n$ 칸으로 나눔', ZX, BTN.minus.y + BTN.minus.h / 2, LAB);   // R5: ÷ 글자 대신 말로
     canvasBtn(ctx, BTN.minus, '−', { size: 32, off: meas.n <= 1, glyph: 'minus' });
     canvasBtn(ctx, BTN.plus, '+', { size: 32, off: meas.n >= N_MAX, glyph: 'plus' });
     txt(ctx, String(meas.n), (BTN.minus.x + BTN.minus.w + BTN.plus.x) / 2, BTN.minus.y + BTN.minus.h / 2, { align: 'center', size: 30, w: 500 });
@@ -849,7 +849,7 @@
   }
 
   /** 예측 창·모드 고르기 창이 떠 있는 동안은 결과 층(무늬·점·곡선·직전 띠)을 숨긴다 (R2 A4) */
-  function resultsHidden() { return SK.predicting() || !!SK.el.stage.querySelector('.mode-layer'); }
+  function resultsHidden() { return SK.predicting() || SK.choosingMode(); }
   /** R4: 예측·모드·확인 창이 떠 있나 (캔버스 버튼·측정 칸을 그리지도 누르지도 않음) */
   function howHidden() { return resultsHidden() || !!(SK.el.slide && SK.el.slide.classList.contains('is-modal')); }
   function render(view, p) {
@@ -912,15 +912,16 @@
   function fillEq(l1, l2, p, g, u) {
     function add(el, kids) { kids.forEach(function (k) { el.appendChild(typeof k === 'string' ? document.createTextNode(k) : k); }); }
     function val(cls, s) { return SK.h('span', { class: 'dsq-val' }, [dot(cls), s]); }
+    function richB(t) { var b = SK.h('b'); SK.setText(b, t); return b; }   // R5: {{frac:}} 가로선 분수
     if (p.send === 'marble') {
       add(l1, [SK.h('b', { text: '구슬: 간섭 없음' }), SK.h('span', { class: 'dsq-muted', text: '그림자 띠 두 개' })]);
       add(l2, ['두 띠 사이 ≈ ', SK.h('b', { class: 'dsq-nowrap', text: SK.fmt(marbleGap(g), 1) + ' mm' })]);
       return;
     }
     if (p.send === 'electron') {
-      add(l1, [SK.h('b', null, SK.mathNodes('$λ$ = $h$ ÷ $p$')), val('lam', SK.fmt(pmOf(p.V), 1) + ' pm'), SK.h('span', { class: 'dsq-muted dsq-nowrap', text: 'pm = 10⁻¹² m' })]);
+      add(l1, [richB('$λ$ = {{frac:$h$|$p$}}'), val('lam', SK.fmt(pmOf(p.V), 1) + ' pm'), SK.h('span', { class: 'dsq-muted dsq-nowrap', text: 'pm = 10⁻¹² m' })]);
     } else {
-      add(l1, [SK.h('b', null, SK.mathNodes('$Δy$ = $λL$ ÷ $d$')), val('lam', p.lam + ' nm'), val('L', SK.fmt(p.L, 1) + ' m'), val('d', SK.fmt(p.d, 2) + ' mm')]);
+      add(l1, [richB('$Δy$ = {{frac:$λL$|$d$}}'), val('lam', p.lam + ' nm'), val('L', SK.fmt(p.L, 1) + ' m'), val('d', SK.fmt(p.d, 2) + ' mm')]);
     }
     if (!fringeMode(g)) {
       add(l2, [SK.h('span', { class: 'dsq-muted', text: p.slit !== 'both' ? '슬릿이 하나라 → 줄무늬 없음' : '어느 슬릿인지 알면 → 줄무늬 없음' })]);
@@ -928,7 +929,12 @@
     }
     add(l2, [SK.h('span', { class: 'dsq-muted' }, SK.mathNodes('이론 $Δy$'))]);
     if (!SK.records.length) {
-      add(l2, [SK.h('span', { class: 'dsq-muted', text: '— 기록하면 열 수 있어요' })]);
+      // R5: 뜻이 분명하게 — 잠금 아이콘 + '먼저 직접 재기'
+      l2.innerHTML = '';
+      var lk = SK.h('span', { class: 'dsq-muted dsq-lockline', title: '이론값 Δy 는 한 번 기록하면 보여요 (먼저 직접 재 보세요)' });
+      var ic = SK.icon('lock'); if (ic) lk.appendChild(ic);
+      lk.appendChild(SK.h('span', null, SK.mathNodes('재고 기록하면 이론값이 보여요')));
+      l2.appendChild(lk);
     } else if (!theoryOpen) {
       var b = SK.h('button', { class: 'btn btn--sm btn--secondary dsq-reveal', type: 'button' }, '답 확인하기');
       b.addEventListener('click', function (e) {
@@ -1046,7 +1052,7 @@
     capture: function () { if (!cur || suppressCapture) return null; return captureFrom(cur.p); },
     status: function (p) {
       var s = [KIND_LABEL[p.send]];
-      if (p.send === 'electron') s.push(fmtN(p.V) + ' V', '$d$ ' + p.dR + ' a.u.', '$L$ ' + p.LR + ' a.u.');   // R4 마무리: 칩 안 d·L 도 수식 표기
+      if (p.send === 'electron') s.push(fmtN(p.V) + ' V', '$d$ ' + p.dR + ' 칸', '$L$ ' + p.LR + ' 칸');   // R4 마무리: 칩 안 d·L 도 수식 표기
       else {
         if (p.send !== 'marble') s.push(p.lam + ' nm');
         s.push('$d$ ' + SK.fmt(p.d, 2) + ' mm', '$L$ ' + SK.fmt(p.L, 1) + ' m');
@@ -1070,13 +1076,13 @@
     hint: '$λ$ = 38.8 pm' });
   SK.addVar('values', { key: 'd', label: '{{슬릿}} 간격', symbol: 'd', unit: 'mm', min: 0.10, max: 0.50, step: 0.05, value: 0.25, decimals: 2, precision: 3, ticks: [0.1, 0.25, 0.5], apply: 'live',
     hint: 'mm = 10⁻³ m' });
-  SK.addVar('values', { key: 'dR', label: '{{슬릿}} 간격', symbol: 'd', unit: 'a.u.', min: 2, max: 10, step: 1, value: 5, decimals: 0, precision: 0, ticks: [2, 5, 10], apply: 'live',
-    hint: 'a.u. = 화면용 모형 단위' });
+  SK.addVar('values', { key: 'dR', label: '{{슬릿}} 간격', symbol: 'd', unit: '칸', min: 2, max: 10, step: 1, value: 5, decimals: 0, precision: 0, ticks: [2, 5, 10], apply: 'live',
+    hint: '칸 = 화면용 모형 단위(실제 길이 아님)' });
   SK.addVar('values', { key: 'L', label: '스크린 거리', symbol: 'L', unit: 'm', min: 0.5, max: 3.0, step: 0.1, value: 2.0, decimals: 1, precision: 2, ticks: [0.5, 2, 3], apply: 'live',
     hint: '그림은 줄여서 그림' });
-  SK.addVar('values', { key: 'LR', label: '스크린 거리', symbol: 'L', unit: 'a.u.', min: 2, max: 7, step: 1, value: 5, decimals: 0, precision: 0, ticks: [2, 5, 7], apply: 'live',
-    hint: 'a.u. = 화면용 모형 단위' });
-  // 입력칸 이름 앞 색 점: 띠의 식(Δy = λL ÷ d)과 같은 색 · 머리줄 '버튼 한 번에 10 nm' · 설명은 단위 칩
+  SK.addVar('values', { key: 'LR', label: '스크린 거리', symbol: 'L', unit: '칸', min: 2, max: 7, step: 1, value: 5, decimals: 0, precision: 0, ticks: [2, 5, 7], apply: 'live',
+    hint: '칸 = 화면용 모형 단위(실제 길이 아님)' });
+  // 입력칸 이름 앞 색 점: 띠의 식(Δy = λL/d)과 같은 색 · 머리줄 '버튼 한 번에 10 nm' · 설명은 단위 칩
   var LABEL_SUB = { lam: '빛깔을 정함', d: '두 틈 사이', dR: '두 틈 사이', L: '슬릿 → 스크린', LR: '슬릿 → 스크린' };
   [['lam', 'lam'], ['V', 'lam'], ['d', 'd'], ['dR', 'd'], ['L', 'L'], ['LR', 'L']].forEach(function (a) {
     var el = SK.controls[a[0]].el, lab = el.querySelector('.var__label');
@@ -1127,7 +1133,7 @@
   SK.controls.send.el.appendChild(ui.sendNote);
   SK.addChoice('situation', {
     key: 'slit', label: '열린 {{슬릿}}', apply: 'live',
-    options: [{ value: 'both', label: '둘 다' }, { value: 'top', label: '위만' }, { value: 'bottom', label: '아래만' }],
+    options: [{ value: 'both', label: '둘 다 열기' }, { value: 'top', label: '위쪽만 열기' }, { value: 'bottom', label: '아래쪽만 열기' }],
     value: 'both'
   });
   SK.controls.slit.el.appendChild(SK.h('p', { class: 'var__hint', text: '실험 화면의 슬릿을 직접 눌러도 막고 열 수 있어요' }));
@@ -1216,7 +1222,7 @@
     var n = SK.records.length, rows;
     if (entrance === 'physics') {
       var c = checkPhysics();
-      rows = [[n >= 3, '기록 3개 이상 (지금 ' + n + '개)'], [c.onlyLam, '$λ$ 만 바꿨어요 ($d$·$L$ 은 그대로)'], [c.prop, '$Δy$ 가 $λ$ 에 비례해요 — 내가 잰 $Δy$ ÷ $λ$ 가 거의 같아요']];
+      rows = [[n >= 3, '기록 3개 이상 (지금 ' + n + '개)'], [c.onlyLam, '$λ$ 만 바꿨어요 ($d$·$L$ 은 그대로)'], [c.prop, '$Δy$ 가 $λ$ 에 비례해요 — 내가 잰 {{frac:$Δy$|$λ$}} 가 거의 같아요']];
     } else {
       var q = checkQuantum();
       rows = [[q.off, '측정기를 끄고 전자(또는 광자)를 기록했어요'], [q.on, '측정기를 켜거나 구슬로 바꿔 기록했어요'], [false, '두 무늬가 어떻게 다른지 한 문장으로 말해 봐요']];
@@ -1402,14 +1408,14 @@
       { name: '밝은 줄 간격 재기', tag: '탐구 재현', changes: '기본값', fixed: 'λ 650 nm · d 0.25 mm · L 2.0 m',
         values: withBase({ send: 'wave' }),
         predict: { question: '빨간 레이저 빛이 두 {{슬릿}}을 지나면 스크린에 어떤 무늬가 생길까?', info: SLIT_INFO, figure: predictFigure('wave'),
-          choices: ['밝은 점 하나', '밝은 줄이 두 개만', '밝고 어두운 줄이 여러 개'],
+          choices: ['밝은 점 하나', '밝은 줄 두 개', '밝고 어두운 줄 여러 개'],
           answer: 3, why: '두 틈에서 나온 빛이 겹쳐요. 보강(같은 방향이 겹쳐 더 밝아짐)된 곳은 밝은 줄, 상쇄(반대 방향이 겹쳐 지워짐)된 곳은 어두운 줄이 돼요.' },
         onApply: function () { presetHint = '▶ 실행으로 빛을 켜고 간격을 재요'; } },
       { name: '빨강과 파랑', tag: '대표 문항', changes: 'λ 650 → 450', fixed: 'd 0.25 mm · L 2.0 m',
         values: withBase({ send: 'wave', lam: 450 }),
         predict: { question: '빨강(650 nm) 대신 파랑(450 nm) 빛을 비추면 무늬 간격은?', choices: ['넓어진다', '좁아진다', '그대로다'],
           info: '카드 ①에서 빨강을 재고 기록해 두면 두 무늬를 나란히 비교할 수 있어요.',
-          answer: 2, why: '$Δy$ = $λL$ ÷ $d$ 에서 $λ$ 가 약 0.7배라 간격도 5.2 → 약 3.6 mm 로 좁아져요.' },
+          answer: 2, why: '$Δy$ = {{frac:$λL$|$d$}} 에서 $λ$ 가 약 0.7배라 간격도 5.2 → 약 3.6 mm 로 좁아져요.' },
         onApply: function () { presetHint = '▶ 실행 후 파란 무늬 간격을 재요'; } },
       { name: '슬릿 간격 2배', tag: '탐구 재현', changes: 'd 0.25 → 0.50', fixed: 'λ 650 nm · L 2.0 m',
         values: withBase({ send: 'wave', d: 0.5 }),
@@ -1421,17 +1427,17 @@
         predict: { question: '스크린을 2.0 m 에서 3.0 m 로 멀리 두면 무늬 간격은?', choices: ['1.5배로 넓어진다', '좁아진다', '그대로다'],
           answer: 1, why: '$Δy$ 는 $L$ 에 비례해요. $L$ 이 1.5배라 5.2 → 7.8 mm 가 돼요.' },
         onApply: function () { presetHint = '▶ 실행 후 넓어진 줄 사이를 재요'; } },
-      { name: '슬릿 하나만?', tag: '오개념', changes: '슬릿 둘 → 위만', fixed: 'λ 650 nm · d 0.25 mm · L 2.0 m',
+      { name: '슬릿 하나만?', tag: '오개념', changes: '위쪽만 열기', fixed: 'λ 650 nm · d 0.25 mm · L 2.0 m',
         values: withBase({ send: 'wave', slit: 'top' }),
-        predict: { question: '두 슬릿 중 하나를 막으면 스크린 무늬는?', choices: ['밝은 줄 수가 반으로 준다', '넓은 밝은 띠 하나', '그대로다'],
+        predict: { question: '슬릿을 하나만 열면 줄무늬가 사라질까? 스크린 무늬는?', choices: ['밝은 줄 수가 반으로 준다', '넓은 밝은 띠 하나', '그대로다'],
           answer: 2, why: '겹칠 빛이 없어 간섭이 생기지 않아요. 한 틈에서 퍼진(회절) 넓은 띠 하나만 보여요.' },
         onApply: function () { presetHint = '▶ 실행 후 줄무늬가 있는지 봐요'; } }
     ],
     quantum: [
-      { name: '전자 하나씩', tag: '탐구 재현', changes: '전자 · 1개/s', fixed: '1000 V · d 5 · L 5 a.u. · 측정기 끔',
+      { name: '전자 하나씩', tag: '탐구 재현', changes: '전자 · 1개/s', fixed: '1000 V · d 5 · L 5 칸 · 측정기 끔',
         values: withBase({ send: 'electron', rate: 1 }),
         predict: { question: '전자를 한 개씩 보내 수천 개를 쌓으면 스크린에 무엇이 생길까?', info: SLIT_INFO, figure: predictFigure('electron'),
-          choices: ['슬릿 뒤에 두 줄', '빛처럼 여러 줄의 줄무늬', '무늬 없이 고르게'],
+          choices: ['슬릿 뒤에 두 줄', '여러 줄무늬', '무늬 없이 고르게'],
           answer: 2, why: '전자 하나는 점 하나로 찍히지만, 어디에 찍힐지는 두 길이 간섭한 확률로 정해져요. 그래서 쌓이면 줄무늬가 돼요.' },
         onApply: function () { presetHint = '▶ 실행해 처음 10개를 지켜봐요'; } },
       { name: '광자 하나씩', tag: '탐구 재현', changes: '전자 → 광자', fixed: 'λ 650 nm · d 0.25 mm · L 2.0 m',
@@ -1450,13 +1456,15 @@
           info: '카드 ①(측정기 끔)을 먼저 기록해 두면 두 무늬를 비교할 수 있어요.',
           answer: 2, why: '어느 슬릿을 지났는지 정보가 남으면 두 길이 겹칠 수 없어 간섭이 사라져요. 사람이 봐서가 아니라 정보가 남아서예요.' },
         onApply: function () { presetHint = '▶ 실행 후 측정기 끔과 비교해요'; } },
-      { name: '슬릿 하나만?', tag: '오개념', changes: '슬릿 둘 → 위만', fixed: '전자 · 1000개/s',
+      { name: '슬릿 하나만?', tag: '오개념', changes: '위쪽만 열기', fixed: '전자 · 1000개/s',
         values: withBase({ send: 'electron', rate: 1000, slit: 'top' }),
-        predict: { question: '전자를 보낼 때 슬릿 하나를 막으면?', choices: ['줄무늬가 그대로', '넓은 띠 하나', '점이 안 찍힌다'],
+        predict: { question: '전자도 슬릿을 하나만 열면 줄무늬가 사라질까?', choices: ['줄무늬가 그대로', '넓은 띠 하나', '점이 안 찍힌다'],
           answer: 2, why: '길이 하나뿐이면 간섭할 상대가 없어 넓은 띠 하나만 생겨요. 전자도 빛과 똑같아요.' },
         onApply: function () { presetHint = '▶ 실행 후 슬릿을 다시 열어 봐요'; } }
     ]
   };
+  // R5: 예측 창은 위쪽(place:'top') — 레이저·슬릿은 왼쪽 가운데, 무늬·확대창은 오른쪽이라 위는 상태 칩뿐
+  ['physics', 'quantum'].forEach(function (k) { PRESETS[k].forEach(function (c) { if (c.predict) c.predict.place = 'top'; }); });
 
   SK.takeaway(function (p) {
     var u = unitY(p);
@@ -1467,7 +1475,7 @@
     if (p.det && p.send !== 'wave') return { line: '어느 길인지 알게 되자 줄무늬가 사라졌어요',
       more: '측정기가 지나간 슬릿을 기록하면 두 길이 겹칠 수 없어 간섭이 사라져요. 사람이 보는지와는 상관없어요. 이 화면에서는 슬릿 간격이 좁아 두 띠가 겹쳐 하나로 보여요 — 핵심은 줄무늬가 사라진다는 것이에요.' };
     if (p.send === 'wave') return { line: '밝은 줄(보강)과 어두운 줄(상쇄)이 번갈아 생겼어요',
-      more: '두 틈에서 나온 빛이 스크린의 한 점까지 가는 길이의 차(경로차)가 파장의 정수배면 보강(같은 방향이 겹쳐 더 밝아짐), 반 파장의 홀수배면 상쇄(반대 방향이 겹쳐 지워짐)예요. 이웃한 밝은 줄 사이는 $Δy$ = $λL$ ÷ $d$ 로 계산해요. 확대창에서 재어 비교해 보세요.' };
+      more: '두 틈에서 나온 빛이 스크린의 한 점까지 가는 길이의 차(경로차)가 파장의 정수배면 보강(같은 방향이 겹쳐 더 밝아짐), 반 파장의 홀수배면 상쇄(반대 방향이 겹쳐 지워짐)예요. 이웃한 밝은 줄 사이는 $Δy$ = {{frac:$λL$|$d$}} 로 계산해요. 확대창에서 재어 비교해 보세요.' };
     var who = p.send === 'electron' ? '전자' : '광자';
     return { line: who + '를 하나씩 보내도 쌓이면 줄무늬가 돼요',
       more: '점 하나가 어디에 찍힐지는 예측할 수 없지만, 수천 개가 쌓이면 늘 같은 줄무늬가 돼요. 줄무늬는 점이 닿을 확률의 모양이에요 — ' + who + '는 입자로 도착하고, 어디에 도착할지는 파동처럼 간섭해서 정해져요. (줄 간격 단위: ' + u + ')' };
@@ -1475,9 +1483,9 @@
 
   var THINKS = [
     { id: 'p-narrow', mode: 'physics', q: '무늬 간격 $Δy$ 를 좁게 만들려면 어떻게 해야 할까?', choices: ['파장을 더 길게', '슬릿 간격을 더 넓게', '스크린을 더 멀리'], answer: 2,
-      why: '$Δy$ = $λL$ ÷ $d$ 에서 $d$ 는 분모라 키우면 $Δy$ 가 작아져요. 파장을 길게 하거나 스크린을 멀리하면 오히려 넓어져요.' },
+      why: '$Δy$ = {{frac:$λL$|$d$}} 에서 $d$ 는 분모라 키우면 $Δy$ 가 작아져요. 파장을 길게 하거나 스크린을 멀리하면 오히려 넓어져요.' },
     { id: 'p-calc', mode: 'physics', q: '초록 빛($λ$ 500 nm), 슬릿 간격 $d$ 0.20 mm, 스크린 거리 $L$ 1.6 m 이면 무늬 간격 $Δy$ 는?', choices: ['2.0 mm', '4.0 mm', '6.4 mm'], answer: 2,
-      hint: '$Δy$ = $λ$ × $L$ ÷ $d$ (모두 m 로 바꿔 넣어요)', hintFold: true,
+      hint: '$Δy$ = {{frac:$λ$ × $L$|$d$}} (모두 m 로 바꿔 넣어요)', hintFold: true,
       why: '500×10⁻⁹ m × 1.6 m ÷ (0.20×10⁻³ m) = 4.0×10⁻³ m = 4.0 mm. 패널에 값을 직접 넣어 재 보며 확인해 봐요.' },
     { id: 'p-half', mode: 'physics', q: '5.2 mm 였던 무늬에서 스크린 거리만 2.0 m → 1.0 m 로 줄이면 간격은 몇 mm 가 될까? 이유도 써 봐요.',
       hint: '$Δy$ 는 $L$ 에 비례해요',
@@ -1487,8 +1495,8 @@
     { id: 'q-first', mode: 'quantum', q: '전자를 한 개씩 보내면 처음 몇 개의 점은 어떻게 찍힐까?', choices: ['처음부터 줄무늬 모양으로', '아무 데나 흩어진 것처럼', '두 슬릿 바로 뒤 두 곳에만'], answer: 2,
       why: '점 하나가 어디에 닿을지는 예측할 수 없어 처음엔 흩어져 보여요. 수천 개가 쌓이면 확률이 큰 곳(밝은 줄)에 몰려 늘 같은 줄무늬가 드러나요.' },
     { id: 'q-volt', mode: 'quantum', q: '가속 전압 $V$ 를 4배로 높이면 무늬 간격은?', choices: ['2배로 넓어진다', '½로 좁아진다', '¼로 좁아진다'], answer: 2,
-      hint: '$p$ = √(2$meV$), $λ$ = $h$ ÷ $p$', hintFold: true,
-      why: '$V$ 4배 → $p$ 2배(√4 = 2) → $λ$ = $h$ ÷ $p$ 는 ½ → 무늬 간격도 ½이에요. ¼을 골랐다면 제곱근을 빠뜨렸는지 확인해요.' },
+      hint: '$p$ = √(2$meV$), $λ$ = {{frac:$h$|$p$}}', hintFold: true,
+      why: '$V$ 4배 → $p$ 2배(√4 = 2) → $λ$ = {{frac:$h$|$p$}} 는 ½ → 무늬 간격도 ½이에요. ¼을 골랐다면 제곱근을 빠뜨렸는지 확인해요.' },
     { id: 'q-which', mode: 'quantum', q: '전자 하나는 어느 슬릿을 지났을까? 측정기를 켰을 때와 껐을 때의 무늬를 근거로 이야기해 봐요.',
       reveal: '<b>생각해 볼 점</b><br>측정기를 끄면 줄무늬가 생기므로, 전자는 두 길의 가능성을 함께 지닌 파동처럼 행동해요.<br>어느 슬릿인지 알아내면 줄무늬가 사라져요 — "어느 쪽"이 정해지면 간섭이 없어지는 것이 양자 세계의 특징이에요.' },
     { id: 'q-human', mode: 'quantum', q: '"측정기를 켜면 사람이 지켜봐서 무늬가 사라진다"는 말은 맞을까?',
@@ -1516,7 +1524,7 @@
     '측정기': '전자가 어느 슬릿을 지났는지 알아내는 장치. 정보가 남으면 간섭이 사라져요.',
     '이론 곡선': '스크린 왼쪽의 굵은 곡선. 식으로 계산한 밝기(또는 점이 찍힐 확률)예요.',
     '직전 실행': '값을 바꾸기 바로 전의 무늬. 스크린 오른쪽 좁은 띠에 흐리게 남아요(저장은 안 됨).',
-    'a.u.': '모형 단위(arbitrary unit). 전자 실험을 화면에 보이게 키워서 실제 길이 대신 써요.'
+    '칸(모형)': '전자 모드의 길이 눈금. 실제 길이가 아니라 줄무늬 모양을 보기 위해 화면에 맞게 키운 모형 단위예요.'
   };
   var HELP = {
     physics: {
@@ -1543,21 +1551,21 @@
     formula: '경로차 = mλ → 밝은 줄 · 경로차 = (m + ½)λ → 어두운 줄',
     symbols: [{ s: '경로차', meaning: '두 슬릿에서 스크린의 한 점까지 거리의 차', unit: 'm' }, { s: 'λ', meaning: '빛의 파장', unit: 'm (1 nm = 10⁻⁹ m)' }, { s: 'm', meaning: '정수 0, 1, 2 … (가운데 밝은 줄이 0)', unit: '없음' }],
     why: '스크린 한가운데는 두 슬릿까지 거리가 같아(경로차 0) 마루와 마루가 함께 도착해 밝아요.\n조금 옆으로 가면 한쪽 길이 반 파장 더 길어져 마루와 골이 만나 어두워요.\n더 가면 한 파장 차이가 되어 다시 밝아져요. 그래서 밝고 어두운 줄이 번갈아 생겨요.' };
-  var C_SPACING = { title: '무늬 간격 Δy = λL ÷ d',
+  var C_SPACING = { title: '무늬 간격 $Δy$ = {{frac:$λL$|$d$}}',
     summary: '파장이 길수록·슬릿 간격이 좁을수록 줄 간격이 넓어요',
     plain: '이웃한 밝은 줄 사이 거리 $Δy$ 는 세 값으로 정해져요.\n파장 $λ$ 가 길수록(빨강 쪽) → 넓어요\n스크린 거리 $L$ 이 멀수록 → 넓어요\n슬릿 간격 $d$ 가 넓을수록 → 좁아요',
     example: '650 nm, $L$ 2.0 m, $d$ 0.25 mm → $Δy$ = 650×10⁻⁹ × 2.0 ÷ (0.25×10⁻³) = 5.2×10⁻³ m = 5.2 mm',
     figure: figGeometry(),
-    formula: 'Δy = λL ÷ d',
+    formula: '$Δy$ = {{frac:$λL$|$d$}}',
     symbols: [
       { s: 'Δy', meaning: '이웃한 밝은 줄 사이 거리(무늬 간격)', unit: 'm (화면은 mm)' },
       { s: 'λ', meaning: '빛의 파장', unit: 'm (1 nm = 10⁻⁹ m)' },
       { s: 'L', meaning: '슬릿에서 스크린까지 거리', unit: 'm' },
       { s: 'd', meaning: '두 슬릿 가운데 사이 거리', unit: 'm (1 mm = 10⁻³ m)' },
       { s: 'm', meaning: '밝은 줄 번호 (가운데 0, 1, 2 …)', unit: '없음' }],
-    why: '① $m$번째 밝은 줄에서 두 빛의 경로차는 $d$ sin $θ$ 이고, 밝으려면 $d$ sin $θ$ = $mλ$ 여야 해요.\n② 스크린이 아주 멀어($L$ ≫ $y$) 각 $θ$ 가 작으면 sin $θ$ ≈ tan $θ$ = $y$ ÷ $L$ 이에요.\n③ 두 식을 합치면 $y$ = $mλL$ ÷ $d$ → 이웃한 줄($m$ 과 $m$ + 1) 사이는 $Δy$ = $λL$ ÷ $d$.\n그래서 $Δy$ 는 $λ$·$L$ 에 비례하고 $d$ 에 반비례해요.',
+    why: '① $m$번째 밝은 줄에서 두 빛의 경로차는 $d$ sin $θ$ 이고, 밝으려면 $d$ sin $θ$ = $mλ$ 여야 해요.\n② 스크린이 아주 멀어($L$ ≫ $y$) 각 $θ$ 가 작으면 sin $θ$ ≈ tan $θ$ = {{frac:$y$|$L$}} 이에요.\n③ 두 식을 합치면 $y$ = {{frac:$mλL$|$d$}} → 이웃한 줄($m$ 과 $m$ + 1) 사이는 $Δy$ = {{frac:$λL$|$d$}}.\n그래서 $Δy$ 는 $λ$·$L$ 에 비례하고 $d$ 에 반비례해요.',
     live: function (p) {
-      if (p.send === 'electron') return '(모형) 무늬 간격 = ' + SK.fmt(fringe(geomOf(p)), 1) + ' a.u.';
+      if (p.send === 'electron') return '(모형) 무늬 간격 = ' + SK.fmt(fringe(geomOf(p)), 1) + ' 칸';
       if (p.send === 'marble') return '구슬은 간섭하지 않아 줄무늬가 없어요.';
       return p.lam + '×10⁻⁹ m × ' + SK.fmt(p.L, 1) + ' m ÷ ' + SK.fmt(p.d, 2) + '×10⁻³ m = ' + SK.fmt(fringe(geomOf(p)), 1) + ' mm';
     } };
@@ -1566,7 +1574,7 @@
     plain: '전자를 한 개씩 보내면 스크린에 점 하나씩 찍혀요(입자처럼 도착).\n점 하나가 어디에 찍힐지는 예측할 수 없지만, 수천 개가 쌓이면 늘 같은 줄무늬가 돼요.\n→ 줄무늬는 점이 닿을 확률의 모양이에요. 확률이 큰 곳이 밝은 줄이에요.',
     example: '1000 V 로 가속한 전자의 파장은 약 38.8 pm(0.0388 nm) — 빛(약 500 nm)의 1만분의 1쯤이에요.',
     figure: figDots(),
-    formula: 'λ = h ÷ p = h ÷ √(2meV)',
+    formula: '$λ$ = {{frac:$h$|$p$}} = {{frac:$h$|√(2$meV$)}}',
     symbols: [
       { s: 'λ', meaning: '드브로이 파장', unit: 'm (1 pm = 10⁻¹² m)' },
       { s: 'h', meaning: '플랑크 상수 6.63×10⁻³⁴', unit: 'J·s' },
@@ -1574,7 +1582,7 @@
       { s: 'm', meaning: '전자의 질량 9.11×10⁻³¹', unit: 'kg' },
       { s: 'e', meaning: '전자의 전하량 1.60×10⁻¹⁹', unit: 'C' },
       { s: 'V', meaning: '가속 전압', unit: 'V' }],
-    why: '전압 $V$ 로 가속한 전자의 운동 에너지는 $eV$ = $p^2$ ÷ 2$m$ 이라서 $p$ = √(2$meV$) 예요.\nV 4배 → $p$ 2배 → $λ$ = $h$ ÷ $p$ 는 ½ → 무늬 간격도 ½.\n실제 전자 파장은 너무 짧아, 이 화면은 줄무늬가 보이도록 키운 모형 단위(a.u.)로 그렸어요. 식과 비례 관계는 똑같아요.',
+    why: '전압 $V$ 로 가속한 전자의 운동 에너지는 $eV$ = {{frac:$p^2$|2$m$}} 이라서 $p$ = √(2$meV$) 예요.\nV 4배 → $p$ 2배 → $λ$ = {{frac:$h$|$p$}} 는 ½ → 무늬 간격도 ½.\n실제 전자 파장은 너무 짧아, 이 화면은 줄무늬가 보이도록 키운 모형 단위(칸)로 그렸어요. 식과 비례 관계는 똑같아요.',
     live: function (p) { return fmtN(p.V) + ' V → λ = ' + SK.fmt(pmOf(p.V), 1) + ' pm'; } };
   var C_DETECT = { title: '측정기 — 어느 길인지 알면',
     summary: '어느 틈인지 알면 줄무늬가 사라져요',
@@ -1651,7 +1659,7 @@
       { title: '모형과 축척', items: [
         '스크린은 실제 ±30 mm 를 세로 480u 로, 확대창은 가운데 ±15 mm 를 400u 로 보여 줘요. 무늬 위치·간격 숫자는 실제 값으로 계산해요.',
         '슬릿판~스크린 거리 그림, 슬릿 간격 그림, 파면의 파장은 눈에 보이게 키운 모형이에요(축척 아님).',
-        '전자 모드: λ 는 h/√(2meV) 로 실제 값을 보여 주고, 화면 무늬는 1000 V 일 때 빛 650 nm 와 같은 크기가 되도록 키웠어요(d·L 은 모형 단위 a.u.).',
+        '전자 모드: λ 는 h/√(2meV) 로 실제 값을 보여 주고, 화면 무늬는 1000 V 일 때 빛 650 nm 와 같은 크기가 되도록 키웠어요(d·L 은 모형 단위 ‘칸’).',
         '구슬: 발사기~슬릿 0.1 m 에서 퍼져 나온 구슬이 곧게 지나 생기는 그림자(두 띠 사이 = d × (0.1 + L) ÷ 0.1).',
         '측정기 문구는 "정보가 남으면"으로 씀("사람이 보면" 표현 쓰지 않음). 측정기를 켜면 두 슬릿 각각의 회절 띠가 더해진 넓은 띠가 돼요(슬릿 간격이 좁아 겹쳐 하나로 보임).'
       ] },
@@ -1662,7 +1670,7 @@
   installPointer();
   applyEntranceUI('physics');
   SK.chooseMode({
-    title: '무엇을 해 볼까요?', default: 'physics', urlKey: 'mode',
+    title: '무엇을 해 볼까요?', default: 'physics', urlKey: 'mode', place: 'top',
     modes: [
       { value: 'physics', label: '빛으로 줄무늬 재기', desc: '빛이 두 틈을 지나 만든 밝고 어두운 줄의 간격을 재요' },
       { value: 'quantum', label: '전자 하나씩 보내기', desc: '전자를 한 개씩 쏘아 점이 쌓여 줄무늬가 되는 걸 봐요' }

@@ -224,6 +224,19 @@
   }
 }
 
+/* R5 세로 태블릿(820×1180 등 · 폭 601 이상): 실험 화면 1250u 가 화면 폭을 다 쓰도록 --u = 폭/1290(좌우 20u),
+   무대(.slide)는 창 전체. 고정 높이 1144u(제목·띠·실험 화면·하단 띠·막대 212u) + 패널 최소 520u = 1664u 를 넘는 세로의
+   절반(최대 200u)을 --extra 로 실험 화면에, 나머지는 패널에 준다(shell.css 끝 세로 블록).
+   16:9(1920×1080·1280×720)·가로 태블릿은 이 쿼리에 걸리지 않는다 → 값 그대로. */
+@media (orientation: portrait) and (min-width: 601px) {
+  :root {
+    --u: calc(100vw / 1290);
+    --extra: clamp(0px, calc((100vh - 1664 * var(--u)) / 2), calc(200 * var(--u)));
+    --space-slide-w: 100vw;
+    --space-slide-h: 100vh;
+  }
+}
+
 /* 세로 휴대전화(폭 600px 이하)는 안내 띠 — shell.css. */
 
 @media (prefers-reduced-motion: reduce) {

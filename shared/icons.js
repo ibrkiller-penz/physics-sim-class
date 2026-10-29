@@ -11,6 +11,7 @@
    글자 기호 ↔ 아이콘 (SimIcons.GLYPHS): ▶ play · ⏸ pause · ↻ replay · ↺ reset · ◀ step-back · ▸ chev-right
      ▾ chev-down · ▴ chev-up · ← arrow-left · ↓ arrow-down · ↑ arrow-up · ↗ arrow-ne · ✕ ✗ close · ✓ check
      ⚡ bolt · ? help · ⤢ expand · ⋯ more   (→ · × · ● ▲ ■ ◆ ★ · ½ ² ° 는 글자 그대로 둔다)
+   R5 추가(글자 기호 대응 없음): tri-left · tri-right(채운 삼각, 캔버스 손잡이 SK.drawIcon/SK.iconPath) · lock · eye(그림 보기)
    ===================================================================== */
 (function (global) {
   'use strict';
@@ -42,7 +43,12 @@
     'expand':      '<path d="M14 4h6v6M10 20H4v-6M20 4l-6.5 6.5M4 20l6.5-6.5"/>',
     'more':        DOT(5.5, 12) + DOT(12, 12) + DOT(18.5, 12),
     'warn':        '<path d="M12 3.8L2.8 19.5h18.4z"/><path d="M12 10v4.2"/>' + DOT(12, 16.9),
-    'info':        '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/>' + DOT(12, 7.8)
+    'info':        '<circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/>' + DOT(12, 7.8),
+    /* R5 */
+    'tri-left':    '<path d="M15.5 6.5v11L7 12z"' + F + '/>',
+    'tri-right':   '<path d="M8.5 6.5v11L17 12z"' + F + '/>',
+    'lock':        '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',
+    'eye':         '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>'
   };
 
   /** 캔버스용: Path2D 에 넣을 d 문자열 (선 아이콘만 — 원·채움은 path 로 근사) */
@@ -63,10 +69,13 @@
     'expand': 'M14 4h6v6M10 20H4v-6M20 4l-6.5 6.5M4 20l6.5-6.5',
     'more': 'M5.5 12h.01M12 12h.01M18.5 12h.01',
     'warn': 'M12 3.8L2.8 19.5h18.4zM12 10v4.2M12 16.9v.01',
-    'info': 'M21 12a9 9 0 1 1-18 0a9 9 0 1 1 18 0M12 11v5.5M12 7.8v.01'
+    'info': 'M21 12a9 9 0 1 1-18 0a9 9 0 1 1 18 0M12 11v5.5M12 7.8v.01',
+    'tri-left': 'M15.5 6.5v11L7 12z', 'tri-right': 'M8.5 6.5v11L17 12z',
+    'lock': 'M7 10.5h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2zM8 10.5V7.5a4 4 0 0 1 8 0v3',
+    'eye': 'M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12zM15 12a3 3 0 1 1-6 0a3 3 0 1 1 6 0'
   };
   /** 캔버스에서 채워야 하는 아이콘 */
-  var FILLED = { 'play': true, 'pause': true, 'bolt': true };
+  var FILLED = { 'play': true, 'pause': true, 'bolt': true, 'tri-left': true, 'tri-right': true };
 
   /** 글자 기호 → 아이콘 이름 (SK.iconify 가 텍스트 맨 앞/맨 뒤에서만 바꾼다) */
   var GLYPHS = {

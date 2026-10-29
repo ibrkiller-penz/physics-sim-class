@@ -158,7 +158,7 @@
 /* 하단 띠 그래프 머리: 제목 + 기호 풀이 한 줄 */
 .og-band__head { white-space: nowrap; }
 .og-band__title { color: var(--color-ink); font-weight: var(--font-weight-bold); }
-.og-band__legend { margin-left: calc(var(--space-4) - var(--space-3)); color: var(--color-ink-muted); }
+.og-band__legend { margin-left: auto; color: var(--color-ink-muted); }   /* R5: 범례는 제목 줄 오른쪽 끝(막대 숫자는 막대 아래로 옮김) */
 .og-band__sym { display: inline-block; font-size: 0.72em; line-height: 1; vertical-align: 0.12em; letter-spacing: 0.04em; }
 .og-band__now svg { width: 0.8em; height: 0.8em; vertical-align: -0.05em; color: var(--color-ink); }   /* R4 마무리: ▼ 지금 표식은 SVG */
 
@@ -174,3 +174,8 @@
 
 /* R3: 순서 칩이 붙은 발사 속력 칸은 아래 여백을 빼서 다음 섹션까지 공통 간격(24u)만 남긴다 */
 .og-var-v0:has(> .og-seq:not([hidden])), .var:has(> .og-seq:not([hidden])) { padding-bottom: 0; }
+
+/* R5: 계기판 이름 한 줄 ('지표 g 대비' 가 1920 에서도 꺾이지 않게) */
+.sim-band .meter__label { white-space: nowrap; }
+/* R5: 고도 눈금 이름(ISS·GPS·정지궤도)을 손잡이에서 4u 더 아래로 */
+.og-var-alt .var__ticks { bottom: calc(-30 * var(--u)); }

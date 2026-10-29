@@ -146,7 +146,7 @@
   function text(ctx, s, x, y, o) {
     o = o || {};
     return SK.text(ctx, s, x, y, { size: o.size || 22, weight: Math.min(500, o.weight || 400), align: o.align || 'left', baseline: o.base || 'middle',
-      color: o.color || '--color-ink', halo: o.halo ? '--color-paper-raised' : null, haloWidth: 6 });
+      color: o.color || '--color-ink', halo: o.halo ? '--color-paper-raised' : null, haloWidth: 6, bg: o.bg || false, pad: o.pad });
   }
   /** R4: 실험 화면에서 보이는 세로 범위 (논리 좌표). 16:9 = [0, 700], 태블릿은 위아래로 extra/2 씩 넓어짐 */
   function vTop() { return -((SK.view && SK.view.offsetY) || 0); }
@@ -184,7 +184,7 @@
     }
     for (var y = Math.ceil(yr[0] / ys - 1e-9) * ys; y <= yr[1] + ys * 1e-6; y += ys) {
       ctx.beginPath(); ctx.moveTo(box.x, my(y)); ctx.lineTo(box.x + box.w, my(y)); ctx.stroke();
-      SK.text(ctx, comma(y, dy), box.x - 6, my(y), { size: tick.size, weight: tick.weight, color: tick.color, align: 'right' });
+      if (!(o.noY0 && Math.abs(y - yr[0]) < ys * 1e-6)) SK.text(ctx, comma(y, dy), box.x - 6, my(y), { size: tick.size, weight: tick.weight, color: tick.color, align: 'right' });   // R5: 원점 '0' 은 x축 '0.0' 과 겹쳐 숨김
     }
     ctx.strokeStyle = col('--color-line-strong'); ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(box.x, box.y); ctx.lineTo(box.x, box.y + box.h); ctx.lineTo(box.x + box.w, box.y + box.h); ctx.stroke();
@@ -573,6 +573,7 @@
     ticks: [{ v: 400, label: 'ISS' }, { v: 20200, label: 'GPS' }, { v: 35786, label: '정지궤도' }], apply: 'restart',
     onChange: function () { updateAltNote(); updateSeq(); }
   });
+  SK.controls.alt.el.classList.add('og-var-alt');   // R5: 눈금 이름(ISS·GPS·정지궤도) 4u 아래로
   altNote = h('p', { class: 'og-note' });
   SK.controls.alt.el.appendChild(altNote);
   function updateAltNote() {
@@ -743,8 +744,8 @@
           '<path d="M340 55 L390 75 L340 95 Z" style="fill:var(--color-sim-orbit)"/>' +
           '<path d="M190 62 L120 50 M190 75 L100 75 M190 88 L120 100" style="stroke:var(--color-q-energy-heat);stroke-width:5;stroke-linecap:round;fill:none"/>' +
           '<path d="M400 75 L480 75" style="stroke:var(--color-q-velocity);stroke-width:6"/><path d="M480 63 L500 75 L480 87 Z" style="fill:var(--color-q-velocity)"/>' +
-          '<text x="60" y="130" style="fill:var(--color-ink-muted);font:500 20px var(--font-sans)">가스를 뒤로 밀어냄</text>' +
-          '<text x="360" y="130" style="fill:var(--color-ink-muted);font:500 20px var(--font-sans)">로켓은 앞으로</text>'),
+          '<text x="60" y="130" style="fill:var(--color-ink-muted);font:500 22px var(--font-sans)">가스를 뒤로 밀어냄</text>' +
+          '<text x="360" y="130" style="fill:var(--color-ink-muted);font:500 22px var(--font-sans)">로켓은 앞으로</text>'),
       h('p', null, ['로켓이 가스를 뒤로 세게 밀어내면 가스도 로켓을 앞으로 밀어요(', h('b', { text: '운동량 보존' }), '). 이렇게 속력을 높여 원 궤도 속력(7.9 km/s)이나 탈출 속도(11.2 km/s)에 이르러요.'])
     ]));
     var rs = 2 * EARTH.GM / (3e8 * 3e8) * 1000;  // mm
@@ -754,7 +755,7 @@
           '<circle cx="130" cy="75" r="62" style="fill:none;stroke:var(--color-line-strong);stroke-width:2;stroke-dasharray:6 6"/>' +
           '<path d="M20 30 Q130 20 175 62" style="fill:none;stroke:var(--color-sim-lens);stroke-width:4"/>' +
           '<text x="250" y="60" style="fill:var(--color-ink);font:500 22px var(--font-sans)">탈출 속도 = 빛의 속력</text>' +
-          '<text x="250" y="95" style="fill:var(--color-ink-muted);font:500 20px var(--font-sans)">R = 2GM / c²</text>'),
+          '<text x="250" y="95" style="fill:var(--color-ink-muted);font:500 22px var(--font-sans)">R = 2GM / c²</text>'),
       h('p', null, ['탈출 속도 √(2GM/R) 가 빛의 속력보다 커지면 빛도 빠져나오지 못해요. 지구를 블랙홀로 만들려면 반지름을 약 ', h('b', { text: SK.fmt(rs, 0) + ' mm' }), ' 로 줄여야 해요(그림으로만 다뤄요).'])
     ]));
   })();
@@ -799,7 +800,7 @@
   meterSets.sat = SK.meters(null, [
     { key: 'v', label: '속력', symbol: 'v', unit: 'km/s', decimals: 2, q: 'velocity', size: 'md' },
     { key: 'T', label: '{{주기}}', symbol: 'T', unit: '분', decimals: 1, size: 'md' },
-    { key: 'g', label: '지표 중력 대비', unit: '%', q: 'force', size: 'md' }
+    { key: 'g', label: '지표 $g$ 대비', unit: '%', q: 'force', size: 'md' }   // R5: 1920 에서도 한 줄 (css nowrap)
   ]);
   meterSets.kepler = SK.meters(null, [
     { key: 'ratio', label: '평균 $T^2$/$a^3$', unit: '', decimals: 2 },
@@ -868,12 +869,12 @@
       bandLegend.appendChild(/^[▼●▲■◆★]+$/.test(part) ? h('span', { class: 'og-band__sym', 'aria-hidden': 'true', text: part }) : document.createTextNode(part));
     });
   }
-  /** 가로 속력 막대 (R3). 위 줄: 경계 숫자(18u, 막대 위 3u) / 막대(높이 최대 30u): 구간 색·이름(22u, 가운데) + 기록 기호(●▲■◆★)
-      ▼ 지금 표식은 막대 윗면에 붙은 작은 삼각형 + 막대를 지나는 선 — 숫자와 가까우면 숫자를 옆으로 비킨다 */
+  /** 가로 속력 막대 (R5). 막대(높이 20~30u): 구간 색·이름(22u, 가운데) + 기록 기호(●▲■◆★) + 지금 표식(막대 안 ▼ + 세로선)
+      경계 숫자(22u)는 막대 **아래** 고정 간격 2u — 띠 제목 줄의 범례와 떨어져 겹치지 않는다 */
   function speedBar(ctx, W, H, o) {
-    var x0 = 12, x1 = W - 12, NUM = 18, GAP = 3;
-    var bh = Math.max(20, Math.min(30, H - NUM - GAP - 1)), by = H - bh - 1;
-    var ry = Math.max(NUM / 2, by - GAP - NUM / 2);              // 숫자 줄 가운데
+    var x0 = 12, x1 = W - 12, NUM = 22, GAP = 2;
+    var bh = Math.max(20, Math.min(30, H - NUM - GAP - 2)), by = 1;
+    var ry = by + bh + GAP;                                       // 숫자 줄 위 끝
     function X(v) { return x0 + (x1 - x0) * Math.max(0, Math.min(1, v / o.max)); }
     ctx.save();
     var ZL = { size: 22, weight: 500 };
@@ -897,23 +898,18 @@
       if (X(mk[mi].v) - X(mk[mi - 1].v) < 60) { mk[mi - 1] = Object.assign({}, mk[mi - 1], { align: 'right' }); mk[mi] = Object.assign({}, mk[mi], { align: 'left' }); }
     }
     mk.forEach(function (m) {
-      var mx = X(m.v), tw = SK.measure(ctx, m.text, { size: NUM, weight: 500 }).w;
-      ctx.beginPath(); ctx.moveTo(mx, by); ctx.lineTo(mx, by + bh); ctx.strokeStyle = col('--color-ink'); ctx.lineWidth = 2.5; ctx.stroke();
+      var mx = X(m.v);
+      ctx.beginPath(); ctx.moveTo(mx, by); ctx.lineTo(mx, by + bh + GAP); ctx.strokeStyle = col('--color-ink'); ctx.lineWidth = 2.5; ctx.stroke();
       var al = m.align || 'center', tx = mx;
       if (al === 'left') tx = mx + 4; else if (al === 'right') tx = mx - 4;
-      // ▼ 와 겹치면 숫자를 ▼ 반대쪽으로 비킨다 (같은 줄에 두 표식이 포개지지 않게)
-      var l = al === 'left' ? tx : al === 'right' ? tx - tw : tx - tw / 2;
-      if (nx !== null && nx > l - 12 && nx < l + tw + 12) {
-        if (nx >= mx) { al = 'right'; tx = Math.min(mx, nx) - 12; } else { al = 'left'; tx = Math.max(mx, nx) + 12; }
-      }
-      text(ctx, m.text, tx, ry, { size: NUM, weight: 500, align: al, color: '--color-ink' });
+      text(ctx, m.text, tx, ry, { size: NUM, weight: 500, align: al, base: 'top', color: '--color-ink' });
     });
     (o.dots || []).forEach(function (d) {
       text(ctx, d.mark, X(d.v), by + bh / 2 + 1, { size: 22, weight: 500, align: 'center', color: d.color, halo: true });
     });
     if (nx !== null) {
       ctx.fillStyle = col('--color-sim-orbit');
-      ctx.beginPath(); ctx.moveTo(nx, by + 2); ctx.lineTo(nx - 8, by - 9); ctx.lineTo(nx + 8, by - 9); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(nx, by + 11); ctx.lineTo(nx - 8, by); ctx.lineTo(nx + 8, by); ctx.closePath(); ctx.fill();
       ctx.strokeStyle = col('--color-sim-orbit'); ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(nx, by); ctx.lineTo(nx, by + bh); ctx.stroke();
     }
@@ -932,7 +928,7 @@
     var b = BODIES[SK.params.body] || EARTH;
     if (b.key === 'jupiter') { setBandTitle('목성 탈출 속도 59.5 km/s — 범위 밖', ''); return; }
     var hid = hideResults();
-    setBandTitle('발사 속력 $v_0$, 어느 구간?', hid ? '예측한 뒤에 보여요' : '▼ 지금 · ●▲ 기록');
+    setBandTitle('발사 속력 $v_0$', hid ? '예측한 뒤에 보여요' : '▼ 지금 위치 · ●▲ 기록한 속력');   // R5: 범례를 말로(제목 줄 오른쪽), 숫자는 막대 아래
     var vc = +b.vCirc.toFixed(1), ve = +b.vEsc.toFixed(1), MAX = 13;
     speedBar(ctx, W, H, {
       max: MAX,
@@ -948,7 +944,7 @@
   }
   function bandSat(ctx, W, H) {
     var s = satCalc(SK.params.alt), hid = hideResults();
-    setBandTitle('위성 속력 $v$' + (hid ? '' : ' ' + SK.fmt(s.v, 2) + ' km/s'), hid ? '예측한 뒤에 보여요' : '▼ 지금 · ●▲ 기록');
+    setBandTitle('위성 속력 $v$', hid ? '예측한 뒤에 보여요' : '▼ 지금 위치 · ●▲ 기록한 속력');   // R5: 지금 값은 왼쪽 계기판에 있음
     speedBar(ctx, W, H, {
       max: 8.5,
       zones: [{ from: 0, to: 8.5, color: '--color-paper-sunk', label: '' }],
@@ -1112,7 +1108,16 @@
     return 230 / rmax;   // u / R (궤도 반지름 230u — 오른쪽 우주인·그래프 칸과 안 겹치게)
   }
   function drawSatellite(ctx, x, y, ang, size) {
-    ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+    ctx.save(); ctx.translate(x, y);
+    // R5: 궤도선 위에서도 보이게 — 지름 32u 이상 후광 + 종이색 테두리
+    var hr = Math.max(16, size * 1.3);
+    ctx.beginPath(); ctx.arc(0, 0, hr, 0, Math.PI * 2);
+    ctx.globalAlpha = 0.22; ctx.fillStyle = col('--color-sim-orbit'); ctx.fill();
+    ctx.globalAlpha = 0.6; ctx.lineWidth = 2; ctx.strokeStyle = col('--color-sim-orbit'); ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.rotate(ang);
+    ctx.lineJoin = 'round'; ctx.strokeStyle = col('--color-paper-raised'); ctx.lineWidth = 5;
+    ctx.strokeRect(-size * 2.2, -size * 0.35, size * 1.4, size * 0.7); ctx.strokeRect(size * 0.8, -size * 0.35, size * 1.4, size * 0.7);
+    ctx.strokeRect(-size * 0.8, -size * 0.6, size * 1.6, size * 1.2);
     ctx.fillStyle = col('--color-primary'); ctx.strokeStyle = col('--color-primary-dark'); ctx.lineWidth = 1.5;
     ctx.fillRect(-size * 2.2, -size * 0.35, size * 1.4, size * 0.7); ctx.strokeRect(-size * 2.2, -size * 0.35, size * 1.4, size * 0.7);
     ctx.fillRect(size * 0.8, -size * 0.35, size * 1.4, size * 0.7); ctx.strokeRect(size * 0.8, -size * 0.35, size * 1.4, size * 0.7);
@@ -1156,7 +1161,7 @@
     var xm = 1, ym = 1;
     pts.forEach(function (q) { if (q.x > xm) xm = q.x; if (q.y > ym) ym = q.y; });
     var box = { x: bx + 62, y: by + 50, w: bw - 82, h: bh - 112 };
-    var ax = axes(ctx, box, [0, niceMax(xm)], [0, niceMax(ym)], { fs: 22, nx: 2, ny: 2 });
+    var ax = axes(ctx, box, [0, niceMax(xm)], [0, niceMax(ym)], { fs: 22, nx: 2, ny: 2, noY0: true });
     text(ctx, sq ? '가로 $r^3$ · 세로 $T^2$' : '가로 $r$ (R) · 세로 $T$ (시간)', bx + bw / 2, by + bh - 18, { size: 22, align: 'center', color: '--color-ink' });
     if (sq && SK.records.length >= 2 && !hid) {
       var k = 4 * Math.PI * Math.PI * Math.pow(EARTH.R, 3) / (EARTH.GM * 3600 * 3600), xe = niceMax(xm);
@@ -1164,7 +1169,7 @@
       SK.drawPath(ctx, [[0, 0], [xe, k * xe]], { color: col('--color-line-strong'), dash: [8, 6], width: 2 }, function (a, b) { return [ax.mx(a), ax.my(b)]; });
       ctx.restore();
     }
-    if (!SK.records.length || hid) text(ctx, hid ? '예측한 뒤에 보여요' : '기록하면 점이 생겨요', box.x + box.w / 2, box.y + box.h / 2, { size: 22, align: 'center', color: '--color-ink-muted', halo: true });
+    if (!SK.records.length || hid) text(ctx, hid ? '예측한 뒤에 보여요' : '기록하면 점이 생겨요', box.x + box.w / 2, box.y + box.h / 2, { size: 22, align: 'center', color: '--color-ink-muted', bg: '--color-paper-raised', pad: [8, 4] });   // R5: 눈금선 위에 종이색 띠
     pts.forEach(function (q) {
       var x = ax.mx(q.x), y = ax.my(q.y);
       if (q.now) { dot(ctx, x, y, 7, null, '--color-sim-orbit', 3); return; }
@@ -1427,39 +1432,38 @@
       name: '뉴턴의 대포', tag: '과학사',
       changes: 'v₀ 7.9 km/s', change: '발사 속력 v₀ (4 → 6 → 7.9 → 10 → 11.2 km/s)', fixed: '지구 · 산 높이 20 km · 수평 발사',
       values: { mode: 'cannon', body: 'earth', v0: 7.9, tscale: 10, cview: 'earth', trail: true, arrows: true },
-      predict: { question: '산꼭대기에서 7.9 km/s로 수평으로 쏘면 포탄은 어떻게 될까?', choices: ['조금 가다 떨어진다', '지구를 한 바퀴 돈다', '우주로 날아간다'],
+      predict: { question: '공기 없는 산꼭대기(20 km)에서 7.9 km/s로 수평으로 쏘면 포탄은 어떻게 될까?', choices: ['조금 가다 떨어진다', '지구를 한 바퀴 돈다', '우주로 날아간다'],
         judge: judgeIf(function (p) { return p.mode === 'cannon' && p.body === 'earth' && Math.abs(p.v0 - 7.9) < 0.05; }, cannonAnswer),
-        why: '포탄은 계속 떨어지지만, 떨어지는 만큼 둥근 땅도 휘어 내려가서 땅에 닿지 않아요. 이 실험은 공기가 없는 약 20 km 높이 산에서 쏴요. 지표에서 7.9 km/s는 거의 원 궤도 속력이에요.',
-        info: '이 실험은 공기가 없는 약 20 km 높이 산에서 쏴요. 지표에서 7.9 km/s는 거의 원 궤도 속력이에요.' },
+        why: '포탄은 계속 떨어지지만, 떨어지는 만큼 둥근 땅도 휘어 내려가서 땅에 닿지 않아요. 이 실험은 공기가 없는 약 20 km 높이 산에서 쏴요. 지표에서 7.9 km/s는 거의 원 궤도 속력이에요.' },
       onApply: function () { seq = SEQS.v; updateSeq(true); }
     }, 'cannon'),
     modeGetter({
-      name: 'ISS도 떨어지는 중', tag: '오개념',
+      name: 'ISS도 낙하 중', tag: '오개념',   // R5: 2줄 안 (예전 이름은 3줄로 '중' 이 잘림)
       changes: '질량만 바꾸기', change: '위성 질량 m (100 → 1,000 → 10,000 kg)', fixed: '고도 400 km (국제우주정거장)',
       values: { mode: 'sat', alt: 400, mass: 100, gaxis: 'lin', trail: true, arrows: true },
-      predict: { question: '같은 400 km 높이에서 무거운 위성은 더 빨리 돌까?', choices: ['무거우면 더 빨리', '똑같은 빠르기', '무거우면 더 느리게'],
+      predict: { place: 'top', question: '같은 400 km 높이에서 무거운 위성은 더 빨리 돌까?', choices: ['무거우면 더 빨리', '똑같은 빠르기', '무거우면 더 느리게'],
         judge: judgeIf(function (p) { return p.mode === 'sat'; }, 2),
         why: '무거운 위성은 중력도 크지만, 그만큼 방향을 바꾸기도 어려워요(관성). 둘이 똑같이 커져 상쇄되니 v = √(GM/r)에 위성 질량이 없어요. ' + R_NOTE,
-        info: '국제우주정거장(ISS) 높이 400 km에서 질량만 바꿔 봐요.' },
+        afterHint: 'ISS 높이에서 질량만 바꿔 봐요' },
       onApply: function () { seq = SEQS.m; updateSeq(true); }
     }, 'sat'),
     modeGetter({
       name: '정지궤도 위성', tag: '대표 문항',
       changes: '고도만 바꾸기', change: '고도 h (ISS 400 → GPS 20,200 → 정지궤도 35,786 km)', fixed: '위성 질량 1,000 kg',
       values: { mode: 'sat', alt: 400, mass: 1000, gaxis: 'lin', trail: true, arrows: true },
-      predict: { question: '지구에서 35,786 km 높이의 위성은 국제우주정거장(400 km)보다 빨리 돌까, 천천히 돌까?', choices: ['더 빨리 돈다', '같은 빠르기로 돈다', '더 천천히 돈다'],
+      predict: { place: 'top', question: '지구에서 35,786 km 높이의 위성은 국제우주정거장(400 km)보다 빨리 돌까, 천천히 돌까?', choices: ['더 빨리 돈다', '같은 빠르기로 돈다', '더 천천히 돈다'],
         judge: judgeIf(function (p) { return p.mode === 'sat'; }, 3),
         why: R_NOTE + ' 멀수록 중력이 약해서 천천히 돌아도 궤도를 지켜요(v = √(GM/r)). ISS는 r = 6,771 km에서 7.7 km/s, 정지궤도는 r = 42,157 km에서 3.1 km/s예요.',
-        info: '고도만 바꿔 ISS → GPS → 정지궤도 순서로 세 번 기록해요.' },
+        afterHint: '고도만 바꿔 세 번 기록해요' },
       onApply: function () { seq = SEQS.h; updateSeq(true); }
     }, 'sat'),
     modeGetter({
-      name: '행성 자료로 규칙', tag: '탐구 재현',
+      name: '행성 주기 규칙', tag: '탐구 재현',   // R5: 2줄 안 (예전 '행성 자료로 규칙' 은 '규칙' 이 잘림)
       changes: '행성 6개 자료', change: '행성 6개의 거리 a와 공전 주기 T', fixed: '단위 AU · 년',
       values: { mode: 'kepler', gaxis: 'lin', kzoom: 'all', kguide: true },
-      predict: { question: '태양에서 멀리 있는 행성일수록 공전 주기(1년의 길이)는 어떻게 될까?', choices: ['거리만큼 길어진다', '거리보다 더 많이 길어진다', '거리와 상관없다'],
+      predict: { place: 'top', question: '태양에서 멀리 있는 행성일수록 공전 주기(1년의 길이)는 어떻게 될까?', choices: ['거리만큼 길어진다', '거리보다 더 많이 길어진다', '거리와 상관없다'],
         answer: 2, why: 'T² ∝ a³이라서 T는 a보다 더 빨리 커져요. 거리가 4배면 주기는 8배예요.',
-        info: '자료 카드를 보고 표를 채운 뒤 그래프를 봐요.', afterHint: '자료 카드를 보세요' },
+        afterHint: '자료 카드를 보고 표를 채워요' },
       onApply: function () { seq = null; kClear(); updateSeq(true); }
     }, 'kepler'),
     modeGetter({
@@ -1469,7 +1473,7 @@
       predict: { question: '3 km/s로 쏘면 어느 천체에서 포탄이 탈출할까?', choices: ['달', '화성', '지구', '모두 떨어진다'],
         judge: judgeIf(function (p) { return p.mode === 'cannon' && Math.abs(p.v0 - 3) < 0.05 && p.body !== 'jupiter'; }, 1),
         why: '탈출 속도가 달 2.4, 화성 5.0, 지구 11.2 km/s예요. 3 km/s보다 작은 달에서만 탈출해요. 질량이 작은 천체일수록 탈출하기 쉬워요.',
-        info: '중심 천체가 달로 바뀌어요. 달 → 화성 → 지구 순서로 쏘고 하나씩 기록해요.' },
+        afterHint: '달 → 화성 → 지구 순서로 쏴요' },
       onApply: function () { seq = SEQS.b; updateSeq(true); }
     }, 'cannon')
   ]);
@@ -1818,7 +1822,7 @@
      19. 첫 화면 실험 고르기 → 그 실험의 첫 카드 적용 → 예측 창(공통 autoPredict)
      ------------------------------------------------------------------ */
   modeCtl = SK.chooseMode({
-    title: '무엇을 알아볼까요?',
+    title: '무엇을 알아볼까요?', place: 'top',   // R5: 대포·지구가 아래쪽이라 창은 위
     default: 'cannon', urlKey: 'mode', key: 'mode',
     modes: [
       { value: 'cannon', label: '뉴턴의 대포', desc: '대포를 점점 세게 쏘아 궤도 찾기' },

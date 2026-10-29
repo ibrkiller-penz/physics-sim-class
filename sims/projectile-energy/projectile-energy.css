@@ -23,6 +23,9 @@
 }
 .pe-legend[hidden] { display: none; }
 .pe-legend__row { display: inline-flex; align-items: center; gap: var(--space-2); white-space: nowrap; }
+/* R5: 실행 중 상태 칩이 늘어 모서리 폭이 줄면 범례 글이 2줄로 꺾이게 (잘리지 않게) */
+.pe-legend { max-width: min(calc(360 * var(--u)), 100%); }
+.pe-legend__row { white-space: normal; word-break: keep-all; line-height: 1.2; }
 .pe-legend__row svg { width: calc(44 * var(--u)); height: calc(16 * var(--u)); flex: none; }
 
 /* '수업 정보' 팝오버 맨 위 '오늘 알아볼 것' (띠에는 한 줄만 두려고 옮김) */
@@ -32,7 +35,7 @@
 /* 하단 띠: 계기판 1줄 4개 */
 .pe-meters {
   display: grid; height: 100%;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(0, 1.7fr);
+  grid-template-columns: minmax(0, 0.72fr) minmax(0, 0.84fr) minmax(0, 0.88fr) minmax(0, 1.86fr);   /* R5: vy 칸 넓힘 — '(위 + · 아래 −)' 22u */
   gap: var(--space-1);
 }
 .pe-meters .meter { padding: calc(2 * var(--u)) var(--space-2); gap: 0; align-content: center; }
@@ -45,7 +48,7 @@
 .pe-meters .meter__value { font-size: calc(36 * var(--u)); }
 .pe-meters .meter__unit { font-size: var(--fs-caption); }
 .pe-meters .meter__label sub { font-size: 0.75em; vertical-align: -0.25em; line-height: 0; }
-.pe-meter-note { display: inline; width: auto; white-space: nowrap; margin-left: var(--space-1); vertical-align: baseline; font: var(--font-weight-medium) calc(19 * var(--u))/1.15 var(--font-sans); color: var(--color-ink-muted); }   /* R4 마무리: 19u·간격 4u — 1280 에서도 칸 안에 */
+.pe-meter-note { display: inline; width: auto; white-space: nowrap; margin-left: var(--space-1); vertical-align: baseline; font: var(--font-weight-medium) var(--fs-caption)/1.15 var(--font-sans); color: var(--color-ink-muted); }   /* R5: 라벨과 같은 크기(--fs-caption) '(위 + · 아래 −)' */
 
 /* 하단 띠: 에너지 막대 */
 .pe-energy {

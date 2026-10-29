@@ -1,9 +1,95 @@
-# SimKit — 공통 틀 사용 설명서 (개발자용, R2 고도화 2차 + R3 디테일 + R4 태블릿·글꼴·아이콘)
+# SimKit — 공통 틀 사용 설명서 (개발자용, R2 고도화 2차 + R3 디테일 + R4 태블릿·글꼴·아이콘 + R5 세로 배치·예측 창·교사 발표)
 
 > 작성: 에듀테크1(디자인 리드) · 2026-10-28
 > 근거: `docs/개선/R1_계획.md` §2(디자인 방향)·§3(A1~A18, H1~H2) · 이전 판: `docs/04_팀장결정서.md`
 > 다섯 시뮬레이터는 이 틀 **위에서만** 만든다. `shared/` 를 고칠 일이 생기면 디자인 리드에게 요청한다.
 > 바로 동작하는 예제: `sims/_template/index.html` (= `shared/TEMPLATE.html`) — R2 새 API 를 모두 씀.
+
+---
+
+## 0R5. R5 에서 바뀐 것 (2026-10-29, 개발자1 · 팀장 마무리) — 먼저 읽기
+
+> 근거: `docs/개선/R5_계획.md` §2-S. 바뀐 것: **세로 태블릿 배치** · **예측·모드 창(낮게·자리·그림 보기)** · **실험 카드 ✓ 배지** · **교사 발표(표 크게 보기·확인창·자동 예측 토글·헤더 칩)** · **기호 도우미(SK.dim·SK.frac·{{frac:}})** · **허브 교사 토글**.
+> 1920×1080·1280×720 처음 화면: `sims/_template` 픽셀 차이 0. 다른 sim 은 예측·모드 창 상자, 고른 카드 배지, 허브는 오른쪽 위 [교사 모드] 버튼 자리만 바뀐다(`_review/R5/개발자1/base/` 와 비교).
+
+### 0R5-1. 세로 태블릿 배치 (820×1180 등 — `(orientation: portrait) and (min-width: 601px)`)
+- `tokens.css`: `--u = 100vw/1290`(실험 화면 1250u 가 전폭, 좌우 20u) · 무대 = 창 전체(`--space-slide-w/h = 100vw/100vh`) · `--extra = clamp(0, (100vh − 1664u)/2, 200u)` (고정 1144u + 패널 최소 520u). 820×1180 → u 0.636px, extra ≈ 62px. 16:9·가로 태블릿은 이 쿼리에 안 걸린다.
+- 좌표(u, `--x: 20u`, 내용 폭 1250, `--panel-top = 916u + extra`):
+
+| 요소 | 세로 자리 | 비고 |
+|---|---|---|
+| `.sim-top` | x20 y0 w1250 h72 | 제목 1줄(32u). 오른쪽 [수업 정보]·[도움말]·[전체 화면]은 아이콘만(이름은 aria-label), [수업 안내(교사)]는 글자 그대로 |
+| `.sim-task` | x20 y72 w1250 h60 | 지금 단계만 이름, 나머지는 번호 원. 문장·'오늘 알아볼 것'은 한 줄(…) |
+| `.sim-stage` | x20 y140 w1250 h`660u+extra` | `SK.view` 그대로(fit·grow → `view.extra`) |
+| `.sim-band` · `.rec-chip` | y`812+extra` · 띠 w1010 · 칩 x1042 w228 | 높이 88 그대로 |
+| `.sim-panel`·`.rec-big`·`.think-board` | x20 y`916+extra` w1250 h`100vh − 228u − (916u+extra)` | **패널 안은 2열**(`.panel-sec` 가 칸, 그 밖 요소·더 많은 설정은 2칸) |
+| `.sim-bar` | x20 y`100vh − 212u` h212 | 1단 실험 카드(112u) · 2단 [▶ 실행 240u][뒤로][앞으로][속도][기본값][그 밖] |
+| T 로 접기 | 실험 화면 h`100vh − 368u` | 패널·띠 자리까지 |
+| 예측·모드 창 | **패널 사각형**, 어둡기 없음 | 실험 화면을 가리지 않는다 · [그림 보기] 숨김 |
+| `.rec-full` | x20 y140 w1250 h`100vh − 368u` | 표 크게 보기 |
+
+  ※ 계획 표의 막대 200u·카드 88u 는 카드 이름 2줄 + 값 줄(최소 112u)이 들어가지 않아 **212u·112u** 로 했다(패널 바닥 228u).
+- 휴대전화(폭 600 이하)만 위 안내 띠 '화면이 좁아요 / 가로로 돌리면 더 크게 볼 수 있어요' + ✕(sessionStorage `sk.narrowWarnOff`, 그 세션 동안 숨김). 아이패드 세로는 띠 없음.
+- 키 조작은 세로에서도 그대로(마크업 같음, CSS 만 다름) — 1~5·Space·←/→·T·F·Esc·V.
+- **시뮬레이터가 할 일**: 세로에서 그림이 위에 붙고 아래가 비면 `cfg.onResize(view)` 에서 `view.extra` 로 `offsetY`·축척 k 를 정한다(R4 b). sim css 에서 `1310u`·`570u`(오른쪽 칸 자리)를 직접 쓴 곳이 있으면 세로 쿼리에서 다시 확인.
+
+### 0R5-2. `SK.px` 는 프로브로 잰다
+- 무대에 `.u-probe`(폭 1000u, 보이지 않음)를 하나 두고 `폭/1000` 을 u 로 쓴다. 창 크기가 바뀌면 다시 잰다. 세로에서는 '무대 폭/1920' 이 u 가 아니기 때문.
+- 확인값: 1920×1080·1280×720·1180×820 → `SK.px(1920)` = 무대 폭 · 820×1180 → `SK.px(1290)` = 820.
+
+### 0R5-3. 예측 창 · 모드 창
+```js
+SK.predict({ question, choices, ...,
+  place: 'top',                 // 'bottom'(기본) | 'top' — 창을 실험 화면 위쪽에 (하늘이 빈 장면, x축 눈금을 보여야 할 때)
+  numeric: { label, unit, min, max,
+    example: null,              // 예시값 없음 → placeholder '숫자만' (niceExample 이 정답 근처 값을 보여 주지 않게)
+    showRange: false } });      // '0~65 m 사이' 범위 글 숨김
+SK.chooseMode({ modes, place: 'top' });   // 모드 창도 같은 옵션
+SK.choosingMode();                        // 모드 창이 떠 있나 (예전 SK.el.stage.querySelector('.mode-layer') 대신)
+```
+- 층(`.predict-layer`·`.mode-layer`)은 **`SK.el.slide` 의 자식**(예전 stage). 가로에서는 실험 화면 테두리 안쪽 사각형(예전 `inset:0` 과 같은 상자), T 로 접으면 1840×760+extra, 세로는 패널 사각형. ⚠ `SK.el.stage.querySelector('.predict-layer')` 로 찾던 코드는 `document.querySelector` 로. `.mode-layer` 는 호환용 보이지 않는 표시를 stage 에 남겨 두었다(새 코드는 `SK.choosingMode()`).
+- 창 높이 상한 **42%**(실험 화면 기준, 1920 에서 ≈276u) · 보기 3개 이상(`.is-many`)·그림(`.has-figure`) 58% · 모드 창 48%. 넘치면 가운데만 스크롤되고 [예측하기] 줄은 바닥에 붙어 늘 보인다(`.predict__foot` sticky). **sim 은 질문·info 를 줄여 상한 안에 들어오게** — 지금 넘치는 것: projectile 숫자 창 294u(상한 268u), collision 402u(374u). 패딩 12u 20u, 질문 30u, 보기 높이 auto, 손들기 수 버튼은 ✕ 왼쪽 위 고정(교사 모드에서 버튼이 있으면 `.predict__top` 오른쪽 여백 260u — 한 줄 질문이 버튼 밑으로 안 들어감, 팀장 R5).
+- **[그림 보기]**(`.predict__peek`): 층 오른쪽 위(창이 top 이면 오른쪽 아래)에 떠 있는 버튼. 누르고 있는 동안 또는 **V 키를 누르는 동안** 층 `.is-peek` → 어둡기 0, 창 `filter: opacity(.06)`. 떼면 돌아온다. sim 코드 0줄. (계획의 'foot 왼쪽' 은 foot 이 두 줄로 꺾여 창이 80u 커져서 창 밖으로 옮김 — 숫자칸에 커서가 있을 때 V 는 글자 입력)
+- 고르기 전 힌트 '보기를 고르면 눌러져요', 고른 뒤 '고른 다음 ▶ 실행으로 확인해요'.
+
+### 0R5-4. 실험 카드
+- 이름 `.preset-card__name` = grid `[번호 | 제목]`(둘째 줄도 제목 시작에 맞춤), `text-wrap: balance` 제거, 2줄 높이 고정 그대로.
+- 고른 카드 ✓ 는 값 줄 앞 글자가 아니라 **오른쪽 위 원형 배지 28u**(`.preset-card[aria-pressed="true"]::after` 바탕 primary + `::before` --ico-check 종이색). 카드 모서리에 8u 걸쳐 이름·값 줄 폭을 먹지 않는다. sim css 에서 `.preset-card::before/::after` 를 쓰지 말 것.
+
+### 0R5-5. 교사 발표
+- 헤더(교사 모드): 과목 칩 + **첫 성취기준 코드** + **'외 N개'**(누르면 수업 정보 팝업을 열고 성취기준 줄에 포커스·잠깐 강조). 제목 최대 560u(= 760u − [수업 안내(교사)] 200u).
+- **표 크게 보기**: 기록 큰 판 머리 `[⤢ 표 크게 보기]` → `.rec-full`(무대 자식, x40 y140 1250×760+extra, z 30 — 실험 화면+하단 띠 자리) 에 **모든 열**, 글자 28u, 바뀐 값 굵게. `Esc`·[닫기]. 코드: `SK.showRecordsFull(true|false)` (= 계획의 `renderRecords({full:true})`). 기록이 바뀌면 열린 채로 다시 그린다.
+- 카드 전환 확인창: **기록이 있고, 다른 카드이고, 바뀌는 값(`p.values` 중 지금과 다른 것)이 2개 이상일 때만**. `record: false` 인 키(렌즈 `screenX`, 광선 토글 등 기록에 안 남는 값)는 세지 않는다(팀장 R5) — 렌즈 카드 ③(s 30→15, type·screenX 는 record:false)은 묻지 않는다. 문구 '기록 N개는 그대로 남아요 · 값 M개가 바뀌어요', 버튼 [취소] / [이 카드로 바꾸기].
+- 수업 정보 팝업(교사 모드)에 **'카드 바꿀 때 예측 창 자동으로 띄우기'** 켬/끔(= `cfg.autoPredict`). localStorage `sk.autoPredict` 에 저장, **교사 모드가 켜질 때만** 읽는다(학생 화면은 sim 기본값). 수업 안내 서랍의 같은 줄과 함께 바뀐다.
+- 수업 안내(교사) 서랍 폭 900u → **560u**, 스크림 없음(열린 채 실험 화면 조작 가능). 도움말 서랍(`.drawer--help`)은 그대로.
+
+### 0R5-6. 기호 도우미 (R4 과제 c)
+```js
+// 치수선: 양끝 채운 삼각 화살촉 + 가운데 라벨(종이 배경). 가로선은 위, 세로선은 오른쪽에 라벨 (side 로 바꿈)
+SK.dim(ctx, x1, y, x2, y, { label: '$L$ = 2.0 m', size: 22, head: 10, lw: 2, color: '--color-ink-muted', side: 'below', ends: 8 });
+// 가로선 분수: y = 가로선 높이, 반환 = 폭 (다음 글자 x += 폭)
+var x = 40 + SK.text(ctx, '$Δy$ = ', 40, 60, { size: 26 });   // 그리스 글자는 유니코드로(\Delta 표기는 없음)
+x += SK.frac(ctx, '$λL$', '$d$', x, 60, { size: 26 });
+```
+```js
+// HTML(rich 를 거치는 모든 글: 예측 질문·패널 해설·개념 카드·think…)
+'줄무늬 간격 $Δy$ = {{frac:$λL$|$d$}}'   // SK.setText·SK.say 도 됨 · → <span class="frac"><span class="frac__n">λL</span><span class="frac__d">d</span></span>
+```
+- 글 속 '÷'·'(그림은 줄임)'·'←→' 글자 화살표는 이것으로 바꾼다(D2·D3). plain() 은 `(λL)/d` 로 읽는다.
+- `icons.js` 추가: `tri-left`·`tri-right`(채운 삼각 — 캔버스 손잡이 `SK.drawIcon(ctx,'tri-left',x,y,20)`), `lock`, `eye`.
+- 글자 하한 감사: 콘솔에서 `SimKit.audit.smallText()` (기본 22) → 다음 두 프레임에 그린 캔버스 글자 중 22 미만을 자리(파일:줄)별로 `console.table`. `SK.font` 에 하한은 넣지 않았다(1920 픽셀 회귀 방지) — 각 sim 이 목록을 보고 22 로 올리거나 라벨을 줄인다. (HTML 안 SVG 글자 `font:20px`·`txt(...,{size:20})` 는 감사에 안 잡히니 grep 으로.)
+
+### 0R5-7. 허브 (`index.html`)
+- 오른쪽 위 [키보드 조작 안내] 옆 **[교사 모드 끔/켬]**(aria-pressed): 켜면 `html.is-teacher`(카드 아래 성취기준이 칩으로 보임) + 모든 [열기]·보조 링크 href 에 `teacher=1`. localStorage `hub.teacher`. URL `?teacher=1` 이면 켜진 채 시작.
+- 세로(601 이상): 카드 2열, 카드 높이는 내용만큼, 카드 칸 안에서 스크롤. 가로 4:3(1180×820·1024×768): 제목 아래·카드 아래 24u, 남는 세로는 위·아래로 똑같이(가운데 모음). [열기] 는 다섯 장 모두 같은 y(보조 링크 자리 44u 유지).
+
+### 0R5-8. 시뮬레이터 개발자 반영 목록 (D1~D3)
+1. 예측 창 높이: `SK.predict` 질문·info 를 줄여 42% 안으로, 장면에 따라 `place:'top'`. 숫자 예측은 `example:null, showRange:false` 검토(정답 암시).
+2. `SK.el.stage.querySelector('.mode-layer'|'.predict-layer')` → `SK.choosingMode()`·`SK.predicting()` (slit `double-slit-quantum.js:852`).
+3. 세로 820×1180 캡처: 그림 축척·`offsetY`(view.extra), 캔버스 위 HTML 조각 위치, 끌기 좌표(`view.toLogical`).
+4. 글 속 ÷·←→ → `SK.dim`·`SK.frac`·`{{frac:}}`, 손잡이 ◂▸ → `SK.drawIcon('tri-left'/'tri-right')`.
+5. `SimKit.audit.smallText()` 0건 만들기(22 미만 → 22, 자리가 모자라면 라벨 수를 줄인다).
+6. 카드 이름 2줄 안(번호 열 뒤 폭 기준) — ✓ 배지는 이제 폭을 먹지 않는다.
 
 ---
 
@@ -340,11 +426,12 @@ y916 ~1036  .sim-bar     실험 카드 5장(2줄) | [▶ 실행] [◀ 한 칸 �
 y806        .notice-zone 토스트 1개, 3초, 실험 화면과 하단 띠 사이 가운데 (모달보다 위)
 ```
 - R4 각주: 16:9 보다 세로가 긴 화면에서는 **실험 화면 h660+extra · 오른쪽 칸 h760+extra · 하단 띠·기록 칩 y812+extra · 하단 막대 y916+extra** (§0R4-2). 16:9 는 extra 0.
+- R5 각주(세로 태블릿, 폭 601 이상): **오른쪽 칸 → 실험 화면 아래 전폭(x20 y916+extra, 2열), 바닥 100vh − 228u · 하단 막대는 바닥 212u(카드 1단 + 실행 줄 2단)** · 예측·모드 창은 패널 자리 (§0R5-1).
 - `SimKit.el.*`: `root slide top task note stage panel(스크롤 칸) panelBox recBig thinkBoard band meters graph records(기록 칩) bar presets cornerTL/TR/BL/BR status notices`
 - 오른쪽 칸 전환: 비교 단계 → 기록 큰 판, 정리 단계 → 질문 판(think 가 있으면). 판 머리 '설정 보기 ▸', 패널 머리 '기록 표 보기 ▸', 기록 칩 '표 보기/표 닫기'. `SK.showSide('panel'|'records'|'think')`.
 - 패널은 안에서 스크롤, 끝이 아니면 아래 그림자 + '아래에 더 있어요 ↓'(누르면 내려감). 칸마다 '기본값으로 ↺'.
 - T(또는 ⋯ › 조작판 접기): 패널·띠 숨기고 실험 화면 1840×760.
-- 폭 600px 이하: 맨 위 '태블릿이나 PC 에서 열어 주세요' 띠(세로 배치는 R2).
+- 폭 600px 이하: 맨 위 '화면이 좁아요 / 가로로 돌리면 더 크게 볼 수 있어요' 띠 + ✕ (R5). 아이패드 세로는 세로 배치(§0R5-1).
 
 ---
 

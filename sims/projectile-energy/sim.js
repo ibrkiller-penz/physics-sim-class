@@ -15,7 +15,7 @@
   var L = { AX: 64, X0: 150, GY: 636, RIGHT: 1225, TOP: 150 };   // TOP: 최소값. 실제로는 SK.stageInset().top(상태 칩·범례) 아래로
   var VS = 5;          // 속도 화살표: 1 m/s = 5u
   var ACC_LEN = 72;    // 가속도 화살표 길이(일정)
-  var BALL_R = 14;     // 공 지름 28u
+  var BALL_R = 18;     // R5: 공 지름 36u (14→18, 섬광 점 8u 는 그대로)
 
   var run = null, st = null;
   var autoBox = { x: 44, y: 12 }, fixedBox = null;
@@ -134,9 +134,9 @@
   SK.addChoice('situation', {
     key: 'planet', label: '어디에서 던질까?', style: 'cards', apply: 'restart',
     options: [
-      { value: 'earth', label: '지구', sub: 'g = 9.8' },
-      { value: 'moon', label: '달', sub: 'g = 1.62' },
-      { value: 'mars', label: '화성', sub: 'g = 3.71' }
+      { value: 'earth', label: '지구', sub: 'g = 9.8 m/s²' },
+      { value: 'moon', label: '달', sub: 'g = 1.62 m/s²' },
+      { value: 'mars', label: '화성', sub: 'g = 3.71 m/s²' }
     ],
     value: 'earth',
     hint: '{{중력 가속도}} g 가 작은 곳일수록 천천히 떨어져요.',
@@ -146,7 +146,7 @@
     }
   });
   SK.addChoice('situation', {
-    key: 'gEarth', label: '지구의 g 값', apply: 'restart',
+    key: 'gEarth', label: '지구의 g 값 (m/s²)', apply: 'restart',
     options: [{ value: 9.8, label: '9.8', sub: '실제 값' }, { value: 10, label: '10', sub: '계산 쉽게' }],
     value: 9.8, onChange: syncUI
   });
@@ -161,7 +161,7 @@
   SK.addToggle('tools', { key: 'showA', label: '가속도 화살표', value: false });
   SK.addToggle('tools', { key: 'shadow', label: '바닥·벽에 비친 그림자', value: false, hint: '그림자는 수평 운동과 수직 운동을 따로 보여 줘요.' });
   SK.addToggle('tools', { key: 'energy', label: '에너지 막대', value: true });
-  SK.addToggle('tools', { key: 'topStop', label: '최고점에서 잠깐 멈추기', value: false });
+  SK.addToggle('tools', { key: 'topStop', label: '최고점에서 화면 잠깐 멈추기', value: false, hint: '화면만 멈춰요. 공은 최고점에서도 옆으로 움직이고 있어요.' });
   SK.addToggle('tools', { key: 'autoScale', label: '눈금 자동 맞춤', value: true, hint: '켜면 지금 궤적과 저장한 기록이 모두 보이게 눈금을 맞춰요. 끄면 지금 눈금 그대로예요.' });
 
   // 더 많은 설정 (성취기준 밖·심화)
@@ -242,7 +242,7 @@
   meters.el.classList.add('pe-meters');
   // R4: 기호는 공통 수식 표기(symbol 'v_y' → v<sub>y</sub>). R3: '음수면 아래' 는 라벨 줄 끝에 (값 줄은 숫자·단위만)
   var vyLab = meters.el.querySelector('[data-key="vy"] .meter__label');
-  if (vyLab) vyLab.appendChild(h('span', { class: 'pe-meter-note', text: '· 음수면 아래' }));
+  if (vyLab) vyLab.appendChild(h('span', { class: 'pe-meter-note', text: '(위 + · 아래 −)' }));
 
   var energyBox = h('div', { class: 'pe-energy', 'aria-label': '에너지 막대' });
   SK.el.graph.appendChild(energyBox);
@@ -292,14 +292,18 @@
   }
   // 처음 들어왔을 때 띄우는 숫자 예측. 띠 '예측하기' 가 같은 객체로 다시 열므로 문장은 getter(그때 값으로)
   var RANGE_PREDICT = {
-    get question() { return '공은 어디쯤 떨어질까요?'; },
-    get info() { return condText(SK.ui) + ' — 바닥 눈금(m)을 보고 어림해요'; },
+    // R5: 창 높이 상한(16:9 268u) 안에 — 조건은 질문 줄 괄호로, '바닥 눈금(m)을 보고 어림해요' 는 입력칸 이름으로 (info 줄 없앰)
+    get question() { return '공은 어디쯤 떨어질까요? (' + condText(SK.ui) + ')'; },
     numeric: {
-      label: '얼마나 멀리 갈까?', unit: 'm', min: 0, key: 'R', decimals: 1,
-      max: function (p) { return Math.max(10, Math.ceil(maxReach(p).R * 1.5 / 5) * 5); },
+      label: '바닥 눈금(m)을 보고 어림해요', unit: 'm', min: 0, key: 'R', decimals: 1,
+      // R5: 범위 글·예시값은 숨기고(정답 40.8 → '예: 40'·'0~65 m' 가 답을 알려 줌), 상한은 200 m 고정.
+      // 달·화성처럼 최대 사거리가 200 m 를 넘을 때만 그만큼 올린다(overText 가 맞는 말이 되게)
+      example: null, showRange: false,
+      max: function (p) { return Math.max(200, Math.ceil(maxReach(p).R * 1.5 / 5) * 5); },
       overText: '가장 멀리 가는 각도보다도 커요 — 확인해 봐요'
     },
-    get why() { return '수평 거리 = 수평 속도 × 비행 시간이에요. 땅에서 던지면 45°일 때 가장 멀리 가요.'; }
+    get why() { return '수평 거리 = 수평 속도 × 비행 시간이에요. 땅에서 던지면 45°일 때 가장 멀리 가요.'; },
+    place: 'top'   // R5: 하늘(위)에 띄워 x축 눈금·발사점이 보이게
   };
   function openRangePredict() {
     curPreset = -1;
@@ -315,6 +319,7 @@
       changes: 'h 20 m · 0°', change: 'v₀ 10 m/s · 각도 0° · 높이 20 m · 떨어뜨린 공 함께',
       values: vals({ planet: 'earth', air: 'off', h: 20, v0: 10, theta: 0, m: 1, cmp: true, flash: true, shadow: true }),
       predict: {
+        place: 'bottom',   // R5: 20 m 절벽(발사점)이 위쪽이라 창은 아래에
         question: '20 m 절벽에서 옆으로 10 m/s 로 던진 공과 그냥 떨어뜨린 공(회색), 무엇이 먼저 땅에 닿을까요?',
         choices: ['던진 공이 먼저', '떨어뜨린 공이 먼저', '동시에'], answer: 3,
         why: '옆으로 던져도 아래로 떨어지는 운동은 그냥 떨어뜨린 공과 똑같아요. 떨어지는 시간은 높이와 g 로만 정해져요(수평으로 던졌을 때 수직 운동은 떨어뜨린 공과 같아요).',
@@ -330,9 +335,10 @@
       changes: 'h 20 m · 30°', change: 'v₀ 10 m/s · 각도 30° · 높이 20 m · 질량 1 kg',
       values: vals({ planet: 'earth', air: 'off', h: 20, v0: 10, theta: 30, m: 1, flash: true, energy: true }),
       predict: {
+        place: 'bottom',   // R5: 20 m 절벽(발사점)이 위쪽이라 창은 아래에
         question: '날아가는 동안 운동 에너지 + 위치 에너지의 합(역학적 에너지)은 어떻게 될까요?',
         choices: ['점점 줄어든다', '점점 늘어난다', '내내 같다'], answer: 3,
-        info: '아래 에너지 막대에서 운동·위치 에너지를 지켜봐요.',
+        afterHint: '예측했어요 — 아래 에너지 막대를 지켜봐요',   // R5: info 줄 → 예측 뒤 토스트 (창 높이 상한)
         why: '공기 저항이 없으면 일을 하는 힘은 중력뿐이에요. 높이가 낮아진 만큼 위치 에너지가 운동 에너지로 바뀔 뿐, 합은 그대로예요.',
         judge: function () {
           if (!st || !st.result) return 3;
@@ -346,6 +352,7 @@
       changes: '각도 30° → 60°', change: 'v₀ 20 m/s · 땅에서 · 각도 30° (다음엔 60°로 바꿔 기록)',
       values: vals({ planet: 'earth', air: 'off', h: 0, v0: 20, theta: 30, m: 1, flash: true }),
       predict: {
+        place: 'top',
         question: '같은 속력 20 m/s 로 30°와 60°로 던지면 어느 쪽이 더 멀리 갈까요?',
         choices: ['30°', '60°', '같다'], answer: 3,
         why: '30°는 옆으로 빠르지만 일찍 떨어지고, 60°는 오래 날지만 옆으로 느려요. 수평 속도 × 비행 시간이 같아져요. 더해서 90°인 두 각도는 사거리가 같아요.',
@@ -357,12 +364,13 @@
     },
     {
       name: '달에서 던지기',
-      changes: 'g: 지구 → 달', change: '달 (g 1.62) · v₀ 10 m/s · 각도 45° · 땅에서',
+      changes: 'g: 지구 → 달', change: '달 (g = 1.62 m/s²) · v₀ 10 m/s · 각도 45° · 땅에서',
       values: vals({ planet: 'moon', air: 'off', h: 0, v0: 10, theta: 45, m: 1, flash: true }),
       predict: {
-        question: '속력과 각도는 그대로 두고 달(g = 1.62)에서 던지면, 지구(g = 9.8)보다 몇 배 멀리 갈까요?',
+        place: 'top',
+        // R5: info 줄을 질문에 합침 (창 높이 상한)
+        question: '지구⁠(g = 9.8 m/s²)에서 약 10 m 가는 공을 그대로 달⁠(g = 1.62 m/s²)에서 던지면 몇 배 멀리 갈까요?',   //  ·⁠: 괄호 안에서 줄이 꺾이지 않게
         choices: ['약 2배', '약 6배', '같다'], answer: 2,
-        info: '지구에서는 같은 조건으로 약 10 m 날아가요.',
         why: '사거리는 g 에 반비례해요($R$ = $v_0$² sin2$θ$ ÷ $g$). 달의 g 는 지구의 약 1/6 이라 약 6배 멀리 가요.',
         judge: function (p) {
           var re = PH.rangeFor(p, { planet: 'earth' }), ratio = (st && st.result ? st.result.R : PH.rangeFor(p, {})) / re;
@@ -374,9 +382,11 @@
     },
     {
       name: '최고점에서 속도는?',
-      changes: '최고점에서 멈춤', change: 'v₀ 20 m/s · 각도 45° · 최고점에서 잠깐 멈추고 화살표 보기',
+      changes: '최고점 화면정지',   // R5: '최고점에서 멈춤' 은 '최고점에서 공이 멈춘다' 오개념 — 화면만 멈춤 (카드 폭 1024 에서도 한 줄)
+      change: '최고점에서 화면이 잠깐 멈춰요 — 공은 계속 움직여요 (v₀ 20 m/s · 45° · 화살표 보기)',
       values: vals({ planet: 'earth', air: 'off', h: 0, v0: 20, theta: 45, m: 1, topStop: true, showV: true, showA: true }),
       predict: {
+        place: 'top',
         question: '가장 높은 곳(최고점)에서 공의 속도와 가속도는 어떨까요?',
         choices: ['속도 0, 가속도 0', '속도 0, 가속도 g', '속도 0 아님, 가속도 g'], answer: 3,
         why: '최고점에서는 수직 속도만 0 이에요. 수평 속도 $v_x$ 는 그대로 남아 있고, 중력 때문에 가속도는 내내 g(아래 방향)예요.'
@@ -498,7 +508,7 @@
         title: '③ 역학적 에너지 보존',
         summary: '높이 에너지 + 운동 에너지 = 늘 같은 값',
         plain: richLines('공이 올라가면 느려지고(운동 에너지 ↓) 높아져요(위치 에너지 ↑).\n내려올 때는 반대로 바뀌어요.\n공기 저항이 없으면 둘을 더한 값(역학적 에너지)은 처음부터 끝까지 같아요.'),
-        example: '1 kg 공을 20 m 높이에서 10 m/s 로 던지면: 운동 50 J + 위치 196 J = 246 J. 땅에 닿을 때는 위치 0 J, 운동 246 J (g = 9.8).',
+        example: '1 kg 공을 20 m 높이에서 10 m/s 로 던지면: 운동 50 J + 위치 196 J = 246 J. 땅에 닿을 때는 위치 0 J, 운동 246 J (g = 9.8 m/s²).',
         figure: FIG_ENERGY,
         formula: '½ m v² + m g h = 일정',
         symbols: [
@@ -519,7 +529,7 @@
         title: '④ 사거리와 던지는 각도',
         summary: '45°에서 가장 멀리, 짝 각도는 같은 거리',
         plain: '각도가 작으면 옆으로 빠르지만 금방 떨어져요.\n각도가 크면 오래 날지만 옆으로 느려요.\n그 사이 45°에서 가장 멀리 가요. 30°와 60°처럼 더해서 90°인 두 각도는 같은 거리를 가요(땅에서 던질 때).',
-        example: '지구(g 9.8)에서 20 m/s 로 던지면 30°·60°는 35.3 m, 45°는 40.8 m 가요.',
+        example: '지구(g = 9.8 m/s²)에서 20 m/s 로 던지면 30°·60°는 35.3 m, 45°는 40.8 m 가요.',
         figure: FIG_ANGLE,
         formula: 'R = v₀² sin2θ ÷ g   (땅에서 던질 때, 공기 저항 없음)',
         symbols: [
@@ -531,7 +541,7 @@
         why: '사거리 = 수평 속도 × 비행 시간 = ($v_0$ cos$θ$) × (2$v_0$ sin$θ$ ÷ $g$) = $v_0$² × 2 sin$θ$ cos$θ$ ÷ $g$ = $v_0$² sin2$θ$ ÷ $g$ 예요.\nsin2$θ$ 는 2$θ$ = 90°, 곧 $θ$ = 45°일 때 가장 커요(값 1).\nsin(2×30°) = sin60°와 sin(2×60°) = sin120°가 같아서 짝 각도는 같은 거리를 가요.\n높은 곳에서 던지거나 공기 저항이 있으면 가장 멀리 가는 각도는 45°보다 작아져요.',
         live: function (p) {
           var g = gNow(p);
-          return '지금 값으로 (g = ' + gText(g) + ', v₀ = ' + p.v0 + ' m/s, 땅에서): 30°·60° → ' + fmt(p.v0 * p.v0 * Math.sin(Math.PI / 3) / g, 1) + ' m, 45° → ' + fmt(p.v0 * p.v0 / g, 1) + ' m';
+          return '지금 값으로 (g = ' + gText(g) + ' m/s², v₀ = ' + p.v0 + ' m/s, 땅에서): 30°·60° → ' + fmt(p.v0 * p.v0 * Math.sin(Math.PI / 3) / g, 1) + ' m, 45° → ' + fmt(p.v0 * p.v0 / g, 1) + ' m';
         }
       },
       {
@@ -564,7 +574,7 @@
       '공기 저항': '공이 공기를 밀고 지나갈 때 받는, 움직임을 방해하는 힘. 가볍고 큰 공(탁구공)일수록 크게 영향을 받아요.',
       '연직': '실에 추를 매달았을 때 실의 방향, 곧 똑바로 위아래 방향. 수직과 같은 뜻으로 써요.'
     },
-    keys: [['G', '지구 g 9.8 ↔ 10'], ['L', '눈금 자동 맞춤 켜기/끄기'], ['B', '떨어뜨린 공 함께 보기'], ['A', '속도·가속도 화살표 켜기/끄기']]
+    keys: [['G', '지구 g 9.8 ↔ 10 m/s²'], ['L', '눈금 자동 맞춤 켜기/끄기'], ['B', '떨어뜨린 공 함께 보기'], ['A', '속도·가속도 화살표 켜기/끄기']]
   });
 
   // 결과 해설: 패널 맨 위 카드 — 한 줄(line) → '왜 그럴까?' 안 전문(more)
@@ -643,15 +653,15 @@
   });
   SK.think({
     id: 'calc',
-    q: '지구(g = 10)에서 20 m 높이 절벽 위에서 공을 수평으로 10 m/s 로 던졌어요. 몇 m 앞에 떨어질까요?',
+    q: '지구(g = 10 m/s²)에서 20 m 높이 절벽 위에서 공을 수평으로 10 m/s 로 던졌어요. 몇 m 앞에 떨어질까요?',
     hint: '먼저 떨어지는 시간 $t$ = √(2$h$ ÷ $g$) 를 구하고, 수평 거리 = 수평 속도 × t 로 계산해요.',
-    reveal: '20 m 예요. t = √(2 × 20 ÷ 10) = √4 = 2 s, 수평 거리 = 10 m/s × 2 s = 20 m. 실험 카드 ① 에서 지구의 g 를 10 으로 바꿔 실행하면 확인할 수 있어요.'
+    reveal: '20 m 예요. t = √(2 × 20 ÷ 10) = √4 = 2 s, 수평 거리 = 10 m/s × 2 s = 20 m. 실험 카드 ① 에서 지구의 g 를 10 m/s² 으로 바꿔 실행하면 확인할 수 있어요.'
   });
   SK.think({
     id: 'air',
     q: '더 생각하기: 공기 저항이 있으면 가장 멀리 가는 각도는 45°보다 클까, 작을까?',
     hint: '더 많은 설정 › 공기 저항 › 탁구공을 고르고 35°·40°·45°를 차례로 기록해 비교해 봐요.',
-    reveal: '작아져요. 탁구공(20 m/s, g = 9.8)은 35°쯤에서 가장 멀리(약 10.4 m) 가고, 45°는 10.0 m 예요. 공기 저항이 날아가는 내내 속도를 줄이니, 오래 나는 큰 각도가 더 손해를 봐요. 무거운 쇠공은 영향이 작아 거의 45° 그대로예요.'
+    reveal: '작아져요. 탁구공(20 m/s, g = 9.8 m/s²)은 35°쯤에서 가장 멀리(약 10.4 m) 가고, 45°는 10.0 m 예요. 공기 저항이 날아가는 내내 속도를 줄이니, 오래 나는 큰 각도가 더 손해를 봐요. 무거운 쇠공은 영향이 작아 거의 45° 그대로예요.'
   });
   var think1Body = think1 && think1.querySelector('.reveal__body');
   if (run) setTimeout(function () { updateThinkAnswer(run.g); }, 0);
@@ -669,17 +679,17 @@
       { target: '처음 속력 $v_0$ — 0~30 m/s, 1 단위, 기본 20 (↻)', standard: '[12역학01-02] 정량 설명', discover: '수평 던지기에서 $v_0$ 를 바꿔도 비행 시간은 같고 수평 거리만 $v_0$ 에 비례', misconception: '세게 던지면 늦게 떨어진다' },
       { target: '던지는 각도 $θ$ — 0~90°, 5° 단위, 기본 45 (↻)', standard: '[12역학01-02]', discover: '30°와 60°는 같은 거리, 45° 최대(지면 발사)', misconception: '각도가 클수록 멀리 간다' },
       { target: '던지는 높이 h — 0~45 m, 5 단위, 기본 0 (↻)', standard: '탐구 활동(포물선 운동 동영상 분석), 수평 던지기 대표 문항', discover: '낙하 시간 = √(2h/g). 높이 4배 → 시간 2배', misconception: '—' },
-      { target: '어디에서 던질까 — 지구(9.8/10) · 달 1.62 · 화성 3.71 (↻)', standard: '[12역학01-02] g 가 식에 들어가는 방식', discover: 'g 가 작으면 비행 시간·거리·높이가 커진다(사거리 ∝ 1/g)', misconception: '—' },
+      { target: '어디에서 던질까 — $g$ (m/s²): 지구 9.8/10 · 달 1.62 · 화성 3.71 (↻)', standard: '[12역학01-02] g 가 식에 들어가는 방식', discover: 'g 가 작으면 비행 시간·거리·높이가 커진다(사거리 ∝ 1/g)', misconception: '—' },
       { target: '떨어뜨린 공 함께 보기 (⚡)', standard: '대표 문항(수평 던지기 vs 자유 낙하)', discover: '두 공의 높이가 항상 같다', misconception: '던진 공이 늦게 떨어진다' },
       { target: '더 많은 설정: 공기 저항 · 질량 (↻)', standard: '\'이상적 조건\'의 뜻, 변인 통제, 심화 발문', discover: '공기 저항이 있으면 가벼운 공이 덜 날아가고 최적 각도가 45°보다 작다. 저항이 없으면 질량은 궤적과 무관', misconception: '무거운 공이 빨리 떨어진다' }
     ],
     sections: [
       { title: '성취기준', items: ['[12역학01-02] 뉴턴 운동 법칙으로 포물선 운동을 정량적으로 설명하고 역학적 에너지를 구한다.', '연계 [12물리01-04] 역학적 에너지 보존.', '탐구 활동: 포물선 운동을 하는 물체의 동영상을 분석하여 역학적 에너지 보존 확인하기. (교과서 활동 이름·쪽수는 확인 필요)'] },
-      { title: '수업 흐름', items: ['① 예측: 처음 들어오면 사거리 숫자 예측 창이 떠요(상한은 지금 조건 최대 사거리의 1.5배). 실험 카드를 누르면 값이 바로 바뀌고 카드별 예측 질문이 떠요. 예측 창이 떠 있는 동안 궤적·기록은 숨겨요.', '② 실행: 끝나면 오른쪽 패널 맨 위에 예측 판정(예측·실제·차이)과 결과 해설 한 줄이 떠요. 해설 전문은 왜 그럴까? 안에 있어요.', '③ 비교: 한 가지만 바꿔 3~5번 기록해요(띠의 기록하기 버튼). 오른쪽 기록 표에서 두 기록을 나란히 비교해요. 눈금 자동 맞춤은 같은 $v_0$·h 면 각도를 바꿔도 눈금이 그대로라 궤적을 바로 견줄 수 있어요.', '④ 정리: 보기 3개 질문 4개(바로 판정) + 계산 1개(힌트 접힘) + 더 생각하기 1개. 답 확인하기 잠금은 교사 설정에서.'] },
+      { title: '수업 흐름', items: ['① 예측: 처음 들어오면 사거리 숫자 예측 창이 떠요(입력칸에 예시값·범위는 보이지 않아요). 실험 카드를 누르면 값이 바로 바뀌고 카드별 예측 질문이 떠요. 예측 창이 떠 있는 동안 궤적·기록은 숨겨요.', '② 실행: 끝나면 오른쪽 패널 맨 위에 예측 판정(예측·실제·차이)과 결과 해설 한 줄이 떠요. 해설 전문은 왜 그럴까? 안에 있어요.', '③ 비교: 한 가지만 바꿔 3~5번 기록해요(띠의 기록하기 버튼). 오른쪽 기록 표에서 두 기록을 나란히 비교해요. 눈금 자동 맞춤은 같은 $v_0$·h 면 각도를 바꿔도 눈금이 그대로라 궤적을 바로 견줄 수 있어요.', '④ 정리: 보기 3개 질문 4개(바로 판정) + 계산 1개(힌트 접힘) + 더 생각하기 1개. 답 확인하기 잠금은 교사 설정에서.'] },
       { title: '발문', items: ['각도를 바꿔도 착지 속력이 같을까? (카드 ②, 모둠 활동) → 같은 $v_0$·h 면 √($v_0$² + 2gh) 로 같아요.', '공기 저항을 켜면 가장 멀리 가는 각도는 45°보다 클까 작을까? → 탁구공 20 m/s 에서 약 35°.', '최고점에서 공은 멈출까? → 수평 속도는 그대로, 가속도는 g 아래.'] },
       { title: '조작 메모', items: ['섬광 점(0.1 s 간격)을 누르면 그 순간의 t·x·y·속도와 운동·위치 에너지가 떠요. 동영상 분석 활동처럼 점 몇 개를 골라 합이 같은지 표에 적게 해요. 빈 곳을 누르면 닫혀요.', '실행 전 공을 끌어당겼다 놓으면 $v_0$·θ 가 들어가요(당긴 길이 10u = 1 m/s). 놓아도 실행하지 않아요.', '공기 저항 없음은 해석해(식)로 계산해서 에너지 합이 출렁이지 않아요. 저항 있음은 RK4 (dt = 1/240 s).', '공기 저항을 켜면 질량은 공 종류로 정해져요(쇠공 0.50 kg, 탁구공 0.0027 kg). 달에는 공기가 없어 저항 0, 화성은 공기 밀도 0.020 kg/m³.', '떨어뜨린 공은 같은 높이·같은 연직 속도로 출발하고 옆으로만 움직이지 않는 공이에요. $θ$ = 0°이면 그냥 떨어뜨린 공.'] }
     ],
-    keys: 'G 지구 g 9.8/10 · L 눈금 자동 맞춤 · B 떨어뜨린 공 · A 속도·가속도 화살표'
+    keys: 'G 지구 g 9.8/10 m/s² · L 눈금 자동 맞춤 · B 떨어뜨린 공 · A 속도·가속도 화살표'
   });
   // R4: 공통 수업 안내 서랍은 글자(text)로 넣으므로 $v_0$ 수식 · (↻)(⚡) 아이콘을 여기서 바꾼다
   mathify(SK.el.slide && SK.el.slide.querySelector('aside.drawer.teacher-only'));
@@ -770,7 +780,7 @@
     SK.controls.gEarth.el.hidden = u.planet !== 'earth';
     SK.controls.k4.enable(!!u.kCustom);
     var earthSub = SK.controls.planet.el.querySelector('.seg__opt .btn__sub');
-    if (earthSub) earthSub.textContent = 'g = ' + gText(u.gEarth);
+    if (earthSub) earthSub.textContent = 'g = ' + gText(u.gEarth) + ' m/s²';
   }
 
   function onReset(p) {
@@ -796,7 +806,7 @@
     if (e.top) {
       st.hold = true; holdUntil = performance.now() + 30;
       SK.pause();
-      SK.notice('최고점: 수직 속도만 0 이에요', 'ok', 4500);
+      SK.notice('최고점: 화면만 멈춤 — 공은 계속 움직여요', 'ok', 4500);   // R5: 공이 멈춘다는 오개념 방지 (28자 이내)
       SK.say('최고점이에요. 아래 ▶ 이어서 실행', 6000);
       return;
     }
@@ -1103,7 +1113,7 @@
     // 최고점에서 멈췄을 때: 짧은 라벨
     if (st.hold || (st.topDone && SK.started && !SK.running && !SK.finished && Math.abs(st.vy) < 1e-6)) {
       label(ctx, [
-        '최고점',
+        '최고점 — 화면만 잠깐 멈춤',
         '수평 속도 ' + fmt(st.vx, 1) + ' m/s (그대로)',
         '수직 속도 ' + fmt(Math.abs(st.vy) < 0.05 ? 0 : st.vy, 1) + ' m/s'
       ], bx, by + 60, W, C, 'side');

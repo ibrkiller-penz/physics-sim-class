@@ -109,3 +109,6 @@
 .lens-rays .check__state { display: inline-flex; align-items: center; gap: calc(4 * var(--u)); }
 .lens-rays .check[aria-pressed="true"] .check__state::before { content: ""; flex: none; width: 1em; height: 1em; --ico: var(--ico-check); background-color: currentColor; -webkit-mask: var(--ico) center/contain no-repeat; mask: var(--ico) center/contain no-repeat; }
 .lens-rays .check[aria-pressed="true"] { border-color: var(--ray, var(--color-primary)); }
+
+/* R5: '빛의 길 보기' 설명 — 칩 행 바로 아래 한 줄 고정(칩을 누르면 그 광선의 길로 바뀜, 높이는 그대로) */
+.lens-raynote { margin-top: var(--space-1); min-height: 1.4em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
