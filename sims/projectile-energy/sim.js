@@ -1328,10 +1328,13 @@
       SK.text(ctx, eTxt, W - 12, 4, { size: FS, weight: 500, color: '--color-ink', baseline: 'top', align: 'right' });
     } else {
       // 좁은 띠(약 390u): 첫 줄 = '역학적 에너지 E = 246.0 J' · 오른쪽 'm 1 kg' — R7 학생점검(디자인C): 이름이 사라지면 E 가 무엇인지 모른다 → 자리가 모자라면 이름을 빼고 'E = …' 만
-      var mW1 = SK.measure(ctx, mLab, MO).w, line1 = eTxt;
-      ['역학적 에너지 ' + eTxt, '에너지 ' + eTxt].some(function (t) { if (SK.measure(ctx, t, TT).w + mW1 + 12 <= bw) { line1 = t; return true; } return false; });
+      // R7 학생점검(남은 것): 자리가 모자라면 'm 1 kg' 을 먼저 빼고 '역학적 에너지' 이름을 남긴다(질량은 [수치 더 보기]에 있음)
+      var mW1 = SK.measure(ctx, mLab, MO).w, line1 = eTxt, showM = true;
+      [['역학적 에너지 ' + eTxt, true], ['역학적 에너지 ' + eTxt, false], ['에너지 ' + eTxt, true], ['에너지 ' + eTxt, false]].some(function (c) {
+        if (SK.measure(ctx, c[0], TT).w + (c[1] ? mW1 + 12 : 0) <= bw) { line1 = c[0]; showM = c[1]; return true; } return false;
+      });
       SK.text(ctx, line1, x0, 4, { size: FS, weight: 500, color: fE ? '--sim' : '--color-ink', baseline: 'top' });
-      SK.text(ctx, mLab, x1, 4, { size: FS, weight: 400, color: '--color-ink-muted', baseline: 'top', align: 'right' });
+      if (showM) SK.text(ctx, mLab, x1, 4, { size: FS, weight: 400, color: '--color-ink-muted', baseline: 'top', align: 'right' });
     }
     var max = run.E0 > 0 ? run.E0 : 1;
     ctx.fillStyle = SK.color('--color-paper-sunk'); ctx.fillRect(x0, top, bw, bh);

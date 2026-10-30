@@ -46,7 +46,7 @@
 .pe-meters .meter[data-key="vx"] { flex-grow: 0.98; }
 .pe-meters .meter[data-key="vy"] { flex-grow: 1.6; }
 /* R7(A2): core 3칸(x·vₓ·v_y) + [수치 더 보기 ▸] — 4칸 비율을 core 순서에 맞춤(시간 t 칸은 팝오버로 감) */
-.pe-meters.has-core { grid-template-columns: minmax(0, 0.82fr) minmax(0, 0.98fr) minmax(0, 1.6fr) auto; }
+.pe-meters.has-core { grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr) minmax(0, 1.22fr) auto; }   /* R7 학생점검: vy 라벨이 짧아져(B7) 세 칸을 고르게 — 1180 에서 x·vₓ 칸 글자가 옆 칸과 붙던 것 */
 .pe-meters .meter__value { font-size: calc(36 * var(--u)); }
 .pe-meters .meter__unit { font-size: var(--fs-caption); }
 .pe-meters .meter__label sub { font-size: 0.75em; vertical-align: -0.25em; line-height: 0; }

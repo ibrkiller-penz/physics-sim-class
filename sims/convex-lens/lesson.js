@@ -143,12 +143,12 @@
           var r1 = [[ox, ty], [L, ty], [660, ty + (660 - L) * oh / f]], r2 = [[ox, ty], [L, y + ih], [660, y + ih]], r3 = [[ox, ty], [L, y], [660, y + (660 - L) * oh / (L - ox)]];
           return D.svg([
             axis(D, 40, 760, y), D.lens(L, y, 300),
-            fdot(D, L - 2 * f, y, '2F', true), fdot(D, L - f, y, 'F', false), fdot(D, L + f, y, 'F', false), fdot(D, L + 2 * f, y, '2F', true),
+            fdot(D, L - 2 * f, y, '2F', true), fdot(D, L - f, y, 'F', false), fdot(D, L + f, y, 'F', false), fdot(D, L + 2 * f, y, '2F', false),   // R7 학생점검: 오른쪽 2F 는 축 위(아래는 상 끝·'상' 글자 자리)
             rayV(D, r1, 1), rayV(D, r2, 2), rayV(D, r3, 3),
-            rayNo(D, 290, ty - 22, 1), rayNo(D, 250, ty + (250 - ox) * (y + ih - ty) / (L - ox) + 26, 2), rayNo(D, 330, ty + (330 - ox) * (y - ty) / (L - ox) - 24, 3),
+            rayNo(D, 290, ty - 22, 1), rayNo(D, 355, ty + (355 - ox) * (y + ih - ty) / (L - ox) + 28, 2), rayNo(D, 330, ty + (330 - ox) * (y - ty) / (L - ox) - 24, 3),   // ② 는 F 와 렌즈 사이 광선 아래(F·2F 글자와 떨어지게)
             arrowV(D, ox, y, oh), arrowV(D, ix, y, -ih, { color: IMG }),
             D.label(ox, ty - 22, '물체', { anchor: 'middle', weight: 500 }), D.label(L, 405, '렌즈', { anchor: 'middle', weight: 500, color: 'sim' }),
-            D.label(ix + 14, y - 26, '상', { weight: 500, color: 'sim' }),
+            D.label(ix - 12, y + ih + 30, '상', { anchor: 'end', weight: 500, color: 'sim' }),   // 상 끝(아래) 왼쪽 — 2F 점에 붙어 보이지 않게
             D.label(760, y - 18, '광축', { anchor: 'end', size: 18, color: 'muted' })
           ], { title: '물체 — 렌즈 — 상 (세 광선 ①②③)', how: '물체 꼭대기에서 나온 세 광선이 렌즈를 지나 상의 꼭대기 한 점에 다시 모여요 — 4장에서 이 세 광선을 그려요' });
         },

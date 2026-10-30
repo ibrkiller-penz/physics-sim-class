@@ -449,7 +449,23 @@
             why: '$g$ = {{frac:$GM$|$r^2$}} 이라 $r$ 이 2배면 4분의 1 → 9.8 × {{frac:1|4}} ≈ 2.45 m/s². (실험: 고도 6,400 km 에서 계기 약 25 %)', chapter: 'inverse-square', try: { preset: 1, set: { alt: 6400 } } },
           { kind: 'misconception', q: '"높은 궤도의 위성일수록 더 빨리 돈다." 맞을까?',
             choices: ['맞다. 높을수록 빨리 돈다', '아니다. 높을수록 느리게 돈다', '높이와 상관없이 같다'], answerIdx: 1,
-            why: '$v$ = √({{frac:$GM$|$r$}}) 에서 $r$ 이 크면 $v$ 가 작아요. ISS 7.7 km/s, 정지궤도 3.1 km/s.', chapter: 'misc', try: { preset: 2 } }
+            why: '$v$ = √({{frac:$GM$|$r$}}) 에서 $r$ 이 크면 $v$ 가 작아요. ISS 7.7 km/s, 정지궤도 3.1 km/s.', chapter: 'misc', try: { preset: 2 } },
+          /* 갈래별 문항(학생 점검 E7) — 대포·케플러 갈래에서는 같은 kind 의 위 문항 대신 나온다 */
+          { kind: 'concept', mode: 'cannon', q: '산꼭대기에서 수평으로 쏜 포탄이 땅에 떨어지지 않고 지구를 돌려면?',
+            choices: ['중력이 없어지는 높이까지 올라가야 한다', '떨어지는 만큼 지표가 둥글게 멀어질 만큼 빨라야 한다', '비스듬히 위쪽으로 쏘아야 한다'], answerIdx: 1,
+            why: '포탄은 계속 떨어져요. 수평 속력이 약 7.9 km/s 면 떨어지는 만큼 지구 표면이 휘어 멀어져서 땅에 닿지 않아요.', chapter: 'cannon', try: { preset: 0, set: { v0: 7.9 } } },
+          { kind: 'calc', mode: 'cannon', q: '지표 가까이에서 원궤도 속력이 약 7.9 km/s 예요. 지표에서의 탈출 속도는 약 얼마일까?',
+            choices: ['약 11.2 km/s', '약 15.8 km/s', '약 9.8 km/s'], answerIdx: 0,
+            why: '$v_{esc}$ = √2 $v$ 라서 7.9 × 1.41 ≈ 11.2 km/s 예요.', chapter: 'escape', try: { preset: 0, set: { v0: 11.2 } } },
+          { kind: 'misconception', mode: 'cannon', q: '"우주 정거장 안이 무중력인 것은 그 높이에 중력이 없기 때문이다." 맞을까?',
+            choices: ['맞다. 그 높이에는 중력이 없다', '아니다. 중력이 있지만 정거장과 함께 떨어지며 돌아서 떠 보인다', '아니다. 공기가 없어서 떠 보인다'], answerIdx: 1,
+            why: '400 km 높이에서도 중력 가속도는 지표의 약 89 % 예요. 사람과 정거장이 함께 떨어지며 돌기 때문에 떠 보여요.', chapter: 'weightless' },
+          { kind: 'concept', mode: 'kepler', q: '태양에서 멀리 있는 행성일수록 공전 주기(1년)는?',
+            choices: ['짧아진다', '길어진다', '거리와 상관없이 같다'], answerIdx: 1,
+            why: '멀수록 궤도가 길고 속력도 느려서 한 바퀴 도는 데 더 오래 걸려요.', chapter: 'kepler-1', try: { preset: 3 } },
+          { kind: 'calc', mode: 'kepler', q: '공전 궤도 긴반지름 $a$ 가 지구의 4배인 행성의 공전 주기는 약 몇 년일까?',
+            choices: ['약 8년', '약 4년', '약 16년'], answerIdx: 0,
+            why: '$T^2$ ∝ $a^3$ 이라 $T^2$ = 4³ = 64, $T$ = 8년이에요.', chapter: 'kepler-2', try: { preset: 3 } }
         ],
         more: [
           { q: '같은 3 km/s 로 쏘면 달·화성·지구 중 어디서 탈출할까?', answer: '달', why: '탈출 속도 달 2.4 < 3 < 화성 5.0 · 지구 11.2 km/s.', chapter: 'escape' },

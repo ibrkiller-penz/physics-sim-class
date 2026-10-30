@@ -952,7 +952,7 @@
     var panelBox = h('aside', { class: 'sim-panel', 'aria-label': '조절 패널' }, [panelHead, scroll, more]);
 
     /* ── R7 ⚙ 설정 본문: 화면 구성 → 화면에 표시하기(노드 이동) → 더 많은 설정(노드 이동) · 바닥 [기본값으로 되돌리기][닫기] ── */
-    var collapseRow = checkRow('조작판 접기 — 실험 화면을 크게 (T)', function () { return !!(SK.el.slide && SK.el.slide.classList.contains('is-collapsed')); }, function (v) { if (!!(SK.el.slide && SK.el.slide.classList.contains('is-collapsed')) !== !!v) SK.toggleCollapse(); });
+    var collapseRow = checkRow('실험 화면 크게 보기 (T)', function () { return !!(SK.el.slide && SK.el.slide.classList.contains('is-collapsed')); }, function (v) { if (!!(SK.el.slide && SK.el.slide.classList.contains('is-collapsed')) !== !!v) SK.toggleCollapse(); });
     collapseRow.classList.add('set-collapse');
     // R7-2(S7): 설명 글자 [보통 | 크게] (설명 층에만 — 실험 화면엔 영향 없음). lesson 이 있을 때만 보인다
     var lessonFsSeg = h('div', { class: 'set-fs', hidden: true }, [h('span', { class: 'set-fs__t', text: '설명 글자' }),
@@ -4628,7 +4628,9 @@
           view.wFull = cw / s; view.hFull = (ch - shift) / s;
           if (view.grow) { view.oy = shift; view.extra = Math.max(0, view.hFull - view.h); }
           else { view.oy = Math.max(free / 2, shift); view.extra = 0; }
+          view.coverTop = Math.max(0, inset - view.oy) / s;   // 띠가 그림 위쪽을 덮는 높이(논리 단위) — sim 이 위에 붙는 창을 이만큼 내린다
         } else {
+          view.coverTop = 0;
           var chE = ch - inset;
           var s = Math.min(cw / view.w, chE / view.h);
           view.scale = s; view.ox = (cw - view.w * s) / 2;

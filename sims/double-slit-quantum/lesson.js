@@ -440,6 +440,20 @@
           { kind: 'misconception', q: '"전자 한 개가 둘로 쪼개져 두 슬릿을 동시에 지나서 무늬가 생긴다." 이 말은?',
             choices: ['맞다', '알 수 없다', '아니다'], answerIdx: 2,
             why: '전자는 한 개로, 점 하나로 도착해요. 닿을 확률의 모양이 두 길의 간섭으로 정해지고, 점이 쌓이면 무늬가 돼요. 측정기로 어느 길인지 알면 무늬가 사라져요.', chapter: 'which-way',
+            try: { mode: 'quantum', card: 0 } },
+          /* 빛 갈래 문항(학생 점검 E7) — 빛으로 실험 중이면 위의 전자 오개념 대신 나온다 */
+          { kind: 'misconception', mode: 'physics', q: '"레이저 빛을 더 밝게 하면 무늬 간격 $Δy$ 도 넓어진다." 맞을까?',
+            choices: ['맞다. 밝을수록 넓어진다', '아니다. 밝기는 줄을 더 밝게 할 뿐 간격은 그대로다', '아니다. 밝을수록 좁아진다'], answerIdx: 1,
+            why: '$Δy$ = {{frac:$λL$|$d$}} 에는 빛의 세기가 없어요. 밝기를 바꿔도 줄이 더 밝거나 어두워질 뿐 간격은 같아요.', chapter: 'dy',
+            try: { mode: 'physics', card: 0 } },
+          /* 전자 갈래 문항(학생 점검 E7) — 전자로 실험 중이면 위의 빛 문항 대신 나온다 */
+          { kind: 'concept', mode: 'quantum', q: '전자를 하나씩 보내면 전자 한 개는 스크린에 어떻게 찍힐까?',
+            choices: ['넓게 퍼진 무늬로 한 번에 찍힌다', '점 하나로 찍히고, 많이 쌓이면 간섭무늬가 된다', '늘 두 슬릿 바로 뒤 두 곳에만 찍힌다'], answerIdx: 1,
+            why: '전자 하나는 점 하나로 도착해요. 어디에 찍힐지는 확률로 정해지고, 많이 모이면 밝고 어두운 줄무늬가 드러나요.', chapter: 'matter-wave',
+            try: { mode: 'quantum', card: 0 } },
+          { kind: 'calc', mode: 'quantum', q: '전자의 운동량 $p$ 가 두 배가 되면 물질파 파장 $λ$ = {{frac:$h$|$p$}} 는?',
+            choices: ['두 배가 된다', '절반이 된다', '그대로다'], answerIdx: 1,
+            why: '$λ$ = {{frac:$h$|$p$}} 에서 $p$ 가 분모라 두 배면 절반이에요. 파장이 짧아지면 무늬 간격도 좁아져요.', chapter: 'matter-wave',
             try: { mode: 'quantum', card: 0 } }
         ],
         more: [

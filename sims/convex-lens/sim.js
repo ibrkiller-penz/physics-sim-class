@@ -115,6 +115,9 @@
   // R7(C6): '스크린 정면' 창은 처음엔 접힘(그림을 덜 가림) — 펼치면 이번 탭 동안 기억(sessionStorage)
   var WIN_KEY = 'physsim.convex-lens.winOpen';
   var winOpen = (function () { try { return sessionStorage.getItem(WIN_KEY) === '1'; } catch (e) { return false; } })();
+  // R7 학생점검: 예측 띠가 그림 위를 덮는 동안(view.coverTop > 0)은 창을 접어 눈금자를 가리지 않는다 — 머리를 누르면 그때만 펼침
+  var bandUnfold = false;
+  function winShown() { var cv = SK.view && SK.view.coverTop > 0; if (!cv) bandUnfold = false; return winOpen && (!cv || bandUnfold); }
   function setWinOpen(on) { winOpen = !!on; try { sessionStorage.setItem(WIN_KEY, winOpen ? '1' : '0'); } catch (e) { /* 저장 안 돼도 동작 */ } }
   var rayPaths = [], hoverRay = -1, pinH = false;   // 광선 위에 마우스를 올리거나 누르면 높이(보조 길이) 표시
   var RAY_SPEED = 560;                       // 실행 연출: 빛이 나아가는 빠르기 (u/s)
@@ -291,6 +294,7 @@
     },
     dt: 1 / 120,
     stageFit: true,
+    stageBandShift: true,   // R7 학생점검: 예측 띠(보기 4개면 두 줄)가 열려도 그림·눈금을 줄이지 않는다
     // R4: 태블릿 세로 여유는 위아래 반씩(광축이 가운데). 정면 창은 보이는 위 끝에 붙이고, 광선은 넓어진 위까지
     onResize: function (view) {
       // R5(R4 b): 세로 여유가 있으면(4:3·세로 태블릿) 세로 축척 k 로 물체·광선·렌즈·F 표식·번호를 키운다.
@@ -307,7 +311,7 @@
         var cTop = AXIS - 150 * KS, cBot = HY + 50, hF = view.h + view.extra;
         view.offsetY = Math.max(0, Math.min(hF - cBot, hF / 2 - (cTop + cBot) / 2));
       } else view.offsetY = view.extra / 2;
-      WIN_Y0 = 12 - view.offsetY;
+      WIN_Y0 = 12 - view.offsetY + (view.coverTop || 0);   // R7 학생점검: 예측 띠가 위를 덮으면 그 아래에
       WIN.y = WIN_Y0;
       SCR_TOP = AXIS - 46 * KS; LABEL_Y = SCR_TOP - 6 - 16;
       Y_TOP = (AXIS + view.offsetY) / SY;
@@ -854,7 +858,7 @@
   }
   cv.addEventListener('pointerdown', function (e) {
     var pt = SK.view.toLogical(e);
-    if (inWinHead(pt)) { setWinOpen(!winOpen); SK.requestRender(); e.preventDefault(); return; }
+    if (inWinHead(pt)) { if (winOpen && !winShown()) bandUnfold = true; else setWinOpen(!winShown()); SK.requestRender(); e.preventDefault(); return; }
     var hh = hit(pt);
     if (!hh) {
       var nr = nearRay(pt);
@@ -1410,23 +1414,23 @@
 
   /** 오른쪽 위 정면 보기 창 — [물체 | 스크린(또는 눈)] 두 칸을 같은 배율로 크게. 캡션은 창 밖 아래 */
   var CAP_H = 64;   // R3: 캡션은 창 안 마지막 두 줄
-  function winH() { return winOpen ? WIN.top + WIN.body : WIN.top; }
-  function winBox() { return { x: WIN.x - 8, y: WIN.y - 4, w: WIN.w + 16, h: winH() + 12 + (winOpen ? CAP_H : 0) }; }
+  function winH() { return winShown() ? WIN.top + WIN.body : WIN.top; }
+  function winBox() { return { x: WIN.x - 8, y: WIN.y - 4, w: WIN.w + 16, h: winH() + 12 + (winShown() ? CAP_H : 0) }; }
   function drawWindow(ctx, p, im, sc, bl, done, pred) {
     var w = WIN, H = winH(), onScreen = p.screen, far = p.type === 'far';
     ctx.save();
     ctx.fillStyle = C('--color-paper-raised'); ctx.strokeStyle = C('--color-line-strong'); ctx.lineWidth = 2;
-    roundRect(ctx, w.x, w.y, w.w, H + (winOpen ? CAP_H : 0), 10); ctx.fill(); ctx.stroke();
+    roundRect(ctx, w.x, w.y, w.w, H + (winShown() ? CAP_H : 0), 10); ctx.fill(); ctx.stroke();
     ctx.restore();
     label(ctx, onScreen ? '스크린 정면' : '눈으로 본 모습', w.x + 14, w.y + w.top / 2, { size: 24, weight: 500, align: 'left' });
     // 접기 버튼: 머리 전체(높이 66u = --tap)가 눌림 자리, 버튼 모양은 오른쪽
     var bw = 112, bx = w.x + w.w - bw - 8, by = w.y + 9, bh = w.top - 18;
     ctx.save(); roundRect(ctx, bx, by, bw, bh, 8); ctx.fillStyle = C('--color-paper'); ctx.fill(); ctx.strokeStyle = C('--color-primary'); ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
     // R4: '접기 ▴' 글자 기호 → 글 + 캔버스 아이콘
-    var tl = winOpen ? '접기' : '펼치기', tlw = SK.measure(ctx, tl, { size: 22, weight: 500 }).w, isz = 22, tx0 = bx + bw / 2 - (tlw + 4 + isz) / 2;
+    var tl = winShown() ? '접기' : '펼치기', tlw = SK.measure(ctx, tl, { size: 22, weight: 500 }).w, isz = 22, tx0 = bx + bw / 2 - (tlw + 4 + isz) / 2;
     label(ctx, tl, tx0, w.y + w.top / 2, { size: 22, weight: 500, align: 'left', color: '--color-primary' });
-    SK.drawIcon(ctx, winOpen ? 'chev-up' : 'chev-down', tx0 + tlw + 4 + isz / 2, w.y + w.top / 2, isz, { color: '--color-primary', width: 2.4 });
-    if (!winOpen) return;
+    SK.drawIcon(ctx, winShown() ? 'chev-up' : 'chev-down', tx0 + tlw + 4 + isz / 2, w.y + w.top / 2, isz, { color: '--color-primary', width: 2.4 });
+    if (!winShown()) return;
 
     var pad = 8, top = w.y + w.top, nameH = 32, ph = w.body - pad - nameH;
     var ox = w.x + pad, ow = w.objW, sx = ox + ow + pad, sw = w.x + w.w - pad - sx;

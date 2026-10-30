@@ -707,7 +707,18 @@
     },
     formulas: formulas, formulaOf: formulaOf, chapterForSym: chapterForSym, formulaBody: formulaBody, symFlashIn: symFlashIn,
     /** 정리 모달 형성평가 = wrap 장 quiz (R7-2 형식 {kind, q, choices, answerIdx, why, chapter, try}) · 심화 = wrap.more 배열 */
-    quiz: function () { var w = wrapChapter(); return w && Array.isArray(w.quiz) ? w.quiz : []; },
+    // R7(학생 점검 E7): 문항에 mode 가 있으면 지금 갈래(SK.params 값 중 하나)일 때 같은 kind 의 일반 문항 대신 나온다 — kind 마다 한 문항(늘 3문항)
+    quiz: function () {
+      var w = wrapChapter(); if (!w || !Array.isArray(w.quiz)) return [];
+      var pv = SK.params || {};
+      function on(m) { return Object.keys(pv).some(function (k) { return pv[k] === m; }); }
+      var kinds = [];
+      w.quiz.forEach(function (q) { if (kinds.indexOf(q.kind || '') < 0) kinds.push(q.kind || ''); });
+      return kinds.map(function (k) {
+        var pool = w.quiz.filter(function (q) { return (q.kind || '') === k; });
+        return pool.filter(function (q) { return q.mode && on(q.mode); })[0] || pool.filter(function (q) { return !q.mode; })[0] || pool[0];
+      });
+    },
     quizMore: function () { var w = wrapChapter(); return w && Array.isArray(w.more) ? w.more : []; },
     /** 오해 카드 [해 보기] 로 온 실행이 끝나면 sim.js 가 부른다 */
     markBroke: function (id) { var a = brokeList(); if (a.indexOf(id) < 0) { a.push(id); store('broke', JSON.stringify(a)); } },
@@ -729,7 +740,8 @@
     var w = wrapChapter();
     if (!w) return;
     var qz = w.quiz || [];
-    if (qz.length !== 3) W('wrap.quiz 는 정확히 3문항(개념·계산·오개념) — 지금 ' + qz.length);
+    var general = qz.filter(function (q) { return !q.mode; });
+    if (general.length !== 3) W('wrap.quiz 는 갈래(mode) 없는 문항이 정확히 3개(개념·계산·오개념) — 지금 ' + general.length);
     qz.forEach(function (q, i) {
       var n = '정리 문항 ' + (i + 1);
       if (typeof q.answerIdx !== 'number') W(n + ' 에 answerIdx(0부터)가 없어요');
