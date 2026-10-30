@@ -452,6 +452,8 @@
     standards: ['12역학01-03', '12역학01-04', '12역학01-05'],
     today: MODES.cannon.today,
     stepTasks: tasksFor('cannon'),
+    // R7(C2): 첫 화면 '무엇을 알아볼까요?' 창 대신 [실험 ▾] 시트 맨 위 모드 단추(MODES 표 재사용). 고르면 그 모드 첫 카드(MODES[v].preset)
+    presetModes: ['cannon', 'sat', 'kepler'].map(function (k) { return { key: 'mode', value: k, label: MODES[k].label, preset: MODES[k].preset }; }),
     // R6(C1) 심플 모드: 대포 모드 고정 · 발사 속력 하나 + 천체 칩 · 결과/지금 속력 + 속력 띠(넓은 칸) · 카드 ①·⑤
     simple: {
       task: '발사 속력을 바꿔 쏴요 — 몇 km/s부터 떨어지지 않고 돌까요?',
@@ -493,6 +495,7 @@
       else if (curMode === 'sat') renderSat(view.ctx, p);
       else if (curMode === 'kepler') renderKepler(view.ctx, p);
       updateMeters(p);
+      syncKNote();
       drawBand();
       drawDeep(p);
       updateHud(p);
@@ -579,7 +582,7 @@
     key: 'v0', label: '{{발사 속력}}', symbol: 'v_0', unit: 'km/s',
     min: 0, max: 12, step: 0.1, value: 6.0, decimals: 1, precision: 2,
     ticks: [{ v: 7.9, label: '지구 돌기' }, { v: 11.2, label: '탈출' }], apply: 'restart',
-    hint: '지구에서 7.9 km/s면 지구를 돌고, 11.2 km/s 이상이면 돌아오지 않아요',
+    hint: '지표 기준 7.9 km/s면 지구를 돌고, 11.2 km/s 이상이면 돌아오지 않아요',   // R7(C3): 실험은 20 km 산 — '지표 기준'
     onChange: function () { if (!seq) autoView(); updateSeq(); }
   });
   SK.controls.v0.el.classList.add('og-var-v0');
@@ -617,7 +620,7 @@
     ],
     onChange: function () { seq = null; SK.reset(); updateSeq(true); }
   });
-  SK.controls.mode.el.classList.add('og-modes');
+  SK.controls.mode.el.classList.add('og-modes', 'og-always-hide');   // R7(C2): 모드는 [실험 ▾] 시트 맨 위 단추로(값·키는 그대로)
 
   var bodyCtl = SK.addChoice('situation', {
     key: 'body', label: '중심 천체', style: 'cards', apply: 'restart', value: 'earth',
@@ -625,7 +628,6 @@
       var b = BODIES[k];
       return { value: k, label: b.name, sub: '탈출 ' + SK.fmt(b.vEsc, 1) + ' km/s' };
     }),
-    hint: '목성은 탈출 속도가 커서 이 대포(최대 12 km/s)로는 범위 밖이에요',
     onChange: function (v) {
       if (v === 'jupiter') { SK.notice('목성은 발사 속력 범위 밖이에요', 'warn'); showCompare(); }
       else if (!seq || seq.key !== 'body') autoView();
@@ -633,6 +635,8 @@
     }
   });
   bodyCtl.el.classList.add('og-bodies');
+  // R7(C3): 목성 안내문은 패널 줄 대신 말풍선(세로 패널 잘림 해소) — 목성 카드 title · 고르면 알림
+  (function () { var lb = bodyCtl.el.querySelector('.ctl__label'); if (lb) lb.title = '목성은 탈출 속도가 커서 이 대포(최대 12 km/s)로는 범위 밖이에요'; })();
   (function () {   // 목성 카드: 왜 '범위 밖'인지 말풍선
     var bs = bodyCtl.el.querySelectorAll('.seg__opt');
     if (bs[3]) bs[3].title = '탈출 속도(59.5 km/s)가 너무 커요 — 이 대포는 12 km/s까지';
@@ -651,9 +655,35 @@
       if (btns[i]) btns[i].insertBefore(svg, btns[i].firstChild);
     });
   })();
-  compareBtn = h('button', { class: 'og-link', type: 'button', onclick: function (e) { if (e.detail) e.currentTarget.blur(); showCompare(); } }, '천체 비교 표 — 왜 탈출 속도가 다를까? ▸');
+  compareBtn = h('button', { class: 'og-link', type: 'button', title: '천체 비교 표 — 왜 탈출 속도가 다를까?', onclick: function (e) { if (e.detail) e.currentTarget.blur(); showCompare(); } }, '천체 비교 표 ▸');
   SK.iconify(compareBtn);   // R4: ▸ → 아이콘
-  bodyCtl.el.appendChild(compareBtn);
+  // R7(C3): 패널 높이 — 비교 표 링크는 '중심 천체' 이름 줄 오른쪽으로(줄 하나 아낌)
+  (function () { var lb = bodyCtl.el.querySelector('.ctl__label'); if (lb) lb.appendChild(compareBtn); else bodyCtl.el.appendChild(compareBtn); })();
+
+  /* R7(C3): 케플러 모드 패널 — 수치·상황이 없어 비던 자리에 그래프 바꾸기 단추 한 줄(⚙ 의 '그래프 축'과 같은 값 · 키 G·Z) */
+  var kNote = null, kBtns = {};
+  (function makeKeplerNote() {
+    function b(key, val, label) {
+      var el = h('button', { class: 'og-knote__btn', type: 'button', 'aria-pressed': 'false' }, SK.mathNodes(label));
+      el.addEventListener('click', function (e) { if (e.detail) el.blur(); SK.set(key, val); });
+      kBtns[key + ':' + val] = el; return el;
+    }
+    kNote = h('section', { class: 'og-knote', hidden: true, 'aria-label': '케플러 그래프 바꾸기' }, [
+      h('p', { class: 'og-knote__t', text: '그래프 축 (G)' }),
+      h('div', { class: 'og-knote__row', role: 'group' }, [b('gaxis', 'lin', '$T$ – $a$ (휘어진 선)'), b('gaxis', 'sq', '$T^2$ – $a^3$ (곧은 선?)')]),
+      h('p', { class: 'og-knote__t', text: '보는 범위 (Z)' }),
+      h('div', { class: 'og-knote__row', role: 'group' }, [b('kzoom', 'all', '행성 6개 전체'), b('kzoom', 'inner', '안쪽 4개 확대')]),
+      h('p', { class: 'var__hint', text: '보조선·화살표 같은 표시는 ⚙ 설정(U)에서 바꿔요' })
+    ]);
+    SK.el.panel.appendChild(kNote);
+  })();
+  function syncKNote() {
+    if (!kNote) return;
+    var on = curMode === 'kepler' && !SK.isSimple();
+    if (kNote.hidden === on) kNote.hidden = !on;
+    if (!on) return;
+    for (var k in kBtns) { var kv = k.split(':'), pr = String(SK.get(kv[0]) === kv[1]); if (kBtns[k].getAttribute('aria-pressed') !== pr) kBtns[k].setAttribute('aria-pressed', pr); }
+  }
 
   /* ------------------------------------------------------------------
      8. 화면에 표시하기
@@ -809,16 +839,16 @@
      10. 하단 띠 — 계기판 1줄 · 속력 막대(대포·위성) / T²/a³ 막대(케플러)
      ------------------------------------------------------------------ */
   meterSets.cannon = SK.meters(null, [
-    { key: 'v', label: '지금 속력', symbol: 'v', unit: 'km/s', decimals: 2, q: 'velocity', size: 'md' },
-    { key: 'alt', label: '고도', unit: 'km', decimals: 0, size: 'md' },
-    { key: 'res', label: '결과', unit: '', size: 'md' },
+    { key: 'v', label: '지금 속력', symbol: 'v', unit: 'km/s', decimals: 2, q: 'velocity', size: 'md', core: true },   // R7(C3): core = 띠에 늘 보임
+    { key: 'alt', label: '고도', unit: 'km', decimals: 0, size: 'md' },                                                  //        나머지는 [수치 더 보기]
+    { key: 'res', label: '결과', unit: '', size: 'md', core: true },
     // R6(C1): 심플 측정 칸 전용 — 결과(추락·궤도·탈출 글자+색) · 지금 속력. 위성 모드의 'v' 와 key 가 겹치지 않게 따로
     { key: 'sres', label: '결과', unit: '', simpleOnly: true },
     { key: 'sv', label: '지금 속력', symbol: 'v', unit: 'km/s', decimals: 2, q: 'velocity', simpleOnly: true }
   ]);
   meterSets.sat = SK.meters(null, [
-    { key: 'v', label: '속력', symbol: 'v', unit: 'km/s', decimals: 2, q: 'velocity', size: 'md' },
-    { key: 'T', label: '{{주기}}', symbol: 'T', unit: '분', decimals: 1, size: 'md' },
+    { key: 'v', label: '속력', symbol: 'v', unit: 'km/s', decimals: 2, q: 'velocity', size: 'md', core: true },
+    { key: 'T', label: '{{주기}}', symbol: 'T', unit: '분', decimals: 1, size: 'md', core: true },
     { key: 'g', label: '지표 $g$ 대비', unit: '%', q: 'force', size: 'md' }   // R5: 1920 에서도 한 줄 (css nowrap)
   ]);
   meterSets.kepler = SK.meters(null, [
@@ -931,7 +961,7 @@
     var simple = SK.isSimple();
     // 심플: 칸 높이(1920 기준 약 88u)에 맞춰 글자·막대를 함께 키운다(세로 태블릿은 칸이 u 보다 커서 k ≈ 1.5)
     var k = simple ? Math.max(1, Math.min(1.3, H / 88)) : 1;
-    var x0 = simple ? 4 : 12, x1 = W - (simple ? 4 : 12), NUM = simple ? Math.round(28 * k) : 22, ROW = simple ? 32 * k : 20, GAP = simple ? 4 : 1;
+    var x0 = simple ? 4 : 12, x1 = W - (simple ? 4 : 12), NUM = simple ? Math.round(28 * k) : 22, ROW = simple ? 32 * k : 26, GAP = simple ? 4 : 1;   // R7(C3): 자세히 숫자 줄 26 — 22 글자가 칸(캔버스) 아래로 잘리지 않게
     var by = simple ? 2 : 0;
     var bh = Math.max(20, Math.min(simple ? 56 * k : 40, H - by - GAP - ROW));
     var ry = by + bh + GAP;                                       // 숫자 줄 위 끝
@@ -1610,7 +1640,7 @@
     if (next !== null) {
       var why = SK.running ? '실행이 끝난 뒤에 넘어가요' : (SK.finished && !recd && idx >= 0 ? '먼저 위 기록하기를 눌러요' : '');
       var nb = h('button', { class: 'btn btn--secondary btn--sm og-seq__next' + (why ? ' is-blocked' : ''), type: 'button', 'aria-disabled': why ? 'true' : 'false',
-        title: why || ('다음 값으로 바꿔요 — ' + (seq.tip ? seq.tip(next) : seq.label(next) + seq.unit)) }, '다음: ' + seq.label(next) + seq.unit + ' ▶');
+        title: why || ('다음 값으로 바꿔요 — ' + (seq.tip ? seq.tip(next) : seq.label(next) + seq.unit)), 'aria-label': '다음: ' + seq.label(next) + seq.unit }, '다음 ' + seq.label(next) + ' ▶');   // R7(C3): 칩 줄 안에 짧게
       SK.iconify(nb);
       nb.addEventListener('click', function (e) { if (e.detail) nb.blur(); if (why) { SK.notice(why, 'info'); return; } goSeq(next); });
       row.appendChild(nb);
@@ -1673,7 +1703,7 @@
   SK.help({
     inlineTerms: true,
     how: [
-      '처음 창에서 실험을 하나 골라요. 패널 맨 위 실험 고르기 버튼으로 언제든 바꿀 수 있어요.',
+      '아래 [실험 ▾](Y)에서 실험을 골라요 — 맨 위 단추로 뉴턴의 대포·원궤도 위성·케플러 자료를 바꿀 수 있어요.',
       '실험 카드를 누르면 값이 바로 바뀌고 예측 질문이 나와요. 답을 고르고 예측하기를 눌러요.',
       '아래 ▶ 실행을 눌러 포탄을 쏘거나(뉴턴의 대포) 위성을 한 바퀴 돌려요(원궤도 위성).',
       '끝나면 위 띠의 기록하기 버튼으로 결과를 저장해요.',
@@ -1793,48 +1823,48 @@
   SK.takeaway(function (p) {
     if (curMode === 'kepler') {
       var st = kStats();
-      return { line: 'T²/a³ 평균 ' + SK.fmt(st.mean, 2) + ' — 여섯 행성이 거의 같아요', more: '케플러 제3법칙 T² ∝ a³이에요. 같은 태양의 중력이 모든 행성을 끌어당기기 때문에 비례 상수가 같아요(AU·년 단위로 약 1).' };
+      return { line: 'T²/a³ 평균 ' + SK.fmt(st.mean, 2) + ' — 여섯 행성이 거의 같아요', more: '케플러 제3법칙 T² ∝ a³이에요. 같은 태양의 중력이 모든 행성을 끌어당기기 때문에 비례 상수가 같아요(AU·년 단위로 약 1).', lesson: 'kepler' };
     }
     if (curMode === 'sat') {
       var s = satCalc(p.alt), line = '고도 ' + comma(p.alt) + ' km: 속력 ' + SK.fmt(s.v, 2) + ' km/s, 주기 ' + periodText(s.T);
-      if (Math.abs(p.alt - 400) < 1) return { line: line, more: 'ISS도 계속 떨어지고 있지만, 옆으로 ' + SK.fmt(s.v, 1) + ' km/s로 달려서 땅이 같이 휘어 멀어져요. 중력은 지표의 ' + pctText(s.g) + '% — 무중력이 아니라 함께 떨어지는 상태예요. 위성 질량을 바꿔도 속력·주기는 그대로예요.' };
-      if (Math.abs(p.alt - 35786) < 1) return { line: line, more: '주기가 지구 자전(약 하루)과 같아서 늘 같은 곳 위에 떠 있어요(정지궤도). 높을수록 중력이 약해 느리게 돌고, 돌 길도 길어져 주기가 길어요.' };
-      return { line: line, more: 'r = 지구 반지름 6,371 km + 고도 = ' + comma(6371 + p.alt) + ' km. 높을수록 중력이 약해 느리게 돌고, 돌 길도 길어져 주기가 길어요.' };
+      if (Math.abs(p.alt - 400) < 1) return { line: line, more: 'ISS도 계속 떨어지고 있지만, 옆으로 ' + SK.fmt(s.v, 1) + ' km/s로 달려서 땅이 같이 휘어 멀어져요. 중력은 지표의 ' + pctText(s.g) + '% — 무중력이 아니라 함께 떨어지는 상태예요. 위성 질량을 바꿔도 속력·주기는 그대로예요.', lesson: 'weightless' };
+      if (Math.abs(p.alt - 35786) < 1) return { line: line, more: '주기가 지구 자전(약 하루)과 같아서 늘 같은 곳 위에 떠 있어요(정지궤도). 높을수록 중력이 약해 느리게 돌고, 돌 길도 길어져 주기가 길어요.', lesson: 'orbit-speed' };
+      return { line: line, more: 'r = 지구 반지름 6,371 km + 고도 = ' + comma(6371 + p.alt) + ' km. 높을수록 중력이 약해 느리게 돌고, 돌 길도 길어져 주기가 길어요.', lesson: 'orbit-speed' };
     }
     if (!cn || !cn.res) return null;
     var b = cn.b, v0 = SK.fmt(p.v0, 1) + ' km/s', vc = SK.fmt(b.vCirc, 1) + ' km/s', ve = SK.fmt(b.vEsc, 1) + ' km/s';
     var where = b.key === 'earth' ? '' : ' (' + b.name + ')';
     if (cn.res === '추락') return { line: '발사 속력 ' + v0 + ' — 원 궤도 속력 ' + vc + '보다 느려요' + where,
-      more: '떨어지는 만큼 땅이 충분히 휘어 내려가지 못해 땅에 닿았어요. ' + comma(cn.dist) + ' km 날아갔고, 떨어질 때 속력은 ' + SK.fmt(cn.vImp, 2) + ' km/s — 떨어지는 동안 중력이 끌어당겨 처음보다 빨라져요.' };
+      more: '떨어지는 만큼 땅이 충분히 휘어 내려가지 못해 땅에 닿았어요. ' + comma(cn.dist) + ' km 날아갔고, 떨어질 때 속력은 ' + SK.fmt(cn.vImp, 2) + ' km/s — 떨어지는 동안 중력이 끌어당겨 처음보다 빨라져요.', lesson: 'cannon' };
     if (cn.res === '원 궤도') return { line: '발사 속력 ' + v0 + ', 탈출 속도는 ' + ve + where,
-      more: '포탄은 계속 떨어지지만 그만큼 둥근 땅도 휘어 내려가 고도가 그대로예요. 한 바퀴에 약 ' + fmtDur(cn.t) + ' — 이것이 인공위성이에요.' };
+      more: '포탄은 계속 떨어지지만 그만큼 둥근 땅도 휘어 내려가 고도가 그대로예요. 한 바퀴에 약 ' + fmtDur(cn.t) + ' — 이것이 인공위성이에요.', lesson: 'cannon' };
     if (cn.res === '타원 궤도') return { line: '발사 속력 ' + v0 + ' — 원 궤도 속력보다 빠르고 탈출 속도(' + ve + ')보다 느려요',
-      more: '멀리 올라갔다가 다시 돌아오는 타원 궤도예요. 쏜 곳이 궤도에서 가장 낮은 곳이 돼요.' };
+      more: '멀리 올라갔다가 다시 돌아오는 타원 궤도예요. 쏜 곳이 궤도에서 가장 낮은 곳이 돼요.', lesson: 'cannon' };
     if (cn.res === '탈출') return { line: '발사 속력 ' + v0 + ' — 탈출 속도 ' + ve + ' 이상이에요' + where,
-      more: '중력이 속력을 줄이지만 0까지 줄이지 못해 돌아오지 않아요. 탈출 속도는 원 궤도 속력의 √2 ≈ 1.41배예요.' };
-    return { line: '발사 속력 ' + v0 + ' — 탈출 속도 ' + ve + '보다 조금 느려요', more: '아주 멀리 갔다가 언젠가 돌아오는 긴 타원이에요. 조금만 더 빠르면 탈출해요.' };
+      more: '중력이 속력을 줄이지만 0까지 줄이지 못해 돌아오지 않아요. 탈출 속도는 원 궤도 속력의 √2 ≈ 1.41배예요.', lesson: 'escape' };
+    return { line: '발사 속력 ' + v0 + ' — 탈출 속도 ' + ve + '보다 조금 느려요', more: '아주 멀리 갔다가 언젠가 돌아오는 긴 타원이에요. 조금만 더 빠르면 탈출해요.', lesson: 'escape' };
   });
 
   /* 정리 질문 (모드별: when) — 보기형은 답을 누르면 이유가 바로, 서술형은 힌트 → 모범 답 */
   function inMode() { var ms = Array.prototype.slice.call(arguments); return function (p) { return ms.indexOf((p && p.mode) || curMode) >= 0; }; }
-  SK.think({ id: 'g-zero', when: inMode('cannon', 'sat'), q: '로켓이 아주 높이 올라가면 지구 중력이 0이 될까?', choices: ['0이 된다', '약해지지만 0은 아니다', '오히려 세진다'], answer: 2,
+  SK.think({ id: 'g-zero', lesson: 'inverse-square', when: inMode('cannon', 'sat'), q: '로켓이 아주 높이 올라가면 지구 중력이 0이 될까?', choices: ['0이 된다', '약해지지만 0은 아니다', '오히려 세진다'], answer: 2,
     why: '중력은 거리의 제곱에 반비례(F = GMm/r²)해서 줄어들 뿐 0이 되지 않아요. ISS 높이에서도 지표의 89%, 정지궤도에서도 2.3%가 남아 있어요. "우주는 무중력"은 흔한 오해예요.' });
-  SK.think({ id: 'c-fall', when: inMode('cannon'), q: '7.9 km/s로 쏜 포탄이 땅에 떨어지지 않는 까닭은?', choices: ['그 높이에서는 중력이 사라져서', '떨어지는 만큼 땅이 둥글게 휘어 멀어져서', '너무 빨라서 중력을 안 받아서'], answer: 2,
+  SK.think({ id: 'c-fall', lesson: 'cannon', when: inMode('cannon'), q: '7.9 km/s로 쏜 포탄이 땅에 떨어지지 않는 까닭은?', choices: ['그 높이에서는 중력이 사라져서', '떨어지는 만큼 땅이 둥글게 휘어 멀어져서', '너무 빨라서 중력을 안 받아서'], answer: 2,
     why: '포탄은 계속 중력을 받아 떨어지고 있어요. 다만 옆으로 아주 빨라서, 떨어지는 만큼 땅도 둥글게 휘어 내려가 고도가 그대로예요. 중력은 속력과 상관없이 작용해요.' });
-  SK.think({ id: 'c-mars', when: inMode('cannon'), q: '화성의 탈출 속도(5.0 km/s)가 지구(11.2 km/s)보다 작은 까닭을 v = √(2GM/R)로 설명해 봐요.',
+  SK.think({ id: 'c-mars', lesson: 'escape', when: inMode('cannon'), q: '화성의 탈출 속도(5.0 km/s)가 지구(11.2 km/s)보다 작은 까닭을 v = √(2GM/R)로 설명해 봐요.',
     hint: 'M(질량)과 R(반지름)이 지구의 몇 배인지 천체 비교 표에서 찾아봐요.',
     reveal: '<b>모범 답</b> 화성은 질량 M이 지구의 약 0.11배, 반지름 R은 약 0.53배예요. M/R이 지구의 약 0.2배라서 탈출 속도는 √0.2 ≈ 0.45배, 약 5 km/s예요.<br><b>해설</b> 반지름이 작아지면 탈출 속도가 커지지만, 질량이 훨씬 더 많이 작아서 결과적으로 작아져요.' });
-  SK.think({ id: 's-mass', when: inMode('sat'), q: '같은 높이에서 10,000 kg 위성과 100 kg 위성이 돌면?', choices: ['무거운 쪽이 빨리 돈다', '같은 빠르기로 돈다', '가벼운 쪽이 빨리 돈다'], answer: 2,
+  SK.think({ id: 's-mass', lesson: 'orbit-speed', when: inMode('sat'), q: '같은 높이에서 10,000 kg 위성과 100 kg 위성이 돌면?', choices: ['무거운 쪽이 빨리 돈다', '같은 빠르기로 돈다', '가벼운 쪽이 빨리 돈다'], answer: 2,
     why: 'GMm/r² = mv²/r에서 위성 질량 m이 지워져 v = √(GM/r)이에요. 무거우면 중력도 크지만 그만큼 움직임을 바꾸기도 어려워(관성) 상쇄돼요.' });
-  SK.think({ id: 's-float', when: inMode('sat'), q: '국제우주정거장 안의 우주인이 둥둥 떠 있는 까닭은?', choices: ['우주에는 중력이 없어서', '우주정거장과 우주인이 함께 떨어지고 있어서', '공기가 없어서'], answer: 2,
+  SK.think({ id: 's-float', lesson: 'weightless', when: inMode('sat'), q: '국제우주정거장 안의 우주인이 둥둥 떠 있는 까닭은?', choices: ['우주에는 중력이 없어서', '우주정거장과 우주인이 함께 떨어지고 있어서', '공기가 없어서'], answer: 2,
     why: '그 높이에서도 중력은 지표의 89%예요. 우주정거장과 우주인이 똑같이 떨어지니 바닥이 우주인을 받치지 않아 떠 보여요. 줄이 끊긴 엘리베이터 안에서 함께 떨어질 때와 같아요.' });
-  SK.think({ id: 's-geo', when: inMode('sat'), q: '정지궤도 위성은 왜 모두 같은 높이(약 35,786 km)에 있을까?',
+  SK.think({ id: 's-geo', lesson: 'orbit-speed', when: inMode('sat'), q: '정지궤도 위성은 왜 모두 같은 높이(약 35,786 km)에 있을까?',
     hint: '늘 같은 곳 위에 있으려면 주기가 얼마여야 할까요? 주기가 정해지면 r은?',
     reveal: '<b>모범 답</b> 늘 같은 곳 위에 있으려면 지구 자전과 같은 주기(약 23.9시간)로 돌아야 해요. T² ∝ r³이라 주기가 정해지면 거리 r도 하나로 정해져요 → 지구 중심에서 약 42,200 km(지구 반지름의 6.6배), 고도 약 35,800 km.<br><b>해설</b> 위성 질량은 주기에 영향을 주지 않으니, 큰 위성이든 작은 위성이든 높이가 같아요.' });
-  SK.think({ id: 'k-mean', when: inMode('kepler'), q: '모든 행성에서 T²/a³이 1로 같다는 것은 무엇을 뜻할까?',
+  SK.think({ id: 'k-mean', lesson: 'kepler', when: inMode('kepler'), q: '모든 행성에서 T²/a³이 1로 같다는 것은 무엇을 뜻할까?',
     hint: 'T² = (4π²/GM) a³에서 M은 누구의 질량일까요?',
     reveal: '<b>모범 답</b> 모든 행성이 같은 태양 하나의 중력으로 돈다는 뜻이에요. 비례 상수 4π²/GM은 태양 질량 M으로만 정해져서, 태양을 도는 천체라면 행성이든 소행성이든 같은 값(AU·년 단위로 1)이에요.' });
-  SK.think({ id: 'k-four', when: inMode('kepler'), q: '태양에서 4 AU 떨어져 도는 소행성의 공전 주기는?', choices: ['4년', '8년', '16년', '64년'], answer: 2,
+  SK.think({ id: 'k-four', lesson: 'kepler', when: inMode('kepler'), q: '태양에서 4 AU 떨어져 도는 소행성의 공전 주기는?', choices: ['4년', '8년', '16년', '64년'], answer: 2,
     why: 'T² = a³ = 4³ = 64 → T = √64 = 8년. 거리가 4배여도 주기는 4배가 아니라 8배예요.' });
 
   /* ------------------------------------------------------------------
@@ -1925,24 +1955,21 @@
   });
 
   /* ------------------------------------------------------------------
-     19. 첫 화면 실험 고르기 → 그 실험의 첫 카드 적용 → 예측 창(공통 autoPredict)
+     19. R7(C2): 첫 화면 '무엇을 알아볼까요?' 창 폐지 → [실험 ▾] 시트 맨 위 모드 단추(cfg.presetModes).
+         ?mode=값 은 그대로: 창 없이 그 모드로 시작하고 그 모드 첫 카드를 적용(예전 chooseMode onPick 흐름).
+         ?preset=n 이 함께 오면 공통 틀(bootView)이 카드를 맡는다.
      ------------------------------------------------------------------ */
-  modeCtl = SK.chooseMode({
-    title: '무엇을 알아볼까요?', place: 'top',   // R5: 대포·지구가 아래쪽이라 창은 위
-    default: 'cannon', urlKey: 'mode', key: 'mode',
-    modes: [
-      { value: 'cannon', label: '뉴턴의 대포', desc: '대포를 점점 세게 쏘아 궤도 찾기' },
-      { value: 'sat', label: '원궤도 위성', desc: '위성을 원 궤도에 올려 보기' },
-      { value: 'kepler', label: '케플러 자료', desc: '케플러 법칙 표로 익히기 (행성 자료)' }
-    ],
-    onPick: function (v) {
-      var changed = SK.get('mode') !== v;
-      if (changed) SK.set('mode', v);
-      // 실험이 바뀌면 그 실험의 첫 카드를 적용(값이 바로 바뀜) → 공통 틀이 예측 창을 띄운다.
-      // 같은 실험이면 공통 틀의 autoPredict(지금 카드 → 첫 카드)에 맡긴다.
-      if (changed && CFG.autoPredict && !SK.records.length && MODES[v].preset !== undefined) SK.applyPreset(MODES[v].preset);
-    }
-  });
+  (function modeFromUrl() {
+    var q = null;
+    try { q = new URLSearchParams(location.search); } catch (e) { q = null; }
+    var v = q && q.get('mode');
+    if (!v || !MODES[v] || (q.get('preset') !== null && /^\d+$/.test(q.get('preset')))) return;
+    setTimeout(function () {
+      if (SK.isSimple() && v !== 'cannon') return;   // 심플은 대포 고정(R6)
+      if (SK.get('mode') !== v) SK.set('mode', v);
+      if (!SK.records.length && MODES[v].preset !== undefined) SK.applyPreset(MODES[v].preset, { noConfirm: true });
+    }, 0);
+  })();
 
   /* ------------------------------------------------------------------
      20. R6 심플 모드 — 대포 모드 고정(위성·케플러는 자세히 전용). 들어갈 때 모드를 기억했다가 자세히로 돌아오면 되돌린다.

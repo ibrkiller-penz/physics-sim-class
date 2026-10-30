@@ -71,6 +71,27 @@
       font: var(--font-weight-bold) var(--fs-body)/1 var(--font-sans);
     }
     .card__open .ico { width: calc(28 * var(--u)); height: calc(28 * var(--u)); margin-left: calc(-4 * var(--u)); }
+    /* R7: [설명부터 ▸](주색) [바로 실험](윤곽) · 칩 '① 설명 N장 → ② 실험 5가지' · 읽은 장 점 */
+    .card__open--sim { min-height: calc(56 * var(--u)); color: var(--sim-text); background: var(--color-paper-raised); border-width: calc(2 * var(--u)); font-weight: var(--font-weight-medium); font-size: var(--fs-meta); }
+    html:not(.cursor-hidden) .card__open--sim:hover { background: var(--sim-tint); filter: none; }
+    .card__steps { width: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--space-1) var(--space-2); font: var(--font-weight-medium) var(--fs-caption)/1.3 var(--font-sans); color: var(--sim-text); }
+    .card__steps span { padding: calc(4 * var(--u)) var(--space-2); border-radius: var(--radius-pill); background: var(--sim-tint); white-space: nowrap; }
+    .card__steps i { font-style: normal; color: var(--color-line-strong); }
+    .card__seen { display: flex; align-items: center; justify-content: center; gap: calc(6 * var(--u)); min-height: calc(24 * var(--u)); font: var(--font-weight-regular) var(--fs-caption)/1 var(--font-sans); color: var(--color-ink-muted); }
+    .card__seen[hidden] { display: none; }
+    /* R7: 카드 안 칸이 늘어 16:9 는 아이콘·간격을 줄인다(카드 5장 높이 같음) · 링크 줄은 있는 카드만 */
+    .card { gap: var(--space-2); }
+    .card__mid { gap: var(--space-2); }
+    .card__icon { height: calc(56 * var(--u)); width: calc(96 * var(--u)); }
+    .card__q { min-height: 0; }
+    /* 링크 줄은 빈 카드도 같은 높이로 남겨 다섯 카드의 [설명부터][바로 실험] 바닥선을 맞춘다 (팀장 R7 마무리) */
+    .card__go { gap: var(--space-2); }
+    @media (orientation: portrait) and (min-width: 601px) { .cards { grid-auto-rows: 1fr; } }
+    @media (orientation: landscape) { .card__icon { display: none; } }   /* 가로: 선화 아이콘 대신 설명→실험 칩 자리 */
+    .card__steps { flex-wrap: nowrap; gap: var(--space-1); }
+    .card__steps span { padding: calc(3 * var(--u)) calc(6 * var(--u)); }
+    .card__seen i { width: calc(12 * var(--u)); height: calc(12 * var(--u)); min-width: 6px; min-height: 6px; border-radius: 50%; border: calc(2 * var(--u)) solid var(--sim); }
+    .card__seen i.is-seen { background: var(--sim); }
     .card__links a .ico { width: 1em; height: 1em; margin-left: calc(2 * var(--u)); }
     .card__links { min-height: calc(44 * var(--u)); display: flex; flex-wrap: wrap; gap: 0 var(--space-4); justify-content: center; margin-top: 0; }
     .card__links a {
@@ -165,15 +186,15 @@
 
       <header class="hub-head">
         <h1 class="hub-title">바꾸고, 겨루고, <span>비교하는</span> 물리 실험실</h1>
-        <p class="hub-sub">실험 하나를 골라 [열기]를 누르세요. 모든 실험은 같은 순서로 진행돼요.
+        <p class="hub-sub">실험 하나를 골라 [설명부터]를 누르세요. 교과 설명을 읽고 나서 실험으로 넘어가요.
           <small>고등학교 물리(2022 개정) — 「물리학」 · 「역학과 에너지」 · 「전자기와 양자」</small></p>
       </header>
 
       <main class="cards" id="cards" aria-label="실험 5가지"></main>
 
       <footer class="hub-foot">
-        <span class="flow" aria-label="모든 실험의 순서"><b><span class="circ" aria-hidden="true">1</span> 예측</b><i>→</i><b><span class="circ" aria-hidden="true">2</span> 실행</b><i>→</i><b><span class="circ" aria-hidden="true">3</span> 비교</b><i>→</i><b><span class="circ" aria-hidden="true">4</span> 정리</b></span>
-        <span aria-hidden="true">·</span><span>한 실험에 약 20분</span>
+        <span class="flow" aria-label="모든 실험의 순서: 설명, 예측, 실행, 비교, 정리"><b><span class="circ" aria-hidden="true">1</span> 설명</b><i>→</i><b><span class="circ" aria-hidden="true">2</span> 예측</b><i>→</i><b><span class="circ" aria-hidden="true">3</span> 실행</b><i>→</i><b><span class="circ" aria-hidden="true">4</span> 비교</b><i>→</i><b><span class="circ" aria-hidden="true">5</span> 정리</b></span>
+        <span aria-hidden="true">·</span><span title="설명 5분 · 예측 10분 · 실험 20분 · 정리 10분">한 차시 약 45분 (5·10·20·10)</span>
         <span aria-hidden="true">·</span><span class="hub-foot__credit">글꼴: 에스코어 드림 (S-Core)</span>
       </footer>
     </div>
@@ -193,18 +214,21 @@
     };
     var SIMS = [
       { slug: 'projectile-energy', icon: 'projectile', title: '포물선 운동과 역학적 에너지', subj: '역학과 에너지',
-        q: '옆으로 던진 공과 떨어뜨린 공, 무엇이 먼저 땅에 닿을까?', what: '속력·각도를 바꿔 던지고 거리를 비교해요', std: '[12역학01-02]' },
+        q: '옆으로 던진 공과 떨어뜨린 공, 무엇이 먼저 땅에 닿을까?', what: '속력·각도를 바꿔 던지고 거리를 비교해요', std: '[12역학01-02]', chapters: 9 },
       { slug: 'double-slit-quantum', icon: 'slit', title: '이중 슬릿: 빛에서 전자 하나까지', subj: '물리학 · 전자기와 양자',
-        q: '전자를 하나씩 보내도 줄무늬가 생길까?', what: '파장·틈 간격을 바꿔 무늬 간격을 재요', std: '[12물리03-01] [12전자03-01]',
+        q: '전자를 하나씩 보내도 줄무늬가 생길까?', what: '파장·틈 간격을 바꿔 무늬 간격을 재요', std: '[12물리03-01] [12전자03-01]', chapters: 11,
         sub: [{ mode: 'physics', label: '빛 실험', full: '빛으로 줄무늬 재기' }, { mode: 'quantum', label: '전자 실험', full: '전자 하나씩 보내기' }] },
       { slug: 'collision-momentum', icon: 'collision', title: '일차원 충돌과 운동량 보존', subj: '물리학',
-        q: '무거운 수레와 가벼운 수레가 부딪치면 누가 더 큰 힘을 받을까?', what: '두 수레를 부딪쳐 운동량·힘을 비교해요', std: '[12물리01-03]' },
+        q: '같은 질량의 두 수레가 부딪치면 어떻게 될까?', what: '두 수레를 부딪쳐 운동량·힘을 비교해요', std: '[12물리01-03]', chapters: 9 },
       { slug: 'orbit-gravity', icon: 'orbit', title: '인공위성과\n탈출 속도', subj: '역학과 에너지',
-        q: '얼마나 빨리 던지면 땅에 떨어지지 않고 지구를 돌까?', what: '발사 속력을 높여 궤도·탈출을 찾아요', std: '[12역학01-03·04·05]', mode: 'cannon' },
+        q: '얼마나 빨리 던지면 땅에 떨어지지 않고 지구를 돌까?', what: '발사 속력을 높여 궤도·탈출을 찾아요', std: '[12역학01-03·04·05]', mode: 'cannon', chapters: 10 },
       { slug: 'convex-lens', icon: 'lens', title: '볼록렌즈로\n상 만들기', subj: '물리학',
-        q: '렌즈로 만든 상은 왜 거꾸로일까?', what: '물체를 옮겨 선명한 상의 위치를 찾아요', std: '[12물리03-02]' }
+        q: '렌즈로 만든 상은 왜 거꾸로일까?', what: '물체를 옮겨 선명한 상의 위치를 찾아요', std: '[12물리03-02]', chapters: 11 }
     ];
-    var MARKS = ['●', '▲', '■', '◆', '★'];
+    /** R7: 설명 읽은 장 수 (시뮬레이터 lesson.js 가 저장한 physsim.lesson.<slug>.seen — 없으면 null) */
+    function seenCount(slug) {
+      try { var v = localStorage.getItem('physsim.lesson.' + slug + '.seen'); if (!v) return null; var a = JSON.parse(v); return Array.isArray(a) ? a.length : null; } catch (err) { return null; }
+    }
     function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
     var box = document.getElementById('cards');
     var openLinks = [];
@@ -214,7 +238,6 @@
       card.setAttribute('data-sim', s.slug);
       var top = el('div', 'card__top');
       top.appendChild(el('span', 'card__key num', String(i + 1)));
-      var mk = el('span', 'card__mark', MARKS[i]); mk.setAttribute('aria-hidden', 'true'); top.appendChild(mk);
       if (i === 0) top.appendChild(el('span', 'card__first', '처음이면 여기부터'));
       card.appendChild(top);
       card.appendChild(el('h2', 'card__title', s.title));
@@ -226,17 +249,35 @@
       what.appendChild(el('b', null, '무엇을 하나요'));
       what.appendChild(el('span', null, s.what));
       mid.appendChild(what);
+      // R7: 설명 → 실험 흐름 칩 + 읽은 장 점(저장이 있을 때만)
+      var steps = el('p', 'card__steps');
+      steps.appendChild(el('span', null, '설명 ' + s.chapters + '장')); steps.appendChild(el('i', null, '→')); steps.appendChild(el('span', null, '실험 5가지'));
+      steps.setAttribute('aria-label', '설명 ' + s.chapters + '장을 읽고 실험 5가지');
+      mid.appendChild(steps);
+      var seenN = seenCount(s.slug), seen = el('p', 'card__seen');
+      seen.hidden = seenN === null;
+      if (seenN !== null) {
+        seen.appendChild(document.createTextNode('읽은 장 ' + Math.min(seenN, s.chapters) + '/' + s.chapters + ' '));
+        for (var k = 0; k < s.chapters; k++) { var d = el('i'); if (k < seenN) d.className = 'is-seen'; d.setAttribute('aria-hidden', 'true'); seen.appendChild(d); }
+      }
+      mid.appendChild(seen);
       card.appendChild(mid);
       var go = el('div', 'card__go');
-      // 카드 5장 모두 [열기] 하나 (이중 슬릿은 아래 작은 링크 2개로 바로 가기)
-      var a = el('a', 'card__open', '열기');
+      // R7: [설명부터 ▸](주색, ?view=explain) [바로 실험](윤곽선, ?view=sim) — 이중 슬릿은 아래 작은 칩 2개로 모드 바로 가기
+      var mq = s.mode ? '&mode=' + s.mode : '';
+      var a = el('a', 'card__open', '설명부터');
       a.insertAdjacentHTML('beforeend', SimIcons.html('chev-right'));   // R4: ▸ → SVG 아이콘 (shared/icons.js)
-      a.setAttribute('data-base', base + (s.mode ? '?mode=' + s.mode : ''));   // R6: 쿼리 조립 전 기본 주소 (buildQuery)
+      a.setAttribute('data-base', base + '?view=explain' + mq);   // R6: 쿼리 조립 전 기본 주소 (buildQuery 가 view·mode 를 그대로 둔다)
       var sc = el('span', 'card__simple', '심플'); sc.title = '심플 모드로 열려요'; a.insertBefore(sc, a.firstChild);   // R6: 허브에서 심플을 고르면 보임
       a.href = a.getAttribute('data-base');
-      a.setAttribute('aria-label', (i + 1) + '번 ' + s.title.replace(/\n/g, ' ') + ' 열기');
+      a.setAttribute('aria-label', (i + 1) + '번 ' + s.title.replace(/\n/g, ' ') + ' — 교과 설명부터 열기');
       go.appendChild(a);
       openLinks.push(a);
+      var a2 = el('a', 'card__open card__open--sim', '바로 실험');
+      a2.setAttribute('data-base', base + '?view=sim' + mq);
+      a2.href = a2.getAttribute('data-base');
+      a2.setAttribute('aria-label', (i + 1) + '번 ' + s.title.replace(/\n/g, ' ') + ' — 설명 없이 바로 실험');
+      go.appendChild(a2);
       // [열기] 높이를 다섯 장 모두 같게: 링크 줄 자리를 늘 남겨 둔다
       var links = el('div', 'card__links');
       go.appendChild(links);
@@ -244,7 +285,7 @@
         s.sub.forEach(function (m) {
           var l = el('a', 'card__chip', m.label);   // R6(S10): 44u 터치 칩
           l.insertAdjacentHTML('beforeend', SimIcons.html('chev-right'));
-          l.setAttribute('data-base', base + '?mode=' + m.mode);
+          l.setAttribute('data-base', base + '?view=sim&mode=' + m.mode);
           l.href = l.getAttribute('data-base');
           l.setAttribute('aria-label', (i + 1) + '번 ' + s.title.replace(/\n/g, ' ') + ' — ' + m.full + '로 바로 열기'); l.title = m.full;
           links.appendChild(l);

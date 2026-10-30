@@ -107,7 +107,10 @@
   var PEEK_DROP = 64 + 12;
   /** R6(D2): 심플 모드 캔버스 글자 하한 28u (자세히는 그대로) */
   function FS(n) { return SK.isSimple() ? Math.max(28, n) : n; }
-  var winOpen = true;
+  // R7(C6): '스크린 정면' 창은 처음엔 접힘(그림을 덜 가림) — 펼치면 이번 탭 동안 기억(sessionStorage)
+  var WIN_KEY = 'physsim.convex-lens.winOpen';
+  var winOpen = (function () { try { return sessionStorage.getItem(WIN_KEY) === '1'; } catch (e) { return false; } })();
+  function setWinOpen(on) { winOpen = !!on; try { sessionStorage.setItem(WIN_KEY, winOpen ? '1' : '0'); } catch (e) { /* 저장 안 돼도 동작 */ } }
   var rayPaths = [], hoverRay = -1, pinH = false;   // 광선 위에 마우스를 올리거나 누르면 높이(보조 길이) 표시
   var RAY_SPEED = 560;                       // 실행 연출: 빛이 나아가는 빠르기 (u/s)
   var TYPES = ['arrow', 'candle', 'F', 'far'];
@@ -311,7 +314,9 @@
   var RAY_NOTE = '세 광선 중 두 개만 켜도 만나는 점은 같아요';
   var rayNote = h('p', { class: 'var__hint lens-raynote', 'aria-live': 'polite', text: RAY_NOTE });
   function setRayNote(t) { if (rayNote.textContent !== t) rayNote.textContent = t; }
-  var raysCtl = h('div', { class: 'ctl' }, [h('div', { class: 'ctl__label' }, ['빛의 길 보기', h('span', { class: 'apply-ico apply-ico--live', title: '바꾸면 바로 반영돼요', 'aria-label': '바로 반영' }, SK.icon('bolt') || '⚡')]), raysBox,
+  // R7(C5): 칩 ①②③ 한 줄 — 공통 문장('세 광선 중 두 개만…')은 설명 4장으로 옮기고, 칩 말풍선(title)·화면 읽기(aria-live)로만 남김
+  rayNote.className = 'lens-raynote sr-only';
+  var raysCtl = h('div', { class: 'ctl lens-raysctl' }, [h('div', { class: 'ctl__label' }, ['빛의 길 보기', h('span', { class: 'apply-ico apply-ico--live', title: '바꾸면 바로 반영돼요', 'aria-label': '바로 반영' }, SK.icon('bolt') || '⚡')]), raysBox,
     rayNote]);
   SK.panel('situation').appendChild(raysCtl);
   [['ray1', '① 평행 광선', '광축과 나란히 들어와 렌즈를 지나 초점을 지나요', '① 평행 → 렌즈를 지나 초점으로 모여요'], ['ray2', '② 초점 광선', '앞쪽 초점을 지나 들어와 렌즈를 지나 광축과 나란히 나가요', '② 초점 → 렌즈를 지나 광축과 나란히'], ['ray3', '③ 중심 광선', '렌즈 한가운데를 꺾이지 않고 곧게 지나요', '③ 중심 → 꺾이지 않고 곧게 지나요']].forEach(function (r, i) {
@@ -323,6 +328,10 @@
     b.style.setProperty('--ray', SK.recStyle(i).color);
     b.insertBefore(h('span', { class: 'lens-ray-pill' }, icon), b.querySelector('.check__state'));
     ['click', 'focus', 'pointerenter'].forEach(function (ev) { b.addEventListener(ev, function () { setRayNote(r[3]); }); });
+    // R7(C5): 칩에는 번호만(①②③) — 이름·길은 말풍선과 화면 읽기 이름으로
+    var tx = b.querySelector('.check__text'); if (tx) tx.textContent = r[1].charAt(0);
+    b.setAttribute('aria-label', r[1] + ' — ' + r[2]);
+    b.title = r[1] + ': ' + r[2];
   });
   raysBox.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse' && !raysBox.contains(document.activeElement)) setRayNote(RAY_NOTE); });
   raysBox.addEventListener('focusout', function (e) { if (!raysBox.contains(e.relatedTarget)) setRayNote(RAY_NOTE); });
@@ -331,7 +340,18 @@
     options: [{ value: 'none', label: '없음' }, { value: 'top', label: '위 절반 가림' }, { value: 'hole', label: '가운데만 뚫림' }]
   });
   SK.addToggle('situation', { key: 'screen', label: '스크린 놓기', value: true, record: false, onText: '켜짐', offText: '꺼짐 (치움)' });
-  SK.addChoice('situation', {
+  // R7(C5): 가림판 칩 + 스크린 놓기를 한 줄로(패널 높이) — 가림판 보기 글자는 짧게, 전체 이름은 말풍선
+  (function () {
+    var bl = SK.controls.blocker.el, sc = SK.controls.screen.el, row = h('div', { class: 'lens-sitrow' });
+    bl.parentNode.insertBefore(row, bl); row.appendChild(bl); row.appendChild(sc);
+    var full = ['가림판 없음', '렌즈 위 절반 가림', '가운데만 뚫림'], short = ['없음', '위 절반', '가운데'];
+    var os = bl.querySelectorAll('.seg__opt');
+    for (var i = 0; i < os.length && i < 3; i++) { os[i].textContent = short[i]; os[i].title = full[i]; os[i].setAttribute('aria-label', full[i]); }
+    var st = sc.querySelector('.check__text'); if (st) { st.textContent = '스크린'; sc.querySelector('.check').title = '스크린 놓기 / 치우기 (I)'; }
+  })();
+  // R7(C5): 수치 칸 아래 안내 줄은 패널에서 말풍선으로(심플 레일·⚙ 안에서는 그대로)
+  ['f', 's'].forEach(function (k) { var c = SK.controls[k], hn = c && c.el.querySelector('.var__hint:not(.lens-hint)'), hd = c && c.el.querySelector('.var__head'); if (hn && hd) hd.title = hn.textContent; });
+  SK.addChoice('deep', {   // R7(C5): 물체 종류는 '더 많은 설정'(⚙ 안)으로 — 카드가 바꾸고, 키 O 로도 바꿈
     key: 'type', label: '물체 종류', apply: 'live', value: 'arrow',
     confirm: false,   // R6(C4/S12): 기록에는 남기되 카드 확인창의 '바뀌는 값' 에서는 뺀다 — 카드 ③·④ 는 s 하나만 바뀜
     onChange: function () { changed(); syncUI(); },
@@ -343,11 +363,11 @@
   SK.addToggle('tools', { key: 'marks', label: 'F · 2F 위치 표시', value: true });
   SK.addToggle('tools', { key: 'ruler', label: '거리 눈금 (물체·상 거리)', value: true });
   SK.addToggle('tools', { key: 'fan', label: '렌즈 전체를 지나는 빛 다발', value: false });
-  SK.addToggle('tools', { key: 'hideF', label: '초점거리 숨기기 (찾기 탐구)', value: false, onChange: function () { syncUI(); renderTable(); refreshFindF(); }, hint: '숨긴 f 는 정리 단계 질문의 답 확인하기로 공개돼요' });
+  SK.addToggle('tools', { key: 'hideF', label: '초점거리 숨기기 (찾기 탐구)', value: false, onChange: function () { syncUI(); renderTable(); refreshFindF(); }, hint: '카드 ① 초점거리 찾기가 이 값을 켜요 · 숨긴 f 는 정리 단계에서 답 확인하기로 공개돼요' });   // R7(C5)
 
-  /* 실험 화면 왼쪽 위 모서리: 범례 한 줄 (상태 칩 아래) */
-  var legendEl = h('div', { class: 'lens-legend', 'aria-label': '그림 읽는 법' });
-  SK.el.cornerTL.appendChild(legendEl);
+  /* R7(C6): 그림 기호 범례는 실험 화면 위가 아니라 ⚙ 설정 '화면에 표시하기' 끝 '기호 보기' 줄로(+ 설명 3장 링크) */
+  var legendEl = h('span', { class: 'lens-legend__txt', 'aria-label': '그림 읽는 법' });
+  SK.panel('tools').appendChild(h('div', { class: 'lens-legend lens-legend--set' }, [h('b', { text: '기호 보기' }), legendEl, SK.lessonLink('terms', '설명 3장 · 용어 정리')]));
 
   /* 더 많은 설정: 물체 높이 · 스크린 위치 · 심화 그림 (교육과정 해설: 렌즈 제작자 공식 제외 → 그림으로만) */
   SK.addVar('deep', { key: 'h', label: '물체 높이', unit: 'cm', min: 2, max: 6, step: 1, value: 4, decimals: 0, ticks: [2, 4, 6], apply: 'live', onChange: changed, hint: '높이를 바꿔도 배율은 그대로예요' });
@@ -362,8 +382,8 @@
      6. 하단 띠: 계기판 4개 | 상의 모습 한 줄 (기록 표는 비교 단계 큰 판)
      ------------------------------------------------------------------ */
   meters = SK.meters(null, [
-    { key: 'si', label: '상 거리', unit: 'cm', decimals: 0, size: 'md' },
-    { key: 'm', label: '{{배율}}', unit: '배', decimals: 1, size: 'md' },
+    { key: 'si', label: '상 거리', unit: 'cm', decimals: 0, size: 'md', core: true },   // R7(C6): core = 상 거리·배율 (+ 오른쪽 '상의 모습' 칸), 선명도는 [수치 더 보기]
+    { key: 'm', label: '{{배율}}', unit: '배', decimals: 1, size: 'md', core: true },
     { key: 'sharp', label: '{{선명도}}', unit: '%', decimals: 0, size: 'md' },
     { key: 'look', label: '상의 모습', unit: '', simpleOnly: true }   // R6(C7): 심플 측정 칸 전용 — 하단 띠 '상의 모습' 한 줄과 같은 문구
   ]);
@@ -405,6 +425,8 @@
      ------------------------------------------------------------------ */
   var BASE = { f: 10, h: 4, blocker: 'none', screen: true, ray1: true, ray2: true, ray3: true, hideF: false, fan: false, marks: true, ruler: true };
   function preset(extra) { var o = {}, k; for (k in BASE) o[k] = BASE[k]; for (k in extra) o[k] = extra[k]; return o; }
+  /** R7(C6): 정면 창을 보며 하는 카드(①·④·⑤)는 창을 펼친다(펼침은 기억) */
+  function openWinForCard() { if (!SK.isSimple() && !winOpen) { setWinOpen(true); SK.requestRender(); } }
   function presetApplied() { ghostData = null; SK.ghost = null; committed = snap(SK.params); eqOn = false; eqBtn.setAttribute('aria-pressed', 'false'); pinH = false; syncUI(); renderTable(); refreshFindF(); }
   SK.setPresets([
     {
@@ -420,7 +442,7 @@
         afterHint: '▶ 실행 뒤 스크린을 끌어 선명한 곳을 찾아요'
       },
       onApply: function (p) {
-        presetApplied(p);
+        presetApplied(p); openWinForCard();
         if (SK.records.length) setTimeout(function () { SK.say('기록 칸이 ' + (5 - SK.records.length) + '개 남았어요 · 그 밖의 기능 ▾ 에서 지울 수 있어요', 5000); }, 50);
       }
     },
@@ -459,7 +481,7 @@
         answer: 2,
         why: '초점 안쪽 물체의 빛은 렌즈를 지나도 모이지 않고 퍼져요. 눈은 그 빛이 렌즈 앞쪽에서 온 것처럼 느껴서 바로 선 큰 상(허상)을 봐요. 돋보기의 원리예요.'
       },
-      onApply: presetApplied
+      onApply: function (p) { presetApplied(p); openWinForCard(); }
     },
     {
       name: '렌즈 반쪽 가리기', tag: '오개념', changes: '렌즈 반 가림',
@@ -471,7 +493,7 @@
         answer: 2,
         why: '물체 한 점의 빛은 렌즈 어느 부분을 지나도 같은 점에 모여요. 아래 절반을 지난 빛만으로도 상 전체가 생기고, 빛의 양만 절반이 돼요.'
       },
-      onApply: presetApplied
+      onApply: function (p) { presetApplied(p); openWinForCard(); }
     }
   ]);
   // 처음 학생에게 권하는 카드 ① 에 '추천' 표시
@@ -612,43 +634,43 @@
   SK.takeaway(function (p) {
     var im = Phys.image(p), sc = Phys.screen(p, im), bright = Math.round(Phys.blocker(p.blocker).bright * 100);
     if (p.blocker !== 'none') return { line: '렌즈를 가려도 상은 그대로, 어두워질 뿐이에요.',
-      more: '물체 한 점에서 나온 빛은 렌즈 어디를 지나도 같은 점에 모여요. 가림판이 빛 일부를 막아도 남은 빛이 상 전체를 만들어요. 줄어드는 것은 빛의 양(밝기 ' + bright + '%)뿐이에요.' };
+      more: '물체 한 점에서 나온 빛은 렌즈 어디를 지나도 같은 점에 모여요. 가림판이 빛 일부를 막아도 남은 빛이 상 전체를 만들어요. 줄어드는 것은 빛의 양(밝기 ' + bright + '%)뿐이에요.', lesson: 'misc' };
     if (im.far) return hidden()
-      ? { line: '먼 풍경의 상은 초점에 생겨요.', more: '아주 먼 곳의 빛은 나란히 들어와 초점에 모여요. 그래서 스크린이 가장 선명한 곳까지의 거리가 바로 초점거리 f 예요. 스크린 손잡이를 끌어 선명도가 가장 큰 곳을 찾아 거리를 읽어 봐요.' }
-      : { line: '먼 풍경의 상은 초점(렌즈에서 ' + p.f + ' cm)에 생겨요.', more: '아주 먼 곳의 빛은 나란히 들어와 초점에 모여요. 그래서 작고 거꾸로 선 실상이 렌즈에서 f = ' + p.f + ' cm 떨어진 곳에 생겨요. 카메라가 먼 풍경을 찍는 원리예요.' };
-    if (im.kind === 'none') return { line: '물체가 초점에 있으면 상이 생기지 않아요.', more: '초점에서 나온 빛은 렌즈를 지나 모두 광축과 나란히 나가요(② 초점 광선). 나란한 빛은 어디에서도 만나지 않아서 상이 없어요. 손전등이 이 원리로 빛을 멀리 보내요.' };
-    if (im.kind === 'virtual') return { line: '초점 안쪽 물체는 바로 선 큰 허상으로 보여요.', more: '물체가 초점보다 렌즈에 가까우면 렌즈를 지난 빛이 모이지 않고 퍼져요. 눈은 퍼지는 빛을 뒤로 늘인 곳(렌즈 앞쪽)에서 온 것처럼 느껴, 바로 선 큰 상을 봐요(돋보기). 빛이 실제로 모인 곳이 아니라서 스크린에는 맺히지 않아요.' };
-    if (hidden()) return { line: '스크린이 가장 선명한 곳이 상이 생기는 곳이에요.', more: '물체 거리를 바꿔 가며 선명한 스크린 위치를 기록해 봐요. 「물체 거리 = 상 거리」인 곳이 2F 이고, 그 거리의 절반이 초점거리 f 예요.' };
+      ? { line: '먼 풍경의 상은 초점에 생겨요.', more: '아주 먼 곳의 빛은 나란히 들어와 초점에 모여요. 그래서 스크린이 가장 선명한 곳까지의 거리가 바로 초점거리 f 예요. 스크린 손잡이를 끌어 선명도가 가장 큰 곳을 찾아 거리를 읽어 봐요.', lesson: 'terms' }
+      : { line: '먼 풍경의 상은 초점(렌즈에서 ' + p.f + ' cm)에 생겨요.', more: '아주 먼 곳의 빛은 나란히 들어와 초점에 모여요. 그래서 작고 거꾸로 선 실상이 렌즈에서 f = ' + p.f + ' cm 떨어진 곳에 생겨요. 카메라가 먼 풍경을 찍는 원리예요.', lesson: 'terms' };
+    if (im.kind === 'none') return { line: '물체가 초점에 있으면 상이 생기지 않아요.', more: '초점에서 나온 빛은 렌즈를 지나 모두 광축과 나란히 나가요(② 초점 광선). 나란한 빛은 어디에서도 만나지 않아서 상이 없어요. 손전등이 이 원리로 빛을 멀리 보내요.', lesson: 'by-position' };
+    if (im.kind === 'virtual') return { line: '초점 안쪽 물체는 바로 선 큰 허상으로 보여요.', more: '물체가 초점보다 렌즈에 가까우면 렌즈를 지난 빛이 모이지 않고 퍼져요. 눈은 퍼지는 빛을 뒤로 늘인 곳(렌즈 앞쪽)에서 온 것처럼 느껴, 바로 선 큰 상을 봐요(돋보기). 빛이 실제로 모인 곳이 아니라서 스크린에는 맺히지 않아요.', lesson: 'real-virtual' };
+    if (hidden()) return { line: '스크린이 가장 선명한 곳이 상이 생기는 곳이에요.', more: '물체 거리를 바꿔 가며 선명한 스크린 위치를 기록해 봐요. 「물체 거리 = 상 거리」인 곳이 2F 이고, 그 거리의 절반이 초점거리 f 예요.', lesson: 'by-position' };
     var r = p.s / p.f, m = fmt(Math.abs(im.m), 1);
-    if (Math.abs(r - 2) < 0.02) return { line: '물체가 2F 에 있으면 상도 2F 에, 같은 크기로 생겨요.', more: '물체 거리와 상 거리가 ' + dist(p.s, true) + ' cm 로 같아요. 배율 = 상 거리 ÷ 물체 거리 = 1배라서 크기가 같고, 거꾸로 선 실상이에요.' };
-    if (r < 2) return { line: '물체가 F 와 2F 사이면 상은 더 멀리, 크게 생겨요.', more: '상 거리 ' + dist(im.si) + ' cm 가 물체 거리 ' + dist(p.s, true) + ' cm 보다 길어서 배율이 ' + m + '배예요(프로젝터). 물체가 초점에 다가갈수록 상은 더 멀어지고 커져요.' };
-    return { line: '물체가 2F 보다 멀면 상은 F 와 2F 사이에 작게 생겨요.', more: '상 거리 ' + dist(im.si) + ' cm 가 물체 거리 ' + dist(p.s, true) + ' cm 보다 짧아서 배율이 ' + m + '배예요(카메라·눈). 물체가 멀어질수록 상은 초점 쪽으로 다가가고 작아져요.' };
+    if (Math.abs(r - 2) < 0.02) return { line: '물체가 2F 에 있으면 상도 2F 에, 같은 크기로 생겨요.', more: '물체 거리와 상 거리가 ' + dist(p.s, true) + ' cm 로 같아요. 배율 = 상 거리 ÷ 물체 거리 = 1배라서 크기가 같고, 거꾸로 선 실상이에요.', lesson: 'by-position' };
+    if (r < 2) return { line: '물체가 F 와 2F 사이면 상은 더 멀리, 크게 생겨요.', more: '상 거리 ' + dist(im.si) + ' cm 가 물체 거리 ' + dist(p.s, true) + ' cm 보다 길어서 배율이 ' + m + '배예요(프로젝터). 물체가 초점에 다가갈수록 상은 더 멀어지고 커져요.', lesson: 'magnify' };
+    return { line: '물체가 2F 보다 멀면 상은 F 와 2F 사이에 작게 생겨요.', more: '상 거리 ' + dist(im.si) + ' cm 가 물체 거리 ' + dist(p.s, true) + ' cm 보다 짧아서 배율이 ' + m + '배예요(카메라·눈). 물체가 멀어질수록 상은 초점 쪽으로 다가가고 작아져요.', lesson: 'by-position' };
   });
 
   /* 정리 단계 질문 판 — 답을 고르면 '답은 ○○' + 이유. 보기 없는 질문은 '답 확인하기'로 모범 답 */
   SK.think({
-    id: 'noscreen',
+    id: 'noscreen', lesson: 'real-virtual',
     q: '실상이 생긴 곳에서 스크린을 치우면 상은 사라질까?',
     hint: '스크린 놓기를 끄고 오른쪽 위 「눈으로 본 모습」 창을 보세요.',
     choices: ['사라진다', '그 자리에 그대로 생긴다', '렌즈 쪽으로 옮겨 간다'], answer: 2,
     why: '실상은 빛이 실제로 모이는 자리예요. 스크린은 모인 빛을 받아 눈에 보이게 할 뿐이라, 치워도 빛은 그 자리에 모였다가 다시 퍼져요. 그 빛을 눈으로 받으면 공중에 뜬 상이 보여요.'
   });
   SK.think({
-    id: 'projector',
+    id: 'projector', lesson: 'by-position',
     q: '프로젝터 화면(화면에 비친 큰 그림, 즉 실상)을 더 크게 하려면 슬라이드(보여 줄 그림)와 스크린을 어떻게 옮길까?',
     hint: '실험 카드 ③ 프로젝터 크게로 확인해 봐요.',
     choices: ['슬라이드는 렌즈 쪽, 스크린은 더 멀리', '슬라이드는 멀리, 스크린은 더 가까이', '슬라이드만 렌즈 쪽, 스크린은 그대로'], answer: 1,
     why: '슬라이드(물체)가 초점 쪽으로 다가가면 상은 렌즈에서 멀어지고 커져요. 상이 생기는 자리가 멀어졌으니 스크린도 그만큼 멀리 옮겨야 선명해요. 스크린을 그대로 두면 흐린 상이 비쳐요.'
   });
   SK.think({
-    id: 'litho',
+    id: 'litho', lesson: 'life',
     q: '반도체 회로를 아주 작게 새기려면 마스크(회로 그림)를 렌즈에서 어디에 둘까?',
     hint: '더 많은 설정 › 포토리소그래피 그림을 열어 봐요.',
     choices: ['초점보다 렌즈 가까이', 'F 와 2F 사이', '2F 보다 멀리'], answer: 3,
     why: '2F 보다 멀리 둔 물체의 상은 F 와 2F 사이에 작고 거꾸로 선 실상으로 생겨요. 그래서 큰 마스크 그림을 웨이퍼 위에 몇 분의 1 크기로 줄여 새길 수 있어요(축소 투영). 초점 안쪽은 허상이라 웨이퍼에 맺히지 않아요.'
   });
   SK.think({
-    id: 'atF',
+    id: 'atF', lesson: 'by-position',
     q: '물체를 초점에 딱 맞춰 두면 상은 어디에 생길까? 이유도 말해 봐요.',
     hint: '② 초점 광선이 렌즈를 지난 뒤 어떻게 나가는지 떠올려 봐요.',
     reveal: '<b>모범 답: 상이 생기지 않아요.</b><br>초점에서 나온 빛은 렌즈를 지나 모두 광축과 나란히 나가요. 나란한 빛은 어디에서도 다시 만나지 않으니 상이 없어요.<br><b>해설</b> 물체를 초점 바로 바깥에 두면 상은 아주 멀리, 아주 크게 생기고, 초점 안쪽에 두면 허상이 돼요. 초점은 그 둘의 경계예요. 손전등은 전구를 초점에 두어 나란한 빛을 멀리 보내요.'
@@ -659,7 +681,7 @@
     var p = SK.ui;
     if (!p.hideF) return;
     SK.think({
-      id: 'findF',
+      id: 'findF', lesson: 'terms',
       q: '숨겨 둔 초점거리 f 는 몇 cm 였을까? 기록 표에서 근거를 찾아 말해 봐요.',
       hint: '먼 풍경이 선명한 스크린 거리, 또는 「물체 거리 = 상 거리」인 거리의 절반을 봐요.',
       reveal: '<b>답: f = ' + p.f + ' cm</b><br>먼 풍경의 상은 초점에 생기니 선명한 스크린 거리가 곧 f 예요. 또 물체 거리 = 상 거리 = ' + (2 * p.f) + ' cm 인 곳이 2F 라서, 그 절반인 ' + p.f + ' cm 가 f 예요. 두 방법의 답이 같은지 확인해 봐요.'
@@ -774,7 +796,7 @@
   }
   cv.addEventListener('pointerdown', function (e) {
     var pt = SK.view.toLogical(e);
-    if (inWinHead(pt)) { winOpen = !winOpen; SK.requestRender(); e.preventDefault(); return; }
+    if (inWinHead(pt)) { setWinOpen(!winOpen); SK.requestRender(); e.preventDefault(); return; }
     var hh = hit(pt);
     if (!hh) {
       var nr = nearRay(pt);
@@ -830,7 +852,7 @@
   var HID_TIP = '숨긴 초점거리는 정리 단계에서 답 확인하기로 공개돼요';
   function status(p) {
     var fT = p.hideF ? (SK.isTeacher() ? '$f$ ' + p.f + ' cm (학생에겐 숨김)' : '$f$ ? cm (숨김)') : '$f$ ' + p.f + ' cm';
-    var out = [fT, '스크린 ' + (p.screen ? '켜짐' : '꺼짐'), '가림판 ' + BLOCKER_TEXT[p.blocker]];
+    var out = [fT + ' · 스크린 ' + (p.screen ? '켜짐' : '꺼짐') + ' · 가림판 ' + BLOCKER_TEXT[p.blocker]];   // R7(C6): 상태 칩 4개 → 1줄 요약
     // R6(C4): 허상(카드 ④ 돋보기 등)이면 한 줄 — '고장' 으로 읽히지 않게. 예측 창이 떠 있는 동안은 답이 되므로 숨김
     if (!SK.predicting() && Phys.image(p).kind === 'virtual') out.push('스크린에는 맺히지 않아요 · 렌즈 너머로 보이는 허상');
     return out;
@@ -1073,7 +1095,17 @@
           if (!right && !far && p.screen && Math.abs(e[0] - X(p.screenX)) < 1) {
             // 자세히: 세로로 한 칸씩(라벨 상자 높이 = 글자 1.2배 + 4u, + 2u 간격). 심플(28u): 광축 점과 치수선 글 사이가 좁아 가로 한 줄
             if (SK.isSimple()) { ny = AXIS + (FS(24) * 0.6 + 12) * KS; nx = e[0] + (14 + r.n * (FS(24) + 14)) * KS; }
-            else ny = AXIS + (FS(24) * 1.2 + 6) * (r.n + 0.5) * KS;
+            else {
+              var row = (FS(24) * 1.2 + 6) * KS;
+              ny = AXIS + row * (r.n + 0.5);
+              // R7(C6): 세 칸째(③)가 아래 치수선 글·F/2F 글자 자리까지 내려가면(16:9 전자칠판) 위/아래 교대 — ① 아래 · ② 위 · ③ 아래 둘째 칸
+              if (AXIS + row * 2.5 + FS(24) * 0.7 * KS > RAIL - 64 - 32 * KS - 26) ny = AXIS + row * [0.5, -0.5, 1.5][r.n];
+            }
+          }
+          // R7(C6): 광학대 쪽 끝 번호가 F·2F 삼각형 글자 자리와 겹치면 그 위 칸으로 — 2F 글자와 ③ 이 겹치지 않게
+          if (p.marks && !hidden() && ny > RAIL - 64 - 24 * KS) {
+            var nearF = [-2, -1, 1, 2].some(function (m) { return Math.abs(X(m * p.f) - nx) < 44 * KS; });
+            if (nearF) ny = RAIL - 64 - 24 * KS - 14;
           }
           q(['①', '②', '③'][r.n], nx, ny, { size: Math.round(24 * KS), weight: 500, align: right ? 'right' : 'left', color: r.st.color, leader: false });
           if (!right) rayNumBottom = Math.max(rayNumBottom, ny);

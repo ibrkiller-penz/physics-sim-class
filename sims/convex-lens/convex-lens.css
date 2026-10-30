@@ -125,3 +125,41 @@ html.is-simple .simple-meter[data-key="look"] .simple-meter__value.is-text { fon
 
 /* R6: 심플 측정 칸 이름에는 용어 풀이 괄호를 붙이지 않는다(공통 틀 rich 의 첫 등장 풀이) */
 html.is-simple .simple-meter__label .term-inline { display: none; }
+
+/* ── R7(C5): 자세히 패널 '빛의 길 보기' = 칩 ①②③ 한 줄 (선 견본 + 이름, 켜짐 = 채움 + ✓ · 꺼짐 = 윤곽선) ── */
+.sim-panel .lens-rays .check {
+  grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "pill name state";
+  min-height: calc(56 * var(--u)); padding: calc(4 * var(--u)) var(--space-1); gap: calc(6 * var(--u));
+}
+.sim-panel .lens-ray-icon { width: calc(30 * var(--u)); height: calc(12 * var(--u)); }
+.sim-panel .lens-ray-pill { padding: calc(2 * var(--u)) calc(4 * var(--u)); }
+.sim-panel .lens-rays .check__text { overflow: hidden; text-overflow: clip; }
+.sim-panel .lens-rays .check__state { font-size: 0; }
+.sim-panel .lens-rays .check[aria-pressed="true"] .check__state::before { width: var(--fs-caption); height: var(--fs-caption); }
+/* R7(C5): '빛의 길' 이름 + 칩 ①②③ 한 줄 · 가림판 칩 + 스크린 한 줄 · 수치 안내 줄은 말풍선으로 */
+.sim-panel .lens-raysctl { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: var(--space-2); }
+.sim-panel .lens-raysctl > .ctl__label { margin: 0; }
+.sim-panel .lens-raysctl > .ctl__label .apply-ico { display: none; }
+.sim-panel .lens-rays .check { grid-template-columns: auto auto auto; justify-content: center; }
+.sim-panel .lens-rays .check__text { font-size: var(--fs-control); }
+.lens-sitrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: var(--space-2); }
+.lens-sitrow > .ctl { min-width: 0; }
+.sim-panel .lens-sitrow > .ctl[data-key="blocker"] { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: var(--space-2); }
+.sim-panel .lens-sitrow > .ctl[data-key="blocker"] > .ctl__label { margin: 0; }
+.sim-panel .lens-sitrow > .ctl[data-key="blocker"] > .ctl__label .apply-ico { display: none; }
+.sim-panel .lens-sitrow .seg__opt { padding-inline: calc(6 * var(--u)); white-space: nowrap; }
+.sim-panel .lens-sitrow .check { min-height: calc(56 * var(--u)); padding-inline: var(--space-2); gap: var(--space-1); }
+.sim-panel .lens-sitrow .check__state { display: none; }
+.sim-panel .var > .var__hint:not(.lens-hint) { display: none; }
+@media (orientation: portrait) and (min-width: 601px) {
+  /* 세로: 패널 두 칸(수치 | 상황)이 스크롤 없이 — 무대가 그만큼 짧아짐(788 × 약 560u, 그림 전부 보임) */
+  [data-sim="convex-lens"] .sim { --panel-h7: calc(540 * var(--u)); }
+}
+/* R7(C6): ⚙ 설정 안 '기호 보기' 줄 (예전 그림 위 범례 칩) */
+.lens-legend--set {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2);
+  margin-top: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md);
+  background: var(--color-paper-raised); box-shadow: inset 0 0 0 1px var(--color-line);
+  white-space: normal; pointer-events: auto; font-weight: var(--font-weight-medium);
+}
+.lens-legend--set > b { font-weight: var(--font-weight-medium); color: var(--color-ink); }

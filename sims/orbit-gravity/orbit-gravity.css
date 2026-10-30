@@ -234,3 +234,31 @@ html.is-simple .simple-meter__label .term-inline { display: none; }
 /* 더 보기 시트: 빈 묶음(값이 모두 레일로 감)·모드 줄('지금: 뉴턴의 대포 [실험 고르기]' — 심플은 대포 고정) 숨김 */
 html.is-simple .og-simple-empty { display: none !important; }
 html.is-simple .sheet__body .panel-head { display: none; }
+
+/* ── R7(C3): 자세히 패널 높이 줄이기 — '아래에 더 있어요' 없이 (1280×720 패널 안쪽 ≈ 450px)
+      천체 4개 한 줄 · 비교 표 링크는 이름 줄 오른쪽 · 순서 칩 제목 줄은 말풍선으로, [다음 ▶]은 칩 줄 끝 ── */
+.sim-panel .og-bodies .seg--cards { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.sim-panel .og-bodies .seg__opt { grid-template-columns: auto; justify-items: center; text-align: center; row-gap: calc(2 * var(--u)); padding: var(--space-1); min-height: calc(56 * var(--u)); }
+.sim-panel .og-bodies .og-ico { grid-row: auto; width: calc(28 * var(--u)); height: calc(28 * var(--u)); }
+.sim-panel .og-bodies .seg__opt .btn__sub { display: none; }
+.sim-panel .og-bodies .ctl__label { display: flex; align-items: center; gap: var(--space-2); }
+.sim-panel .og-bodies .ctl__label .og-link { margin: 0 0 0 auto; min-height: 0; padding: 0; font-size: var(--fs-caption); }
+.sim-panel .og-seq__title { display: none; }
+.sim-panel .og-seq__next { flex: 0 0 auto; margin-left: auto; min-height: calc(44 * var(--u)); padding-inline: var(--space-2); }
+.sim-panel .og-seq__done { flex: 0 1 auto; }
+/* R7(C3): 케플러 모드 패널 — 그래프 바꾸기 단추 */
+.og-knote { display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-2); }
+.og-knote[hidden] { display: none; }
+.og-knote__t { font: var(--font-weight-medium) var(--fs-meta)/1.3 var(--font-sans); color: var(--color-ink); }
+.og-knote__row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+.og-knote__btn {
+  min-height: calc(56 * var(--u)); padding: var(--space-1) var(--space-2); border-radius: var(--radius-md);
+  border: max(1px, calc(2 * var(--u))) solid var(--color-line-strong); background: var(--color-paper-raised);
+  font: var(--font-weight-medium) var(--fs-caption)/1.25 var(--font-sans); color: var(--color-ink); cursor: pointer;
+}
+.og-knote__btn:hover { border-color: var(--sim); }
+.og-knote__btn[aria-pressed="true"] { background: var(--sim); border-color: var(--sim); color: var(--color-paper); }
+@media (orientation: portrait) and (min-width: 601px) {
+  /* R7(C3): 세로 — 패널 두 칸(수치 | 상황)이 스크롤 없이(발사 속력 + 순서 칩). 무대가 그만큼 짧아짐 */
+  [data-sim="orbit-gravity"] .sim { --panel-h7: calc(540 * var(--u)); }
+}

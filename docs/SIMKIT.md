@@ -1,9 +1,200 @@
-# SimKit — 공통 틀 사용 설명서 (개발자용, R2 고도화 2차 + R3 디테일 + R4 태블릿·글꼴·아이콘 + R5 세로 배치·예측 창·교사 발표 + R6 심플 모드)
+# SimKit — 공통 틀 사용 설명서 (개발자용, R2 고도화 2차 + R3 디테일 + R4 태블릿·글꼴·아이콘 + R5 세로 배치·예측 창·교사 발표 + R6 심플 모드 + R7 교과 설명·팝업 틀)
 
 > 작성: 에듀테크1(디자인 리드) · 2026-10-28
 > 근거: `docs/개선/R1_계획.md` §2(디자인 방향)·§3(A1~A18, H1~H2) · 이전 판: `docs/04_팀장결정서.md`
 > 다섯 시뮬레이터는 이 틀 **위에서만** 만든다. `shared/` 를 고칠 일이 생기면 디자인 리드에게 요청한다.
 > 바로 동작하는 예제: `sims/_template/index.html` (= `shared/TEMPLATE.html`) — R2 새 API 를 모두 씀.
+
+---
+
+## 0R7. R7 1차에서 바뀐 것 (2026-10-30, UI팀1) — 먼저 읽기 · UI팀2·3 은 여기부터
+
+> 근거: `docs/개선/R7_1차_계획.md` §1·§3-S. 바뀐 것: **교과 설명 층**(새 기능, `shared/lesson.js`) · **공통 팝업 틀 `SK.pop`** · **⚙ 설정**(화면에 표시하기·더 많은 설정 노드 이동) · **[실험 ▾] 시트**(카드 줄 삭제) · 도구 줄·단계 점·막대 88u · 계기판 `core` · 설명 ↔ 실험 연결. 기능은 하나도 없애지 않았고 자리만 옮겼다. 검사 캡처 `_review/R7/1차/UI1/`, 형식 예제 `_review/R7/1차/UI1/test-pe-lesson.js`.
+
+### 0R7-1. 스크립트 순서 (각 `sims/<slug>/index.html`)
+
+```html
+<script src="../../shared/icons.js"></script>
+<script src="../../shared/sim.js"></script>
+<script src="../../shared/diagram.js"></script>   <!-- SimDiagram: 설명 그림 도우미 -->
+<script src="../../shared/lesson.js"></script>    <!-- SimLesson: 설명 층 + SimKit.lesson -->
+<script src="pe-physics.js"></script>              <!-- (있는 sim 만) -->
+<script src="sim.js"></script>                     <!-- SimKit.init -->
+<script src="lesson.js"></script>                  <!-- SimKit.lesson({...}) 데이터 -->
+```
+`lesson.js` 를 안 불러오면(`sims/_template`) 설명 없이 지금처럼 바로 실험, 도구 줄 [설명]은 숨는다. `SK.lessonLink`·`SK.lessonTry`·`think({lesson})` 는 그때도 오류 없이 아무 일 없음(링크는 숨김).
+
+### 0R7-2. 공통 팝업 틀 `SK.pop`
+
+```js
+var p = SK.pop({
+  id: 'settings',              // 같은 id 로 다시 부르면 닫힌다(토글). 하나만 열림 — 다른 것을 열면 앞 것이 닫힌다
+  kind: 'popover',             // 'popover' 여는 단추 옆(무대와 안 겹치는 쪽, 둘 다 겹치면 dock) · 'sheet' 아래(가로 = 패널 열 위 570u)
+                               // 'dock' 패널 자리 570u(그림 비가림) · 'modal' 그림 자리 1250×790(기록·정리 표만)
+  anchor: btnEl, title: '설정', body: [노드…], foot: [단추…], head: false(머리줄 없음), headExtra: [노드…],
+  persist: true,               // 셸을 한 번 만들어 노드를 상주(닫아도 그 자리) · restore: true = 닫을 때 원래 자리로
+  outside: false,              // 바깥 누르기로 닫지 않음(예측·모드 창) · overlap: true = 무대와 겹쳐도 됨(작은 메뉴)
+  onOpen(shell), onClose(reason), onKey(e) → true 면 처리함
+});
+p.close(); SK.pop.close(); SK.pop.open === 'settings'; SK.pop.relayout();
+```
+- 닫기: Esc · 바깥 `pointerdown` · ✕ 모두 같다. 닫히면 여는 단추로 포커스(`aria-expanded`·`.is-pop-open` = `--sim-tint` 바탕). Tab 은 팝업 안에서 돈다.
+- 폭 < 900(세로 태블릿)이면 popover·dock·modal 은 **자동 sheet**(높이 ≤ 60%, 그림 위쪽 40% 보임). `prefers-reduced-motion` 이면 애니메이션 없음.
+- z: popover·sheet·dock = `--z-sheet`(40), modal = `--z-modal`(50), 확인 창 `SK.dialog` 는 그대로(그 위).
+- 키: 팝업이 열린 동안 Esc → 닫기, 그다음 `onKey`, 글자 키는 막는다(J·U·Y·F·M 만 통과). 입력칸에 커서가 있으면 글자 입력.
+- 이 틀로 옮긴 것: ⚙ 설정 · 실험 고르기 · 기록 표(modal) · 표 크게 보기(modal, `SK.showRecordsFull` 그대로) · 정리 질문(modal) · 단계 · 속도 메뉴 · ⋯ 그 밖의 기능 · 수업 정보(⋯ 안, `.info-pop` 노드는 restore 로 머리줄에 돌아감 — `SK.el.top.querySelector('.info-pop')` 코드 그대로 동작) · 수치 더 보기 · 심플 '더 보기'(`SK.openSheet/closeSheet` 그대로) · 예측 창·모드 창(바깥 상자만 dock).
+
+### 0R7-3. 화면 (자세히, 1920×1080 u) — §1-6
+
+| 자리 | 좌표 | 내용 |
+|---|---|---|
+| 머리줄 `.sim-top` | y8~80 | [← 허브] 제목 [카드 ③ 이름 ▾ 칩](누르면 실험 시트) [설명 N장 ↺ 칩] ……… 도구 `[설명 J][실험 Y][⚙ U][기록 n/5][정리][?][⤢][⋯]` 48u (1280 이하·세로·교사 = 아이콘만) |
+| 단계 띠 `.sim-task` | y84~132 | `●○○○ 1 예측`(누르면 단계 팝오버 — 4단계 + '○○하러 가기') · 문장 한 줄 ……… 주 행동 1개 |
+| 무대 `.sim-stage` | x40 y140 1250×700(+extra) | 그림. 그 위 '카드 ①' 칩은 머리줄 칩과 같은 말이라 자세히에서 숨김 |
+| 패널 `.sim-panel` | x1310 y140 570×790 | ⚡ 바로 반영 · ↻ 처음부터 다시(한 줄) · 해설 카드(실행 뒤) · 수치 바꾸기 · 상황 바꾸기 (범위 글 줄 숨김, 카드형 선택은 칩 높이) |
+| 띠 `.sim-band` | x40 y852 1250×88 | 계기판(core 면 2~3칸 + [수치 더 보기 ▸]) · 그래프 |
+| 막대 `.sim-bar` | y952 88u | [▶ 실행 240×64][◀][▶][×1 ▾] ……… [실험 ▾ 240×64] |
+
+- **노드 이름은 그대로**: `SK.el.infoBtn`(숨김) · `guideBtn`(숨김, ⋯ 메뉴 '수업 안내') · `helpBtn` · `fsBtn` · `btnMore`(= ⋯) · `btnReset`(⚙ 바닥줄) · `records`/`recChipCount`(기록 칩 노드는 숨긴 채 갱신 — sim 이 `SK.el.records.hidden = true` 하면 도구 줄 [기록]도 숨음) · `presets`(실험 시트 안 카드 상자, `.preset-card` 그대로 → 렌즈 `is-reco` 코드 그대로).
+- 새 `SK.el`: `btnLesson · btnSettings · btnPresets(막대) · btnPresetsTop(도구 줄) · btnRecords · recBadge · btnThink · cardChip · lessonChip · settings(⚙ 본문) · presetModes · stepDots · stepName · stepBtn · fsBtn`.
+- `setSide('records'|'think')`(사용자) → 그 모달을 연다 · 단계가 ③④로 바뀌면 자동으로 연다 · `setSide('panel')` → 두 모달 닫기. 심플은 예전처럼 더 보기 시트 안에서 바꿔 끼움. `SK.showSide()` 그대로.
+- 새 함수: `SK.openSettings() · SK.openPresets() · SK.openRecords() · SK.openThink()`.
+- 세로 820: 머리 아이콘만 · 진행 52 · 무대(남는 높이) · 계기 88 · 패널 470u(2열) · 막대 112u 한 줄. 팝업은 아래 시트.
+
+### 0R7-4. ⚙ 설정 — '화면에 표시하기'·'더 많은 설정'은 자동으로 간다
+
+- `SK.panel('tools')`·`SK.panel('deep')` 로 넣은 컨트롤은 **코드 변경 없이** ⚙ 안에 있다(같은 노드 — 핸들러·값·기억·`record`·`confirm` 그대로). 해 보기 `set` 이 tools·deep 키를 채워도 `SK.controls[k].set` 그대로 동작.
+- ⚙ 순서: **화면 구성**(`[심플|자세히]` 분절 노드 · 조작판 접기(T) · 교사: 카드 바꿀 때 예측 창 자동) → **화면에 표시하기**(tools 묶음 통째, '기본값으로 ↺') → **더 많은 설정**(deep details 통째) → 바닥 **[기본값으로 되돌리기]**(두 번 누르기, R) **[닫기]**.
+- 심플 막대에도 같은 ⚙(+[설명]). 심플 '더 보기' 시트에는 tools·deep 이 없다(⚙ 로 갔으므로).
+- **패널에 남길 것 = values ≤ 3 + situation 1줄.** 상황 컨트롤이 2개 이상이면 sim 이 `SK.addToggle('tools', …)`/`'deep'` 으로 옮길지 정한다(§2 표). 1280×720 패널 안쪽 높이 ≈ 450px, values 3개 ≈ 340px — situation 은 110px 안쪽이어야 '아래에 더 있어요' 가 안 뜬다(아래 0R7-10 측정값).
+
+### 0R7-5. 실험 고르기 시트 · `cfg.presetModes`
+
+```js
+SimKit.init({ …,
+  presetModes: [   // (슬릿·궤도) 시트 맨 위 모드 단추 줄 — 첫 진입 SK.chooseMode 창 대신
+    { key: 'send', value: 'wave',     label: '빛으로 줄무늬 재기', desc: '파장·틈 간격', preset: 0 },
+    { key: 'send', value: 'electron', label: '전자 하나씩 보내기', preset: 3 }
+  ]
+});
+```
+- 누르면: 시트 닫기 → `SK.controls[key].set(value)` → `preset`(0부터) 이 있으면 그 카드 적용(확인창 없이), 없으면 '○○로 시작해요' 토스트. `onPick(value)` 도 받는다. 지금 값과 같은 단추는 눌린 모양.
+- 자세히 = 카드 5장 전부(.preset-card, 기록이 있으면 확인창 그대로), 심플 = `simple.presets` 큰 카드. 숫자 키 1~5·Y 그대로. `?view=sim` 이고 presetModes 가 있으면 시트가 열린 채 시작.
+- 아직 `SK.chooseMode` 를 쓰는 sim 은 그대로 동작한다(창 = dock). 단 설명 층이 먼저 열려 있으면 창 없이 지금 값으로 시작(심플과 같은 규칙) — B2·C2 에서 presetModes 로 바꾼다.
+
+### 0R7-6. 교과 설명 데이터 `SimKit.lesson(data)` (`sims/<slug>/lesson.js`)
+
+```js
+SimKit.lesson({
+  slug: 'projectile-energy', title: '던진 공은 어떻게 움직일까?',
+  standards: [{ code: '12역학01-02', subj: '역학과 에너지', text: '…' }],   // 계획서 §1-8 ① 코드만
+  simple: ['goal', 'two-motions', 'split-v', 'energy', 'check'],           // 심플에서 보일 장 id(순서는 chapters 순)
+  chapters: [
+    { id: 'goal', type: 'goal', title: '이 단원에서 배우는 것', question: '…?',
+      body: ['문단1', '문단2'],          // 2~5문단. 인라인: **굵게**(500 + 단원색 밑줄) · {{용어}}(SK.term) · $v_0$ · $v_0 \\cos θ$(sin·cos·tan 바로 선 글자)
+      goals: ['…', '…'],                // 체크 줄(goal 장)
+      svg: function (D) { return D.svg([...], { title: '그림 제목', how: '읽는 법 한 줄' }); },
+      how: '…',                          // (svg 의 how 대신 직접)
+      teacherNote: '…' },                // 교사 모드에서만 DOM(접힘)
+    { id: 'split-v', type: 'formula', title: '…', body: [...],
+      eq: [{ tex: '$v_x = v_0 \\cos θ$', caption: '수평 속도' }, { frac: ['$v_0^2$', '$g$'], caption: '…' }],
+      symbols: [{ sym: '$v_0$', name: '처음 속력', unit: 'm/s' }], condition: '공기 저항이 없을 때',
+      more: { title: '더 알아보기 — …', body: [...], eq: [...] },   // 심플에서 숨김, 교사 모드는 펼침(teacherOpen:false 로 끔)
+      life: ['…'], svg: fn },
+    { id: 'misc', type: 'misconception', title: '흔한 오해', items: [{ claim: '…', why: '…', chapter: 'two-motions' }] },
+    { id: 'check', type: 'check', title: '시뮬레이터에서 확인할 질문',
+      modes: [{ key: 'send', value: 'wave', label: '빛으로 해 보기' }],     // 맨 위 큰 단추 → 그 모드의 첫 질문(set[key] === value 또는 q.mode)
+      questions: [{ q: '…?', preset: 4, set: { showV: true }, predict: true, chapter: 'split-v' },
+                  { q: '…?', preset: null, set: { s: 10 }, predict: false, chapter: 'by-position' }] },
+    { id: 'wrap', type: 'wrap', title: '실험 뒤 정리', summary: ['…'],
+      quiz: [{ q: '…', choices: ['…'], answer: 2, why: '…', chapter: 'split-v' }] }   // 답·이유는 교사 모드 DOM 만(1차는 목록만)
+  ],
+  links: { energy: 'energy', range: 'range' }   // (선택) 해설 용어 → 장 id 메모
+});
+```
+- 장 `type`: `goal · concept · formula · diagram · life · misconception · check · wrap`(렌더는 필드가 있으면 그린다 — 타입은 머리 글·검사용). 그림이 없는 장·`check` 장은 글이 전폭.
+- 정답·`teacherNote`·`quiz.answer/why` 는 `SK.isTeacher()` 일 때만 DOM 에 들어간다(학생 DOM 에 없음).
+- 배치(1920 u): 머리 72 · 글 x40~760(장 제목 48u · 본문 max(20px, 32u) · 식 max(24px, 40u) · 기호표 28u · 조건 28u 주홍) · 그림 x800~1880(16:9) + '읽는 법' 28u · 바닥 [◀ 이전 256] 점 + 'n / N' [다음 ▶ 256 | 실험 시작 ▶ 360]. 4:3 은 글 44%, 세로는 그림 위·글 아래 한 겹 스크롤 + 좌우 밀기(60px, `.no-swipe` 제외).
+
+### 0R7-7. 설명 ↔ 실험 API
+
+| API | 하는 일 |
+|---|---|
+| `SK.lessonOpen(id?)` | 설명 층 열기. id 없으면 지금 카드의 장(`questions[].preset === 지금 카드` 인 질문의 chapter) → 없으면 마지막 본 장. 실행 중이면 멈춤 |
+| `SK.lessonClose()` · `SK.toggleLesson()` | 닫기(그림·값·실행 위치 그대로, [▶ 실행] 포커스) · J 키 |
+| `SK.lessonTry(q)` | 해 보기: 설명 닫기 → `applyPreset(q.preset, {noConfirm, noPredict})`(null 이면 건너뜀) → `q.set` 을 `controls[k].set(v,{silent:true})` + 처음 상태 → [▶ 실행] 포커스 → 자세히·`predict !== false`·카드에 예측이 있으면 예측 dock → 머리줄 '설명 N장' 칩(다른 카드를 고르면 사라짐) |
+| `SK.lessonLink(id, label?)` | `<button class="lesson-link">` — 해설·정리 어디든 붙인다. label 없으면 '설명 N장 · 제목 다시 보기'. lesson 이 없거나 없는 장이면 숨김 |
+| `SK.takeaway({line, more, lesson:'energy'})` | 해설 카드 한 줄 아래 '개념 다시 보기' 링크 |
+| `SK.think({…, lesson:'energy'})` | 정리 질문 카드 아래 '설명 N장 · 제목 다시 보기' |
+| `SK.hasLesson()` · `SK.activePreset()` · `SK.presetInfo(i)` · `window.SimLesson` | 확인용 |
+
+- 쿼리: `?view=explain[&ch=장id]`(그 장부터, skip 무시) · `?view=sim[&preset=0~4]`(바로 실험 + 카드 i, 예측은 카드 autoPredict 대로) · `?simple=`·`?teacher=`·`?mode=` 와 자유 조합. 쿼리가 없으면 `skip` 이 '1' 이 아닐 때 설명 1장(교사 모드는 늘 설명).
+- 저장(전부 try/catch): `physsim.lesson.<slug>.seen`(읽은 장 id 배열 — 허브 '읽은 장' 점) · `.skip`(마지막 장 '다음부터 바로 실험' 체크 시만 '1') · `.last`(마지막 장 id).
+- 설명 층이 열린 동안: 실험 키 전부 잠금(`installKeys` 맨 앞에서 가로챔), 실험 DOM 은 `inert`, 자동 예측(`SK.predict`)은 미뤄 둔다(띠 [예측하기]로 다시 열 수 있음) → **설명을 거친 첫 진입은 예측 창이 저절로 뜨지 않는다**. 실행 중이면 멈춘다.
+
+### 0R7-8. 키 (새 공용 키 3개)
+
+| 키 | 실험 화면 | 설명 층 |
+|---|---|---|
+| **J** | 설명 열기 | 실험으로 |
+| **U** | ⚙ 설정 열기/닫기 | — |
+| **Y** | 실험 고르기 시트 열기/닫기 | — |
+| →·Space·PageDown / ←·Shift+Space·PageUp | (기존) 단계 · 실행 | 다음 장 / 이전 장 |
+| Home·End·1~9·Enter·Esc·F·? | (기존) | 처음·끝·장 점프·(마지막 장) 실험 시작·실험으로(첫 진입 제외)·전체 화면·키 안내 |
+
+sim 고유 키는 J·U·Y 를 쓰지 않는다. 도움말 '단축키' 탭에 J·U·Y·M·설명 키가 저절로 붙는다(lesson 이 있을 때 J·설명 줄).
+
+### 0R7-9. 계기판 `core` · 설명 그림 `SimDiagram`
+
+- `SK.meters(where, [{ key, label, …, core: true }, …])` — core 칸(2~3개)만 띠에 크게(값 48u), 나머지는 [수치 더 보기 ▸] 팝오버(같은 노드 — `meters.set`·`SK.setMeter`·심플 측정 칸 그대로). core 가 하나도 없으면 예전처럼 전부. 반환에 `moreEl`·`moreBtn` 추가.
+- `SimDiagram`(= 설명 장 `svg(D)` 의 D) — 모두 SVG 조각 문자열, 배열로 `D.svg` 에 넣는다. viewBox 800×450, 라벨 ≥ 16, 굵기 400/500, **색은 변수만**(hex 금지):
+
+| 함수 | 쓰임 |
+|---|---|
+| `D.svg(kids, {title, how})` | 전체 svg(마커 4종 defs 1회) · title = 왼쪽 위 20 · how = 그림 아래 '읽는 법' |
+| `D.arrow(x1,y1,x2,y2,{kind, label, lx, ly, color})` | `v` 속도 실선(단원색) · `a`/`f` 가속도·힘 굵은 주홍 · `comp` 성분 점선 · `sum` 합 이중선 |
+| `D.axis(x,y,w,h,{xl, yl, ticks:[{v,t}], yticks})` | 원점 (x,y), 오른쪽 w · 위 h |
+| `D.dim(x1,y1,x2,y2,label,{off})` · `D.angle(cx,cy,r,a0,a1,label)` | 치수선 · 각도 호(도, 위가 +) |
+| `D.ray(pts,{style:1|2|3})` | 렌즈 세 광선 = 실험 화면 기록 색 `--color-rec-1~3`·`--dash-rec-1~3` |
+| `D.label(x,y,text,{bg, anchor, size, color, weight, italic})` | `$v_0$` 기울임+첨자, bg = 바탕색 테두리 |
+| `D.line · D.path · D.curve(pts) · D.dots(pts) · D.group` | 선·경로·궤적·섬광 점 |
+| `D.ball · D.box · D.lens · D.slit · D.screen · D.planet · D.ground` | 작은 도형 |
+| 색 이름 | `'sim'`(주 대상) · `'muted'`(보조선) · `'warn'`(강조·오개념) · `'tint'`(바탕 막) · `'ink'` · `'ray1~3'` |
+
+- 식 조판 CSS: `.eq`(max(24px, 40u) 가운데) · `.eq-frac` · `.eq-sub` · `.lesson-fig` — 첨자·기울임은 `SK.mathNodes` 그대로. `SK.rich`·`SK.fracEl` 공개.
+
+### 0R7-10. sim 별 할 일 (UI팀1 A · UI팀2 B · UI팀3 C) + 1280×720 패널 측정
+
+1280×720 패널 안쪽 ≈ 450px(슬릿·궤도 410px — 모드 줄). 공통 압축 뒤 측정(values / situation px): 포물선 384 / 390 · 슬릿 511 / 164 · 충돌 467 / 385 · 궤도 314 / 284 · 렌즈 355 / 384 → **5종 모두 아직 '아래에 더 있어요'** — sim 이 상황 컨트롤을 ⚙ 로 보내고(§2 표) values 를 3개로 맞추면 사라진다.
+
+| sim | 할 일 |
+|---|---|
+| 공통 | `index.html` 에 diagram.js·lesson.js 2줄 + `lesson.js`(원고 → 데이터, 장 id·questions·links) · 계기판 `core` · 해설 `takeaway({…, lesson})`·`SK.lessonLink` · `think({lesson})` · 상황 컨트롤 정리(패널 = values ≤ 3 + situation 1줄) |
+| 포물선 | situation 의 `gEarth`·`cmp` → tools/deep · `openRangePredict` 자동 호출은 설명 층이 있으면 미뤄짐(공통) — 카드·[예측하기]로만 · core x·vₓ·v_y |
+| 슬릿 | `SK.chooseMode` → `cfg.presetModes`(빛/전자) · values 4개(λ·d·L·…) → 3개 + 나머지 deep · core Δy·N |
+| 충돌 | situation `kind`·`tau` → deep · values 3개 · core p 합·Eₖ 합 |
+| 궤도 | `SK.chooseMode` → `cfg.presetModes`(대포·위성·케플러, preset 연결) · body 카드 → 칩(공통 CSS 가 설명 줄 숨김) · core 모드별 2칸 |
+| 렌즈 | situation 4개(광선 3토글·가림판·스크린·물체) → 광선 칩 한 줄 + 나머지 tools · core 상 거리·배율·상의 모습 |
+
+### 0R7-11. 팀장 마무리(통합 검사 뒤 공통 틀에 더한 것, 2026-10-30)
+
+| 무엇 | 쓰는 법 |
+|---|---|
+| 질문 `simple:false` | `questions:[{ q, preset, simple:false }]` — 심플 모드에서는 그 질문 카드가 숨고 `modes` 단추도 건너뛴다 |
+| 질문 `card`·`cardName` | 갈래(mode)가 있는 sim 은 `{ mode:'quantum', card:0, cardName:'전자 하나씩' }` — 칩 '카드 ① 전자 하나씩'. `preset` 만 있으면 지금 카드 이름(`SK.presetInfo`) |
+| 질문 7개 이상 | 자동으로 `.lesson__qs.is-many`(4열·촘촘). 세로 820 은 2열 |
+| 표 `table` | `{ caption, head:['…'], rows:[['행 머리', '…'], …] }` — 칸 글은 인라인 표기(`$s$`·**굵게**) 그대로. 기호표 다음·조건 줄 앞에 그려진다 |
+| 식 `tex` + `frac` | `{ tex:'$Δy$ =', frac:['$λL$', '$d$'], caption }` — tex 뒤에 분수. `.eq` 는 본문 글꼴(한글 OK), `$…$`·분수만 수식 글꼴 |
+| 장 링크 라벨 | `$` 표기는 `SK.plainMath` 로 글자화 |
+| `D.dim` 라벨 | 선에 수직 방향으로 `off`(가로선: 음수 = 위 · 세로선: 음수 = 왼쪽 끝 맞춤). `anchor` 로 덮어쓸 수 있다 |
+| `SK._lessonClosed` | 설명 층이 닫힐 때 한 번 부르는 훅(있으면). 심플 첫 알림이 설명 위에 겹치지 않게 쓴다 |
+| `checkMore` | 막대 높이를 더해 재고 `ResizeObserver`·`MutationObserver` 로 패널 자식 변화를 지켜본다 → 내용이 줄면 '아래에 더 있어요' 가 다시 숨는다(sim 쪽 임시 보정 불필요). '상황 바꾸기' 묶음이 통째로 숨으면 `.sim-panel__scroll.sit-hidden` 을 붙인다 |
+| 세로 820 패널 | `--panel-h7` 540u(공통) · `.sit-hidden` 이면 '수치 바꾸기' 가 두 열을 써서 슬라이더 2열 → 5종 첫 화면 '아래에 더 있어요' 없음 |
+| 자동 실험 시트 | `?view=sim` + `cfg.presetModes` 첫 진입은 `togglePresets(false)`(anchor 없음) — 닫아도 [실험 ▾] 로 포커스를 돌리지 않아 Space 가 시트를 다시 열지 않는다 |
+| 820 머리줄 배지 | 기록 `n/5` 배지는 단추 안 오른쪽 위 모서리(`:has` 로 아이콘을 4u 비킴) |
+| 허브 | 빈 링크 줄도 같은 높이 → 카드 5장 [설명부터][바로 실험] 바닥선 동일 |
+
+검사: `_review/R7/1차/팀장/final/` · 결과·남은 것은 `docs/개선/R7_1차_계획.md` §6.
 
 ---
 

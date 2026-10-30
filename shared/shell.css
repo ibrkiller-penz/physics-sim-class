@@ -786,3 +786,344 @@ html:not(.cursor-hidden) .sheet__card:hover { border-color: var(--color-primary)
   html.is-simple .sheet { left: var(--x); right: var(--x); width: auto; top: 14vh; bottom: calc(100% - var(--bar-y) + 8 * var(--p)); }
   html.is-simple .sheet__tools .btn, html.is-simple .sheet__step, html.is-simple .sheet__extras .check { font-size: 18px; min-height: calc(56 * var(--p)); }
 }
+
+
+/* =====================================================================
+   R7 1차 (docs/개선/R7_1차_계획.md §1-6) — 자세히 모드 덜어내기. 1920×1080 (u)
+     띠 y0~8 · .sim-top y8~80 [← 허브] 제목 [카드 칩][설명 N장] ……… [설명][실험][⚙][기록 n/5][정리][?][⤢][⋯] (48u)
+     .sim-task y84~132 ●○○○ 1 예측 · 문장 ……… [주 행동 1개]
+     .sim-stage x40~1290 y140~840 (1250×700) · .sim-panel x1310~1880 y140~930 (570×790): ⚡↻ 한 줄 · 해설 카드 · 수치 · 상황
+     .sim-band x40~1290 y852~940 핵심 계기 2~3칸 + [수치 더 보기 ▸] | 그래프
+     .sim-bar x40~1880 y952~1040 [▶ 실행 240×64][◀][▶][×1] ……… [실험 ▾ 240×64]
+   팝업(⚙·실험 ▾·기록·정리·예측)은 base.css .pop — 그림은 가리지 않는다(기록·정리 모달만 그림 자리)
+   ===================================================================== */
+.sim > .sim-top { top: calc(8 * var(--u)); height: calc(72 * var(--u)); gap: var(--space-4); }
+.sim-top__chips { flex: 0 1 auto; min-width: 0; display: flex; gap: var(--space-2); align-items: center; overflow: hidden; }
+.top-chip {
+  flex: 0 1 auto; min-width: 0; height: calc(48 * var(--u)); min-height: 36px; padding: 0 var(--space-3); gap: var(--space-2);
+  border-radius: var(--radius-pill); border: calc(2 * var(--u)) solid var(--color-line-strong); background: var(--color-paper-raised);
+  font: var(--font-weight-medium) var(--fs-meta)/1 var(--font-sans); color: var(--color-ink); white-space: nowrap; cursor: pointer;
+  display: inline-flex; align-items: center;
+}
+.top-chip[hidden] { display: none; }
+.top-chip b { color: var(--sim-text); font-weight: var(--font-weight-medium); flex: none; }
+.top-chip b .circ { font-size: calc(18 * var(--u)); width: calc(26 * var(--u)); height: calc(26 * var(--u)); vertical-align: -0.2em; }
+.top-chip__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.top-chip > .ico { width: calc(24 * var(--u)); height: calc(24 * var(--u)); flex: none; }
+.top-chip--lesson { border-color: var(--sim); color: var(--sim-text); }
+html:not(.cursor-hidden) .top-chip:hover { border-color: var(--sim); }
+.sim-top__tools { gap: var(--space-2); }
+.sim-top__tools .tool-btn {
+  min-height: calc(48 * var(--u)); height: calc(48 * var(--u)); min-width: calc(48 * var(--u)); padding: 0 var(--space-3); gap: var(--space-2);
+  font-size: var(--fs-meta); border-width: calc(2 * var(--u)); position: relative;
+}
+.sim-top__tools .tool-btn > .ico { width: calc(28 * var(--u)); height: calc(28 * var(--u)); margin: 0; }
+.sim-top__tools .tool-btn[hidden], .sim-top__tools .sim-top__info, .sim-top__tools .sim-top__guide { display: none !important; }
+/* [?][⤢][⋯] 는 늘 아이콘만 */
+.sim-top__tools .tool-btn[aria-label="도움말"] .tool-btn__txt, .sim-top__tools .tool-btn[aria-label="전체 화면"] .tool-btn__txt, .sim-top__tools .tool-btn--more .tool-btn__txt { display: none; }
+.sim-top__tools .tool-btn[aria-label="도움말"], .sim-top__tools .tool-btn[aria-label="전체 화면"], .sim-top__tools .tool-btn--more { width: calc(48 * var(--u)); padding: 0; justify-content: center; }
+.tool-btn__badge { font: var(--font-weight-medium) var(--fs-caption)/1 var(--font-num); color: var(--sim-text); background: var(--sim-tint); border-radius: var(--radius-pill); padding: calc(4 * var(--u)) var(--space-2); }
+.tool-btn__badge.is-full { background: var(--color-warn-tint); color: var(--color-warn-text); }
+/* 전자칠판 1280 이하: 도구 줄은 아이콘만(배지는 남김) */
+@media (max-width: 1280px) { .sim-top__tools .tool-btn__txt { display: none; } .sim-top__tools .tool-btn { padding: 0 var(--space-2); justify-content: center; min-width: calc(56 * var(--u)); } }
+
+/* 지금 할 일 띠 48u */
+.sim > .sim-task { top: calc(84 * var(--u)); height: calc(48 * var(--u)); gap: var(--space-4); }
+.task-stepbtn {
+  flex: none; display: inline-flex; align-items: center; gap: var(--space-3);
+  height: calc(44 * var(--u)); min-height: 36px; padding: 0 var(--space-4) 0 var(--space-3);
+  border-radius: var(--radius-pill); border: calc(2 * var(--u)) solid var(--color-line); background: var(--color-paper-raised);
+  font: var(--font-weight-medium) var(--fs-meta)/1 var(--font-sans); color: var(--color-primary);
+}
+html:not(.cursor-hidden) .task-stepbtn:hover { border-color: var(--color-primary); }
+.task-dots { display: inline-flex; gap: calc(6 * var(--u)); }
+.task-dot { width: calc(14 * var(--u)); height: calc(14 * var(--u)); min-width: 7px; min-height: 7px; border-radius: 50%; border: calc(2 * var(--u)) solid var(--color-line-strong); background: var(--color-paper-raised); }
+.task-dot.is-done { background: var(--color-primary-tint); border-color: var(--color-primary); }
+.task-dot.is-now { background: var(--color-primary); border-color: var(--color-primary); }
+.sim-task .task-now { padding-left: var(--space-4); border-left-width: calc(3 * var(--u)); }
+.sim-task .task-now__sub { display: none; }
+.sim-task .task-now__text { -webkit-line-clamp: 1; font-weight: var(--font-weight-medium); }
+.sim-task .task-now .btn { min-height: calc(44 * var(--u)); height: calc(44 * var(--u)); }
+
+/* 무대·패널·띠·막대 */
+.sim > .sim-stage { height: calc(700 * var(--u) + var(--extra)); }
+.sim > .sim-panel { height: calc(790 * var(--u) + var(--extra)); }
+.sim > .sim-band { top: calc(852 * var(--u) + var(--extra)); width: calc(1250 * var(--u)); }
+.sim > .rec-chip { display: none !important; }
+.sim > .sim-bar {
+  top: calc(952 * var(--u) + var(--extra)); height: calc(88 * var(--u));
+  display: flex; align-items: center; gap: var(--space-3); padding-top: 0;
+}
+.sim-bar__ctl { align-items: center; gap: var(--space-2); }
+.sim-bar__gap { flex: 1 1 auto; }
+.sim-bar .btn--run { height: calc(64 * var(--u)); }
+.sim-bar .bar-icon, .sim-bar .bar-speed { height: calc(64 * var(--u)); min-height: 0; min-width: calc(64 * var(--u)); padding: 0 var(--space-3); border-width: calc(2 * var(--u)); font-size: var(--fs-meta); }
+.sim-bar .bar-icon { width: calc(64 * var(--u)); padding: 0; justify-content: center; }
+.sim-bar .bar-icon > .ico { width: calc(28 * var(--u)); height: calc(28 * var(--u)); margin: 0; }
+.bar-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.sim-bar .bar-speed { min-width: calc(96 * var(--u)); }
+.sim-bar .bar-presets { width: calc(240 * var(--u)); height: calc(64 * var(--u)); min-height: 0; gap: var(--space-2); font-size: var(--fs-body); border-width: calc(2 * var(--u)); }
+.sim-bar .bar-presets > .ico { width: calc(30 * var(--u)); height: calc(30 * var(--u)); }
+.sim-bar .bar-presets[hidden] { display: none; }
+.bar-reset .reset-txt { white-space: nowrap; }
+
+/* 패널: 범례 한 줄 24u, 기록·정리 보기 단추는 도구 줄로 */
+.sim-panel .panel-head { padding: var(--space-2) var(--space-5); }
+.sim-panel .panel-legend { flex-wrap: nowrap; gap: var(--space-4); font-weight: var(--font-weight-regular); }
+.sim-panel .panel-legend .apply-ico { min-width: calc(28 * var(--u)); height: calc(28 * var(--u)); }
+html:not(.is-simple) .sim-panel .side-switch { display: none !important; }
+/* 실험 화면 위 '카드 ①' 칩은 머리줄 카드 칩과 같은 말 — 자세히 가로에서는 숨김 */
+html:not(.is-simple) .sim-stage .preset-info { display: none; }
+
+/* 띠 계기판: core 칸 크게(값 56u) + [수치 더 보기 ▸] */
+.meters.has-core { align-items: stretch; }
+.sim-band .meters.has-core .meter.is-core .meter__value { font-size: calc(48 * var(--u)); }
+.meters__more { flex: none; align-self: center; min-height: calc(56 * var(--u)); padding: 0 var(--space-3); font-size: var(--fs-caption); border-width: calc(2 * var(--u)); }
+
+/* T 조작판 접기: 무대 1840×790 */
+.sim.is-collapsed > .sim-stage { width: calc(1840 * var(--u)); height: calc(790 * var(--u) + var(--extra)); }
+
+/* ---------- R7 세로 태블릿(폭 601 이상): 머리 아이콘만 · 진행 48 · 무대 · 계기 88 · 패널 2열(values) · 막대 1줄 ---------- */
+@media (orientation: portrait) and (min-width: 601px) {
+  .sim { --bar-h7: calc(112 * var(--u)); --panel-h7: calc(540 * var(--u)); }   /* R7 마무리: 470 → 540 — 세로에서 수치 3개 + 상황 1줄이 스크롤 없이 들어가게(궤도·렌즈가 먼저 쓰던 값) */
+  .sim > .sim-top { top: calc(8 * var(--u)); }
+  .sim-top__chips { display: none; }
+  .sim-top__tools .tool-btn { width: calc(68 * var(--u)); min-width: 0; padding: 0; justify-content: center; height: calc(64 * var(--u)); }
+  /* 기록 배지(n/5)는 단추 안 오른쪽 위 모서리에 — 머리줄 밖으로 밀리지 않게 (팀장 R7 마무리) */
+  .sim-top__tools .tool-btn__badge { position: absolute; right: calc(2 * var(--u)); top: calc(2 * var(--u)); padding: 1px 4px; font-size: 11px; line-height: 1.2; }
+  .sim-top__tools .tool-btn:has(.tool-btn__badge) > .ico { transform: translate(calc(-4 * var(--u)), calc(4 * var(--u))); }
+  .sim > .sim-task { top: calc(84 * var(--u)); height: calc(52 * var(--u)); }
+  /* R7 마무리: '상황 바꾸기' 묶음이 비어 숨은 sim(포물선·슬릿·충돌)은 '수치 바꾸기' 가 두 열을 다 써서 슬라이더가 2열로 흐른다 → 세로에서도 '아래에 더 있어요' 없음 */
+  .sim-panel__scroll.sit-hidden > .panel-sec[data-sec="values"] { grid-column: 1 / -1; }   /* .sit-hidden 은 sim.js checkMore 가 붙인다 */
+  .sim-panel__scroll.sit-hidden > .panel-sec[data-sec="values"] > .panel-sec__body {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: var(--space-5); align-items: start;
+  }
+  .sim > .sim-stage { height: calc(100vh - 140 * var(--u) - 16 * var(--u) - 88 * var(--u) - 12 * var(--u) - var(--panel-h7) - 12 * var(--u) - var(--bar-h7)); }
+  .sim > .sim-band { top: calc(100vh - var(--bar-h7) - 12 * var(--u) - var(--panel-h7) - 12 * var(--u) - 88 * var(--u)); width: calc(1250 * var(--u)); }
+  .sim > .sim-panel { top: calc(100vh - var(--bar-h7) - 12 * var(--u) - var(--panel-h7)); height: var(--panel-h7); }
+  .sim > .sim-bar {
+    top: calc(100vh - var(--bar-h7)); height: var(--bar-h7); width: calc(1250 * var(--u));
+    display: flex; grid-template-rows: none; padding: 0 0 calc(8 * var(--u));
+  }
+  .sim-bar__ctl { grid-row: auto; }
+  .sim-bar .btn--run { width: calc(300 * var(--u)); height: calc(88 * var(--u)); }
+  .sim-bar .bar-icon, .sim-bar .bar-speed { height: calc(88 * var(--u)); min-width: calc(88 * var(--u)); }
+  .sim-bar .bar-icon { width: calc(88 * var(--u)); }
+  .sim-bar .bar-presets { width: calc(260 * var(--u)); height: calc(88 * var(--u)); }
+  .sim.is-collapsed > .sim-stage { height: calc(100vh - 140 * var(--u) - 16 * var(--u) - var(--bar-h7)); }
+  /* 팝업: popover·dock·modal → 아래 시트(≤ 60%, 그림 위쪽 40% 보임) */
+  .pop--sheet { left: calc(20 * var(--u)); right: calc(20 * var(--u)); width: auto; bottom: calc(var(--bar-h7) + 8 * var(--u)); max-height: 60vh; }
+  .pop--sheet.pop--records, .pop--sheet.pop--think, .pop--sheet.pop--recfull { height: 60vh; }
+  .pop--think .side-body { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+/* =====================================================================
+   R7 심플 모드 — 막대에 [설명][⚙] · 시트(더 보기·실험)는 SK.pop sheet 를 R6 자리 그대로
+   ===================================================================== */
+html.is-simple .sim-top__tools .tool-btn:not([aria-label="도움말"]):not([aria-label="전체 화면"]) { display: none !important; }
+html.is-simple .sim-top__chips { display: none; }
+html.is-simple .simple-settings-btn { width: calc(88 * var(--u)); padding: 0; justify-content: center; }
+html.is-simple .simple-settings-btn > .ico { width: calc(36 * var(--u)); height: calc(36 * var(--u)); margin: 0; }
+html.is-simple .simple-lesson-btn { width: calc(160 * var(--u)); gap: var(--space-2); }
+html.is-simple .simple-lesson-btn[hidden] { display: none; }
+html.is-simple .simple-presets-btn, html.is-simple .simple-more-btn { width: calc(220 * var(--u)); }
+html.is-simple .pop--sheet {
+  right: var(--x); left: auto; top: auto; bottom: calc(100% - var(--bar-y) + var(--gap-s));
+  width: calc(820 * var(--u)); max-height: calc(var(--bar-y) - var(--gap-s) - var(--sy));
+  border-radius: var(--radius-simple-md);
+}
+html.is-simple .pop--sheet.pop--more { top: var(--sy); }
+html.is-simple .pop--more .pop__body { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+html.is-simple .pop--dock { left: var(--rail-x); top: var(--rail-y); width: var(--rail-w); max-height: var(--rail-h); }
+html.is-simple .pop__title { font-size: max(19px, calc(36 * var(--u))); }
+html.is-simple .pop__close { width: var(--tap-simple); height: var(--tap-simple); }
+@media (orientation: landscape) and (max-aspect-ratio: 17/10) { html.is-simple .pop--sheet { width: calc(1040 * var(--u)); } }
+@media (orientation: portrait) and (min-width: 601px) {
+  html.is-simple .simple-settings-btn { width: calc(64 * var(--p)); }
+  html.is-simple .simple-lesson-btn { width: auto; padding: 0 calc(12 * var(--p)); }
+  html.is-simple .simple-presets-btn, html.is-simple .simple-more-btn { width: calc(130 * var(--p)); }
+  html.is-simple .pop--sheet { left: var(--x); right: var(--x); width: auto; max-height: 60vh; bottom: calc(100% - var(--bar-y) + 8 * var(--p)); }
+  html.is-simple .pop--sheet.pop--more { top: 14vh; max-height: none; }
+}
+
+/* =====================================================================
+   R7 교과 설명 층 (shared/lesson.js) — html.is-lesson 이면 실험 화면 위를 덮는다(실험 DOM 은 그대로 살아 있음)
+     1920×1080: 띠 8 · 머리줄 72 · 본문 (글 x40~760 | 그림 x800~1880, 1080×608) · 바닥 막대 88
+     본문 max(20px, 32u) · 식 max(24px, 40u) · 장 제목 48u · 4:3 은 글 44% · 세로 = 그림 위, 글 아래(한 겹 스크롤)
+   ===================================================================== */
+.lesson { display: none; }
+html.is-lesson .lesson {
+  position: fixed; inset: 0; z-index: 45;
+  display: grid; grid-template-rows: calc(8 * var(--u)) auto minmax(0, 1fr) auto;
+  background: var(--color-paper); color: var(--color-ink);
+  animation: fade-in var(--dur-base) var(--dur-ease) both;
+}
+html.is-lesson .lesson[hidden] { display: none; }
+html.is-lesson { overflow: hidden; }
+.lesson__bar { background: var(--sim); }
+.lesson__head {
+  display: flex; align-items: center; gap: var(--space-4);
+  min-height: calc(72 * var(--u)); padding: 0 calc(40 * var(--u));
+  border-bottom: 1px solid var(--color-line);
+}
+.lesson__hub {
+  flex: none; display: inline-flex; align-items: center; gap: var(--space-2);
+  min-height: max(44px, calc(52 * var(--u))); padding: 0 var(--space-4) 0 var(--space-3);
+  border-radius: var(--radius-md); border: calc(2 * var(--u)) solid var(--color-line-strong); background: var(--color-paper-raised);
+  font: var(--font-weight-medium) var(--fs-meta)/1 var(--font-sans); color: var(--color-ink);
+}
+.lesson__hub > .ico { width: calc(26 * var(--u)); height: calc(26 * var(--u)); }
+.lesson__title { flex: 0 1 auto; min-width: 0; font: var(--font-weight-medium) max(20px, calc(40 * var(--u)))/1.2 var(--font-sans); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lesson__where { flex: 0 1 auto; min-width: 0; font: var(--font-weight-regular) var(--fs-meta)/1.2 var(--font-sans); color: var(--color-ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lesson__where b { color: var(--sim-text); font-weight: var(--font-weight-medium); }
+.lesson__gap { flex: 1 1 auto; }
+.lesson__pace { flex: none; }
+.lesson__head .btn { flex: none; min-height: max(44px, calc(52 * var(--u))); padding: 0 var(--space-4); font-size: var(--fs-meta); border-width: calc(2 * var(--u)); gap: var(--space-2); }
+.lesson__head .lesson__icon { width: max(44px, calc(52 * var(--u))); padding: 0; justify-content: center; }
+.lesson__head .btn > .ico { width: calc(26 * var(--u)); height: calc(26 * var(--u)); min-width: 16px; min-height: 16px; margin: 0; }
+.lesson__body {
+  min-height: 0; display: grid; grid-template-columns: minmax(0, 720fr) minmax(0, 1080fr); gap: calc(40 * var(--u));
+  padding: calc(24 * var(--u)) calc(40 * var(--u)) var(--space-4);
+}
+.lesson__body.is-wide { grid-template-columns: minmax(0, 1fr); }
+.lesson__text { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: var(--space-3); display: flex; flex-direction: column; gap: var(--space-4); scrollbar-width: thin; }
+.lesson__body.is-wide .lesson__text { max-width: calc(1840 * var(--u)); }
+.lesson__fig { min-height: 0; display: flex; flex-direction: column; gap: var(--space-3); margin: 0; }
+.lesson__fig[hidden] { display: none; }
+.lesson__figbox { border-radius: var(--radius-lg); background: var(--color-paper-raised); border: 1px solid var(--color-line); padding: var(--space-3); max-height: 100%; }
+.lesson__figbox svg { max-height: calc(608 * var(--u) + var(--extra) * 0.6); }
+.lesson__how { font: var(--font-weight-regular) max(15px, calc(28 * var(--u)))/1.5 var(--font-sans); color: var(--color-ink-chip); word-break: keep-all; }
+.lesson__how b { color: var(--sim-text); font-weight: var(--font-weight-medium); }
+.lesson__kicker { font: var(--font-weight-medium) var(--fs-meta)/1.2 var(--font-sans); color: var(--sim-text); letter-spacing: 0.02em; }
+.lesson__h { font: var(--font-weight-medium) max(26px, calc(48 * var(--u)))/1.25 var(--font-sans); word-break: keep-all; text-wrap: balance; }
+.lesson__q { font: var(--font-weight-medium) max(20px, calc(34 * var(--u)))/1.45 var(--font-sans); color: var(--sim-text); word-break: keep-all; padding-left: var(--space-4); border-left: calc(6 * var(--u)) solid var(--sim); }
+.lesson__p { font: var(--font-weight-regular) max(20px, calc(32 * var(--u)))/1.6 var(--font-sans); word-break: keep-all; }
+.lesson__p strong, .lesson__p b { font-weight: var(--font-weight-medium); color: var(--color-ink); background: linear-gradient(transparent 62%, var(--sim-tint) 62%); }
+.lesson__std { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.lesson__std .chip { height: auto; min-height: calc(40 * var(--u)); padding: var(--space-1) var(--space-3); font-size: var(--fs-caption); line-height: 1.3; white-space: normal; text-align: left; }   /* 두 줄로 접혀도 줄이 겹치지 않게 */
+.lesson__goals { display: grid; gap: var(--space-2); }
+.lesson__goals li { display: flex; gap: var(--space-3); align-items: flex-start; font: var(--font-weight-regular) max(20px, calc(32 * var(--u)))/1.45 var(--font-sans); word-break: keep-all; }
+.lesson__goals li > .ico { flex: none; width: calc(34 * var(--u)); height: calc(34 * var(--u)); min-width: 20px; min-height: 20px; margin-top: 0.2em; color: var(--sim); }
+.lesson__eqs { display: grid; gap: var(--space-3); padding: var(--space-4) var(--space-5); border-radius: var(--radius-lg); background: var(--color-paper-raised); border: 1px solid var(--color-line); }
+.lesson__eqrow { display: grid; gap: var(--space-1); justify-items: center; }
+.lesson__eqcap { font: var(--font-weight-regular) var(--fs-meta)/1.3 var(--font-sans); color: var(--color-ink-muted); }
+.lesson__sym { width: 100%; border-collapse: collapse; font: var(--font-weight-regular) max(16px, calc(28 * var(--u)))/1.4 var(--font-sans); }
+.lesson__sym th, .lesson__sym td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--color-line); text-align: left; vertical-align: top; }
+.lesson__sym th { font-weight: var(--font-weight-medium); color: var(--color-ink-muted); font-size: var(--fs-caption); }
+.lesson__sym td:first-child { font-family: var(--font-math); white-space: nowrap; }
+.lesson__cond { font: var(--font-weight-regular) max(16px, calc(28 * var(--u)))/1.45 var(--font-sans); color: var(--color-warn-text); word-break: keep-all; }
+.lesson__cond::before { content: "조건 · "; font-weight: var(--font-weight-medium); }
+.lesson__more { border-top: 1px dashed var(--color-line-strong); padding-top: var(--space-2); }
+.lesson__more > summary { cursor: pointer; min-height: max(44px, calc(56 * var(--u))); display: flex; align-items: center; gap: var(--space-2); font: var(--font-weight-medium) max(16px, calc(28 * var(--u)))/1.2 var(--font-sans); color: var(--color-primary); list-style: none; }
+.lesson__more > summary::-webkit-details-marker { display: none; }
+.lesson__more > summary::after { content: "펼치기"; font-size: var(--fs-caption); color: var(--color-ink-muted); }
+.lesson__more[open] > summary::after { content: "접기"; }
+.lesson__more .lesson__p { font-size: max(18px, calc(28 * var(--u))); }
+.lesson__life { display: grid; gap: var(--space-2); }
+.lesson__life li { font: var(--font-weight-regular) max(18px, calc(28 * var(--u)))/1.5 var(--font-sans); word-break: keep-all; padding-left: var(--space-5); position: relative; }
+.lesson__life li::before { content: ""; position: absolute; left: var(--space-1); top: 0.6em; width: calc(10 * var(--u)); height: calc(10 * var(--u)); min-width: 6px; min-height: 6px; border-radius: 50%; background: var(--sim); }
+.lesson__sub { font: var(--font-weight-medium) max(18px, calc(28 * var(--u)))/1.3 var(--font-sans); color: var(--color-ink-muted); margin-top: var(--space-2); }
+.lesson__mis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.lesson__mis-card { display: grid; gap: var(--space-2); align-content: start; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--color-line); background: var(--color-paper-raised); }
+.lesson__claim { padding: var(--space-3) var(--space-4); background: var(--color-warn-tint); font: var(--font-weight-medium) max(19px, calc(30 * var(--u)))/1.4 var(--font-sans); word-break: keep-all; }
+.lesson__claim::before { content: "흔한 오해"; display: block; font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-sans); color: var(--color-warn-text); margin-bottom: var(--space-1); }
+.lesson__why { padding: 0 var(--space-4) var(--space-3); font: var(--font-weight-regular) max(18px, calc(28 * var(--u)))/1.5 var(--font-sans); word-break: keep-all; }
+.lesson__why::before { content: "실제로는 "; font-weight: var(--font-weight-medium); color: var(--sim-text); }
+.lesson__mis-card .lesson-link { margin: 0 var(--space-4) var(--space-3); }
+.lesson__modes { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.lesson__mode { min-height: max(56px, calc(88 * var(--u))); padding: 0 var(--space-6); font-size: max(18px, calc(32 * var(--u))); border-width: calc(3 * var(--u)); }
+.lesson__qs { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(560 * var(--u)), 1fr)); gap: var(--space-4); }
+.lesson__qcard { display: grid; grid-template-rows: auto 1fr auto; gap: var(--space-3); padding: var(--space-5); border-radius: var(--radius-lg); background: var(--color-paper-raised); border: calc(2 * var(--u)) solid var(--color-line); border-top: calc(8 * var(--u)) solid var(--sim); min-height: calc(280 * var(--u)); }
+/* 질문 7개 이상: 4열·촘촘(카드 높이 220u, 질문 26u, 해 보기 52u) — 1920 한 화면에 8개까지 */
+.lesson__qs.is-many { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-3); }
+.lesson__qs.is-many .lesson__qcard { min-height: calc(200 * var(--u)); padding: var(--space-3) var(--space-4); gap: var(--space-2); }
+.lesson__qs.is-many .lesson__qtext { font-size: max(17px, calc(26 * var(--u))); }
+.lesson__qs.is-many .lesson__try { min-height: max(44px, calc(52 * var(--u))); padding: 0 var(--space-4); font-size: max(16px, calc(26 * var(--u))); }
+.lesson__qs.is-many .lesson__qno .chip .circ { font-size: 0.8em; }
+/* 표 칸(물체 위치별 상 등): 한 겹 가로 스크롤만 */
+.lesson__tablewrap { flex: none; overflow-x: auto; overscroll-behavior: contain; }   /* flex: none — overflow 가 있는 flex 자식은 min-height 0 이라 눌려 사라진다 */
+.lesson__table { width: 100%; border-collapse: collapse; font: var(--font-weight-regular) max(15px, calc(23 * var(--u)))/1.35 var(--font-sans); word-break: keep-all; }
+.lesson__table caption { text-align: left; padding-bottom: var(--space-2); font: var(--font-weight-medium) var(--fs-meta)/1.3 var(--font-sans); color: var(--color-ink-muted); }
+.lesson__table th, .lesson__table td { padding: var(--space-2) var(--space-3); border-bottom: 1px solid var(--color-line); text-align: left; vertical-align: top; }
+.lesson__table thead th { font-weight: var(--font-weight-medium); color: var(--color-ink-muted); font-size: var(--fs-caption); white-space: nowrap; }
+.lesson__table tbody th { font-weight: var(--font-weight-medium); color: var(--sim-text); white-space: nowrap; }
+.lesson__qno { font: var(--font-weight-medium) var(--fs-meta)/1.2 var(--font-sans); color: var(--sim-text); display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
+.lesson__qno .chip { height: auto; min-height: calc(34 * var(--u)); font-size: var(--fs-caption); }
+.lesson__qtext { font: var(--font-weight-medium) max(20px, calc(32 * var(--u)))/1.45 var(--font-sans); word-break: keep-all; }
+.lesson__try { justify-self: start; min-height: max(48px, calc(64 * var(--u))); padding: 0 var(--space-6); font-size: max(18px, calc(30 * var(--u))); }
+.lesson__quiz { display: grid; gap: var(--space-3); counter-reset: qz; }
+.lesson__quiz > li { padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--color-paper-raised); border: 1px solid var(--color-line); font: var(--font-weight-regular) max(18px, calc(28 * var(--u)))/1.5 var(--font-sans); word-break: keep-all; }
+.lesson__quiz ol { margin-top: var(--space-2); display: grid; gap: var(--space-1); padding-left: var(--space-6); list-style: decimal; }
+.lesson__note { border-radius: var(--radius-md); border: 1px dashed var(--color-line-strong); padding: var(--space-2) var(--space-4); background: var(--color-paper-sunk); }
+.lesson__note > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font: var(--font-weight-medium) var(--fs-meta)/1.2 var(--font-sans); color: var(--color-ink-chip); }
+.lesson__note .lesson__p { font-size: max(16px, calc(26 * var(--u))); }
+.lesson__foot {
+  display: flex; align-items: center; gap: var(--space-4);
+  min-height: calc(88 * var(--u)); padding: var(--space-2) calc(40 * var(--u)) var(--space-3);
+  border-top: 1px solid var(--color-line); background: var(--color-paper);
+}
+.lesson__foot .btn { min-height: max(48px, calc(72 * var(--u))); width: calc(256 * var(--u)); min-width: 120px; font-size: max(18px, calc(30 * var(--u))); border-width: calc(2 * var(--u)); gap: var(--space-2); }
+.lesson__foot .lesson__start { width: calc(360 * var(--u)); min-width: 168px; }
+.lesson__foot .btn[hidden] { display: none; }
+.lesson__foot .btn > .ico { width: 1em; height: 1em; }
+.lesson__nav { flex: 1 1 auto; display: flex; align-items: center; justify-content: center; gap: var(--space-4); min-width: 0; }
+.lesson__dots { display: flex; gap: calc(10 * var(--u)); flex-wrap: wrap; justify-content: center; }
+.lesson__dot { width: max(22px, calc(28 * var(--u))); height: max(22px, calc(28 * var(--u))); border-radius: 50%; display: grid; place-items: center; padding: 0; position: relative; }
+.lesson__dot::before { content: ""; width: calc(16 * var(--u)); height: calc(16 * var(--u)); min-width: 10px; min-height: 10px; border-radius: 50%; border: calc(2 * var(--u)) solid var(--color-line-strong); background: var(--color-paper-raised); }
+.lesson__dot.is-seen::before { background: var(--sim-tint); border-color: var(--sim); }
+.lesson__dot[aria-current="step"]::before { background: var(--sim); border-color: var(--sim); transform: scale(1.25); }
+.lesson__count { font: var(--font-weight-medium) var(--fs-meta)/1 var(--font-num); color: var(--color-ink-muted); white-space: nowrap; }
+.lesson__skip { display: inline-flex; align-items: center; gap: var(--space-2); font: var(--font-weight-regular) var(--fs-caption)/1.2 var(--font-sans); color: var(--color-ink-chip); white-space: nowrap; min-height: 44px; }
+.lesson__skip input { width: max(20px, calc(28 * var(--u))); height: max(20px, calc(28 * var(--u))); accent-color: var(--sim); }
+.lesson__skip[hidden] { display: none; }
+.lesson__keys { position: absolute; right: calc(40 * var(--u)); top: calc(88 * var(--u)); z-index: 2; width: calc(560 * var(--u)); min-width: 300px; padding: var(--space-4) var(--space-5); border-radius: var(--radius-lg); background: var(--color-paper-raised); border: 1px solid var(--color-line-strong); box-shadow: var(--shadow-lg); }
+.lesson__keys[hidden] { display: none; }
+.lesson__keys dl { display: grid; grid-template-columns: auto 1fr; gap: var(--space-2) var(--space-4); font: var(--font-weight-regular) var(--fs-meta)/1.4 var(--font-sans); }
+.lesson__keys dt { font-weight: var(--font-weight-medium); white-space: nowrap; }
+/* 4:3 가로: 글 44% */
+@media (orientation: landscape) and (max-aspect-ratio: 17/10) { .lesson__body { grid-template-columns: minmax(0, 44fr) minmax(0, 56fr); } }
+/* 1280 이하: 머리줄 '어디' 글은 줄임 */
+@media (max-width: 1280px) { .lesson__head .btn .lesson__btntxt { display: none; } .lesson__head .lesson__tosim .lesson__btntxt { display: inline; } }
+/* 세로 태블릿: 그림 위·글 아래, 본문 한 겹 스크롤, 바닥 막대 72 */
+@media (orientation: portrait) and (min-width: 601px) {
+  html.is-lesson .lesson { --p: calc(100vw / 820); }
+  .lesson__head { min-height: calc(64 * var(--p)); padding: 0 calc(16 * var(--p)); gap: calc(10 * var(--p)); }
+  .lesson__title { font-size: calc(26 * var(--p)); }
+  .lesson__where { display: none; }
+  .lesson__head .btn .lesson__btntxt { display: none; }
+  .lesson__body { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; overflow-y: auto; overscroll-behavior: contain; padding: calc(12 * var(--p)) calc(16 * var(--p)); gap: calc(14 * var(--p)); align-content: start; }
+  .lesson__fig { order: -1; }
+  .lesson__figbox svg { max-height: none; }
+  .lesson__text { overflow: visible; padding-right: 0; }
+  .lesson__p, .lesson__goals li { font-size: max(18px, calc(30 * var(--p))); }
+  .lesson__h { font-size: calc(34 * var(--p)); }
+  .lesson__foot { min-height: calc(72 * var(--p)); padding: calc(6 * var(--p)) calc(16 * var(--p)); gap: calc(10 * var(--p)); }
+  .lesson__foot .btn { width: calc(200 * var(--p)); min-width: 0; min-height: calc(60 * var(--p)); font-size: 20px; }
+  .lesson__foot .lesson__start { width: calc(240 * var(--p)); }
+  .lesson__mis { grid-template-columns: minmax(0, 1fr); }
+  .lesson__qs, .lesson__qs.is-many { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lesson__qcard { min-height: 0; }
+  .lesson__dots { gap: calc(4 * var(--p)); }
+  .lesson__skip { white-space: normal; }
+}
+
+/* R7: 자세히 패널 압축 — 범위 글(0~30 m/s · 버튼 한 번에 1)은 숨김(눈금·입력칸 검사가 같은 정보), 묶음 사이 간격 줄임 */
+html:not(.is-simple) .sim-panel .var__meta { display: none; }
+html:not(.is-simple) .sim-panel .var { gap: var(--space-1); }
+html:not(.is-simple) .sim-panel .panel-sec__body { gap: var(--space-3); }
+html:not(.is-simple) .sim-panel__scroll > .panel-sec { padding-bottom: var(--space-3); }
+html:not(.is-simple) .sim-panel .panel-sec__title { padding: var(--space-2) 0 calc(6 * var(--u)); font-size: calc(24 * var(--u)); }
+html:not(.is-simple) .sim-panel .panel-sec__title .btn { min-height: calc(40 * var(--u)); }
+/* 상황 카드형 선택은 패널에서 한 줄 칩 높이(설명 줄은 title·도움말로) */
+html:not(.is-simple) .sim-panel .seg--cards .seg__opt { min-height: calc(56 * var(--u)); padding: var(--space-1) var(--space-2); }
+html:not(.is-simple) .sim-panel .seg--cards .btn__sub { display: none; }
+html:not(.is-simple) .sim-panel .seg__opt { min-height: calc(56 * var(--u)); }
+.lesson__std .chip { border-radius: var(--radius-md); }
+
+/* R7 교사 모드 머리줄: 도구 줄은 아이콘만(48u, 배지 유지) · '수업 안내(교사)'는 ⋯ 메뉴 안으로 */
+html.is-teacher .sim-top__tools .sim-top__guide.teacher-only { display: none !important; }
+html.is-teacher .sim-top__tools .tool-btn:not(.teacher-only) { font-size: var(--fs-meta); width: auto; min-width: calc(52 * var(--u)); padding: 0 var(--space-2); justify-content: center; gap: var(--space-1); }
+html.is-teacher .sim-top__tools .tool-btn .tool-btn__txt { display: none; }
+html.is-teacher .sim-top__tools .tool-btn > .ico { width: calc(28 * var(--u)); height: calc(28 * var(--u)); }
+html.is-teacher .sim-title { min-width: calc(240 * var(--u)); }
+html.is-teacher .sim-top__chips .top-chip__name { max-width: calc(160 * var(--u)); }

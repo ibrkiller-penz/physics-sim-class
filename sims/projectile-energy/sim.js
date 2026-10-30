@@ -83,12 +83,14 @@
     standards: ['12역학01-02', '12물리01-04'],
     // today 는 띠에 두 줄로 뜨지 않게 '수업 정보' 팝오버에만 넣는다(아래 putToday)
     stepTasks: [
-      { text: function () { return predPending() ? '' : '먼저 사거리를 예측해요'; } },
+      { text: function () { return predPending() ? '' : curPreset >= 0 ? '먼저 결과를 예측해요' : '먼저 사거리를 예측해요'; } },   // R7: 해 보기·카드는 그 카드 질문
       { text: function () { return SK.started ? '' : '아래 ▶ 실행으로 공을 던져요'; } },
       { text: function () {
           return SK.records.length >= 2
             ? '두 기록에서 달라진 값을 찾아요'
-            : '값 하나만 바꿔 실행하고 기록해요 (' + SK.records.length + '/2)';
+            : curPreset === 2 && SK.records.length === 1 && SK.records[0].params && +SK.records[0].params.theta === 30
+              ? '이제 각도 θ 만 60°로 바꿔 실행하고 기록해요 (1/2)'   // R7: 설명 8장 Q3 · 카드 ③ (30° 기록 뒤 60°)
+              : '값 하나만 바꿔 실행하고 기록해요 (' + SK.records.length + '/2)';
         } },
       { text: '오른쪽 질문에 답하며 정리해요' }
     ],
@@ -140,8 +142,10 @@
     key: 'h', label: '던지는 높이', symbol: 'h', unit: 'm',
     min: 0, max: 45, step: 5, value: 0, decimals: 0, precision: 1, apply: 'restart'
   });
-  // 상황 바꾸기 (요구 B) — '어디에서 던질까?' 를 상황 묶음 맨 위로 (수치 칸 v₀·θ·h 가 1280 에서 한 화면에)
-  SK.addChoice('situation', {
+  // 상황 바꾸기 (요구 B) — '어디에서 던질까?'
+  // R7(A2): 1280 패널 안쪽 ≈ 450px 에 '수치 3개 + 상황 1줄' — 묶음 머리(37px)를 아끼려고 수치 묶음 맨 아래 한 줄로.
+  //         자세히 패널에서는 이름 줄·안내 줄을 화면에서만 숨김(projectile-energy.css, aria 이름은 그대로 · 심플 레일에서는 보임)
+  SK.addChoice('values', {
     key: 'planet', label: '어디에서 던질까?', style: 'cards', apply: 'restart',
     options: [
       { value: 'earth', label: '지구', sub: 'g = 9.8 m/s²' },
@@ -155,26 +159,27 @@
       syncUI();
     }
   });
-  SK.addChoice('situation', {
-    key: 'gEarth', label: '지구의 g 값 (m/s²)', apply: 'restart',
-    options: [{ value: 9.8, label: '9.8', sub: '실제 값' }, { value: 10, label: '10', sub: '계산 쉽게' }],
-    value: 9.8, onChange: syncUI
-  });
-  SK.addToggle('situation', {
-    key: 'cmp', label: '옆에 떨어뜨린 공(회색) 함께 보기', value: false, apply: 'live', record: false,
-    hint: '같은 높이에서 옆으로 움직이지 않는 공이에요. 두 공의 높이를 비교해 봐요.'
-  });
+  // R7(A2): 패널은 '수치 3개 + 상황 1줄(planet)' 만 — 떨어뜨린 공(cmp)은 ⚙ 화면에 표시하기, 지구 g 값(gEarth)은 ⚙ 더 많은 설정으로 (키 B·G 그대로)
 
-  // 화면에 표시하기 (바로 반영)
+  // 화면에 표시하기 (바로 반영) — R7: 도구 줄 ⚙ 설정 창
   SK.addToggle('tools', { key: 'flash', label: '섬광 사진 (0.1 s 마다 찍은 공)', value: true });
   SK.addToggle('tools', { key: 'showV', label: '속도 화살표', value: true });
   SK.addToggle('tools', { key: 'showA', label: '가속도 화살표', value: false });
   SK.addToggle('tools', { key: 'shadow', label: '바닥·벽에 비친 그림자', value: false, hint: '그림자는 수평 운동과 수직 운동을 따로 보여 줘요.' });
+  SK.addToggle('tools', {
+    key: 'cmp', label: '옆에 떨어뜨린 공(회색) 함께 보기', value: false, apply: 'live', record: false,
+    hint: '같은 높이에서 옆으로 움직이지 않는 공이에요. 두 공의 높이를 비교해 봐요.'
+  });
   SK.addToggle('tools', { key: 'energy', label: '에너지 막대', value: true });
   SK.addToggle('tools', { key: 'topStop', label: '최고점에서 화면 잠깐 멈추기', value: false, hint: '화면만 멈춰요. 공은 최고점에서도 옆으로 움직이고 있어요.' });
   SK.addToggle('tools', { key: 'autoScale', label: '눈금 자동 맞춤', value: true, hint: '켜면 지금 궤적과 저장한 기록이 모두 보이게 눈금을 맞춰요. 끄면 지금 눈금 그대로예요.' });
 
   // 더 많은 설정 (성취기준 밖·심화)
+  SK.addChoice('deep', {
+    key: 'gEarth', label: '지구의 g 값 (m/s²)', apply: 'restart',
+    options: [{ value: 9.8, label: '9.8', sub: '실제 값' }, { value: 10, label: '10', sub: '계산 쉽게' }],
+    value: 9.8, onChange: syncUI
+  });
   SK.addChoice('deep', {
     key: 'air', label: '{{공기 저항}}', apply: 'restart',
     options: [
@@ -245,10 +250,11 @@
      4. 하단 띠: 계기판 1줄 4개 | 에너지 막대
      ------------------------------------------------------------------ */
   var meters = SK.meters(null, [
+    // R7(A2): core 3칸(x·vₓ·v_y)만 띠에, 시간 t 는 [수치 더 보기 ▸]
     { key: 't', label: '시간', symbol: 't', unit: 's', decimals: 2 },
-    { key: 'x', label: '수평 거리', symbol: 'x', unit: 'm', decimals: 1 },
-    { key: 'vx', label: '{{수평 속도}}', symbol: 'v_x', unit: 'm/s', decimals: 1, q: 'velocity' },
-    { key: 'vy', label: '{{수직 속도}}', symbol: 'v_y', unit: 'm/s', decimals: 1, q: 'velocity' }
+    { key: 'x', label: '수평 거리', symbol: 'x', unit: 'm', decimals: 1, core: true },
+    { key: 'vx', label: '{{수평 속도}}', symbol: 'v_x', unit: 'm/s', decimals: 1, q: 'velocity', core: true },
+    { key: 'vy', label: '{{수직 속도}}', symbol: 'v_y', unit: 'm/s', decimals: 1, q: 'velocity', core: true }
   ]);
   meters.el.classList.add('pe-meters');
   // R4: 기호는 공통 수식 표기(symbol 'v_y' → v<sub>y</sub>). R3: '음수면 아래' 는 라벨 줄 끝에 (값 줄은 숫자·단위만)
@@ -468,7 +474,7 @@
 
   SK.help({
     how: [
-      '처음에 뜨는 예측 창에 공이 몇 m 앞에 떨어질지 적어요. 아래 실험 카드를 눌러도 값이 바뀌고 예측 질문이 나와요.',
+      '위 띠의 예측하기로 공이 몇 m 앞에 떨어질지 적어요. 실험 ▾ 에서 카드를 골라도 값이 바뀌고 예측 질문이 나와요.',
       '아래 ▶ 실행을 눌러요. 공, 계기판의 수평 속도·수직 속도, 에너지 막대를 지켜봐요.',
       '끝나면 위 띠의 기록하기 버튼으로 저장해요. 오른쪽 수치 칸에서 처음 속력이나 각도 하나만 바꿔 다시 실행하고 또 기록해요.',
       '비교 단계 표에서 두 기록을 나란히 놓고 무엇이 달라졌는지 찾아요. 정리 단계 질문에 답하면 바로 정답과 이유가 나와요.',
@@ -596,82 +602,82 @@
     if (!run.analytic) {
       return {
         line: '공기 저항 때문에 역학적 에너지가 줄었어요.',
-        more: fmt(run.E0, d) + ' J → ' + fmt(r.E1, d) + ' J. 줄어든 ' + fmt(run.E0 - r.E1, d) + ' J 는 공이 공기와 부딪히며 열(내부 에너지)로 바뀌었어요. 그래서 수평 거리도 식으로 구한 값보다 짧아요.'
+        more: fmt(run.E0, d) + ' J → ' + fmt(r.E1, d) + ' J. 줄어든 ' + fmt(run.E0 - r.E1, d) + ' J 는 공이 공기와 부딪히며 열(내부 에너지)로 바뀌었어요. 그래서 수평 거리도 식으로 구한 값보다 짧아요.', lesson: 'g-air'
       };
     }
     if (p.cmp && st.cLand !== null && run.vy0 === 0) {
       return {
         line: '던진 공과 떨어뜨린 공이 동시에 닿았어요.',
-        more: '두 공 모두 ' + fmt(st.tLand, 2) + ' s 에 땅에 닿았어요. 옆으로 빠르게 던져도 아래로 떨어지는 운동은 같아요. 떨어지는 시간 $t$ = √(2$h$ ÷ $g$) 에는 $v_0$ 가 없어요.'
+        more: '두 공 모두 ' + fmt(st.tLand, 2) + ' s 에 땅에 닿았어요. 옆으로 빠르게 던져도 아래로 떨어지는 운동은 같아요. 떨어지는 시간 $t$ = √(2$h$ ÷ $g$) 에는 $v_0$ 가 없어요.', lesson: 'two-motions'
       };
     }
     if (curPreset === 1) {
       return {
         line: '역학적 에너지는 내내 ' + fmt(run.E0, d) + ' J 로 같았어요.',
-        more: '높이가 낮아진 만큼 위치 에너지가 운동 에너지로 바뀌어 착지 속력은 ' + fmt(r.vL, 1) + ' m/s 예요. $v$ = √($v_0$² + 2$gh$) 라서 각도를 바꿔도 착지 속력은 같아요 — 각도만 바꿔 기록해 확인해 봐요.'
+        more: '높이가 낮아진 만큼 위치 에너지가 운동 에너지로 바뀌어 착지 속력은 ' + fmt(r.vL, 1) + ' m/s 예요. $v$ = √($v_0$² + 2$gh$) 라서 각도를 바꿔도 착지 속력은 같아요 — 각도만 바꿔 기록해 확인해 봐요.', lesson: 'energy'
       };
     }
     if (p.planet !== 'earth') {
       var re = PH.rangeFor(p, { planet: 'earth' });
       return {
         line: PH.PLANETS[p.planet].name + '에서는 지구보다 약 ' + fmt(r.R / re, 1) + '배 멀리 갔어요.',
-        more: PH.PLANETS[p.planet].name + ' ' + fmt(r.R, 1) + ' m, 지구 ' + fmt(re, 1) + ' m (회색 점선). g 가 작으면 천천히 떨어져서 비행 시간이 길어지고, 수평 속도는 같으니 그만큼 더 멀리 가요.'
+        more: PH.PLANETS[p.planet].name + ' ' + fmt(r.R, 1) + ' m, 지구 ' + fmt(re, 1) + ' m (회색 점선). g 가 작으면 천천히 떨어져서 비행 시간이 길어지고, 수평 속도는 같으니 그만큼 더 멀리 가요.', lesson: 'g-air'
       };
     }
     if (curPreset === 4 || p.topStop) {
       return {
         line: '최고점에서도 공은 옆으로 움직였어요.',
-        more: '최고점의 수평 속도는 ' + fmt(run.vx0, 1) + ' m/s 그대로였어요. 멈춘 게 아니라 수직 속도만 0 이 된 거예요. 가속도는 그때도 아래로 g 예요.'
+        more: '최고점의 수평 속도는 ' + fmt(run.vx0, 1) + ' m/s 그대로였어요. 멈춘 게 아니라 수직 속도만 0 이 된 거예요. 가속도는 그때도 아래로 g 예요.', lesson: 'split-v'
       };
     }
     if (run.h === 0 && run.theta > 0 && run.theta < 90 && run.theta !== 45) {
       return {
         line: (90 - run.theta) + '°로 던져도 같은 거리를 가요.',
-        more: '각도 ' + run.theta + '° → ' + fmt(r.R, 1) + ' m. 더해서 90°인 두 각도는 sin2$θ$ 가 같아서 사거리가 같아요. 가장 멀리 가는 각도는 45°예요(땅에서, 공기 저항 없음).'
+        more: '각도 ' + run.theta + '° → ' + fmt(r.R, 1) + ' m. 더해서 90°인 두 각도는 sin2$θ$ 가 같아서 사거리가 같아요. 가장 멀리 가는 각도는 45°예요(땅에서, 공기 저항 없음).', lesson: 'range'
       };
     }
     return {
       line: '수평 거리 = 수평 속도 × 비행 시간이에요.',
-      more: '옆으로는 ' + fmt(run.vx0, 1) + ' m/s 그대로 ' + fmt(r.T, 2) + ' s 동안 날아가 ' + fmt(r.R, 1) + ' m 앞에 떨어졌어요(' + fmt(run.vx0, 1) + ' × ' + fmt(r.T, 2) + ' = ' + fmt(run.vx0 * r.T, 1) + ').'
+      more: '옆으로는 ' + fmt(run.vx0, 1) + ' m/s 그대로 ' + fmt(r.T, 2) + ' s 동안 날아가 ' + fmt(r.R, 1) + ' m 앞에 떨어졌어요(' + fmt(run.vx0, 1) + ' × ' + fmt(r.T, 2) + ' = ' + fmt(run.vx0 * r.T, 1) + ').', lesson: 'range'
     };
   }
 
   // 정리 질문 (정리 단계 오른쪽 판). 정답 수치는 지금 g 로 계산해 '답 확인하기' 안에 넣는다
   var think1 = SK.think({
-    id: 'time',
+    id: 'time', lesson: 'two-motions',
     q: '수평으로 던진 공이 땅에 닿을 때까지 걸리는 시간을 정하는 것은?',
     choices: ['던지는 높이 $h$', '처음 속력 $v_0$', '공의 질량 $m$'], answer: 1,
     why: '떨어지는 시간 $t$ = √(2$h$ ÷ $g$) 에는 $v_0$ 도 $m$ 도 없어요. 세게 던지면 더 멀리 갈 뿐, 떨어지는 시간은 같아요.',
     reveal: ' '
   });
   SK.think({
-    id: 'pair',
+    id: 'pair', lesson: 'range',
     q: '공기 저항이 없을 때, 땅에서 같은 속력으로 30°와 60°로 던지면?',
     choices: ['30°가 더 멀리', '60°가 더 멀리', '같은 거리'], answer: 3,
     why: 'sin(2×30°) = sin(2×60°) 라서 사거리가 같아요. 60°는 더 높이, 더 오래 날지만 옆으로 느려요.'
   });
   SK.think({
-    id: 'top',
+    id: 'top', lesson: 'split-v',
     q: '최고점에서 공의 속도는?',
     choices: ['0 이에요', '수평 속도 $v_x$ 만 남아요', '처음 속력과 같아요'], answer: 2,
     why: '최고점에서는 수직 속도 $v_y$ 만 0 이에요. 수평 속도는 처음부터 끝까지 $v_0$ cos$θ$ 그대로예요. 가속도는 그때도 아래로 g 예요.'
   });
   SK.think({
-    id: 'energy',
+    id: 'energy', lesson: 'energy',
     q: '공기 저항이 없을 때 날아가는 동안 역학적 에너지(운동 + 위치)는?',
     choices: ['점점 줄어요', '점점 늘어요', '일정해요'], answer: 3,
     why: '중력만 일을 하면 위치 에너지가 준 만큼 운동 에너지가 늘어요. 그래서 합은 일정해요(역학적 에너지 보존).'
   });
   SK.think({
-    id: 'calc',
+    id: 'calc', lesson: 'two-motions',
     q: '지구(g = 10 m/s²)에서 20 m 높이 절벽 위에서 공을 수평으로 10 m/s 로 던졌어요. 몇 m 앞에 떨어질까요?',
     hint: '먼저 떨어지는 시간 $t$ = √(2$h$ ÷ $g$) 를 구하고, 수평 거리 = 수평 속도 × t 로 계산해요.',
     reveal: '20 m 예요. t = √(2 × 20 ÷ 10) = √4 = 2 s, 수평 거리 = 10 m/s × 2 s = 20 m. 실험 카드 ① 에서 지구의 g 를 10 m/s² 으로 바꿔 실행하면 확인할 수 있어요.'
   });
   SK.think({
-    id: 'air',
+    id: 'air', lesson: 'g-air',
     q: '더 생각하기: 공기 저항이 있으면 가장 멀리 가는 각도는 45°보다 클까, 작을까?',
-    hint: '더 많은 설정 › 공기 저항 › 탁구공을 고르고 35°·40°·45°를 차례로 기록해 비교해 봐요.',
+    hint: '⚙ 설정 › 더 많은 설정 › 공기 저항 › 탁구공을 고르고 35°·40°·45°를 차례로 기록해 비교해 봐요.',
     reveal: '작아져요. 탁구공(20 m/s, g = 9.8 m/s²)은 35°쯤에서 가장 멀리(약 10.4 m) 가고, 45°는 10.0 m 예요. 공기 저항이 날아가는 내내 속도를 줄이니, 오래 나는 큰 각도가 더 손해를 봐요. 무거운 쇠공은 영향이 작아 거의 45° 그대로예요.'
   });
   var think1Body = think1 && think1.querySelector('.reveal__body');
@@ -1254,12 +1260,15 @@
     var E = PH.energy(run, st);
     var K = Math.max(0, E.K), U = Math.max(0, E.U), heat = Math.max(0, E.heat);
     // R4: 제목·합 500, 안내 400 (SK.text, baseline top)
-    SK.text(ctx, '역학적 에너지', 12, 4, { size: 22, weight: 500, color: '--color-ink', baseline: 'top' });
+    var tw = SK.text(ctx, '역학적 에너지', 12, 4, { size: 22, weight: 500, color: '--color-ink', baseline: 'top' });
     if (!p.energy) {
-      SK.text(ctx, '화면에 표시하기에서 켜요', 12, 34, { size: 22, weight: 400, color: '--color-ink-muted', baseline: 'top' });
+      SK.text(ctx, '⚙ 설정 › 화면에 표시하기에서 켜요', 12, 34, { size: 22, weight: 400, color: '--color-ink-muted', baseline: 'top' });
       return;
     }
-    SK.text(ctx, '합 ' + fmt(K + U, d) + ' J' + (run.analytic ? '' : ' (처음 ' + fmt(run.E0, d) + ')'), W - 12, 4, { size: 22, weight: 500, color: '--color-ink', baseline: 'top', align: 'right' });
+    var sw = SK.text(ctx, '합 ' + fmt(K + U, d) + ' J' + (run.analytic ? '' : ' (처음 ' + fmt(run.E0, d) + ')'), W - 12, 4, { size: 22, weight: 500, color: '--color-ink', baseline: 'top', align: 'right' });
+    // R7(A3): '합 … J' 이 어떤 질량 기준인지 — 제목 옆 작은 글자 (자리가 모자라면 생략)
+    var mLab = '$m$ ' + mText(p) + ' kg';   // 지금 실행에 쓰인 값(SK.params — 막대 값과 같은 기준, 공기 저항이면 공의 질량)
+    if (12 + tw + 14 + 110 < W - 12 - sw - 12) SK.text(ctx, mLab, 12 + tw + 14, 6, { size: 20, weight: 400, color: '--color-ink-muted', baseline: 'top' });
     var x0 = 12, x1 = W - 12, bw = x1 - x0, top = 31, bh = Math.max(12, Math.min(24, H - top - 29));
     var max = run.E0 > 0 ? run.E0 : 1;
     ctx.fillStyle = SK.color('--color-paper-sunk'); ctx.fillRect(x0, top, bw, bh);
@@ -1293,5 +1302,11 @@
   // 처음 들어왔을 때: 사거리 숫자 예측을 먼저 (예측 단계)
   // 실험 카드·모드를 고르지 않은 첫 화면은 공통 autoPredict 가 띄울 것이 없으므로, 사거리 숫자 예측을 한 번 띄운다.
   // 다시 열기는 띠의 공통 '예측하기'(마지막 예측 = RANGE_PREDICT, 문장은 그때 값)로. 교사가 자동 예측을 끄면 띄우지 않음
-  setTimeout(function () { if (CFG.autoPredict && SK.stepIndex === 0 && !SK.prediction && !SK.predicting()) openRangePredict(); }, 350);
+  // R7(A1b): 설명을 거쳐 들어온 첫 진입(?view 없음·?view=explain — 설명 층이 열려 있음)에서는 띄우지 않는다.
+  //          ?view=sim 직진입·설명 건너뛰기(skip)일 때만. 그 밖에는 실험 카드·[예측하기]로
+  setTimeout(function () {
+    if (window.SimLesson && SimLesson.isOpen()) return;
+    if (/[?&]view=explain\b/.test(location.search)) return;
+    if (CFG.autoPredict && SK.stepIndex === 0 && !SK.prediction && !SK.predicting()) openRangePredict();
+  }, 350);
 })();

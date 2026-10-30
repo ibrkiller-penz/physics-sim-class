@@ -290,7 +290,7 @@
     subject: '물리학 (일반 선택)',
     unit: '(1) 힘과 에너지',
     standards: ['12물리01-03'],
-    today: '트럭과 승용차가 부딪치면 누가 더 큰 힘을 받을까?',
+    today: '같은 질량의 두 수레가 부딪치면 어떻게 될까?',   // R7(B6): 허브 카드 질문과 같은 문장 — 트럭 vs 승용차는 카드 ③·설명 6장
     // R2: 띠 문장 25자 안팎 · 실행은 하단 ▶ 실행 하나 · '기록하기 버튼' 은 위쪽 띠에 있음
     stepTasks: [
       { text: function () {
@@ -358,18 +358,20 @@
       presets: [0, 1, 2], predict: 'button'
     }
   });
-  SK.el.band.style.gridTemplateColumns = 'minmax(0, 1fr)';
+  SK.el.band.style.gridTemplateColumns = 'minmax(0, 1fr)';   // 그래프는 실험 화면 아래 칸이라 띠는 계기판 한 칸(R7 core 배치와 겹치지 않음 — 칸 안 격자는 .cm-band CSS)
   SK.el.band.classList.add('cm-band');
+  if (SK.onMode) SK.onMode(function () { syncPanel(); });   // R7: 심플 ↔ 자세히 — 충돌 종류·범퍼 자리 다시 맞춤
 
   /* ---------- 2. 수치 바꾸기 — 핵심 3개만 (질량 A·B, A 속도 / 분리: 포탄 속력) ---------- */
   SK.addVar('values', { key: 'm1', label: '수레 A 질량', symbol: 'm_1', unit: 'kg', min: 0.5, max: 3, step: 0.5, value: 1, decimals: 1, precision: 2, ticks: [0.5, 1, 2, 3] });
   SK.addVar('values', { key: 'm2', label: '수레 B 질량', symbol: 'm_2', unit: 'kg', min: 0.5, max: 3, step: 0.5, value: 1, decimals: 1, precision: 2, ticks: [0.5, 1, 2, 3] });
   SK.addVar('values', { key: 'v1', label: 'A 처음 속도', symbol: 'v_1', unit: 'm/s', min: -3, max: 3, step: 0.5, value: 2, decimals: 1, precision: 2, ticks: [-3, 0, 3],
-    hint: '+ 는 오른쪽(→), − 는 왼쪽(←)이에요. 실험 화면에서 수레를 끌었다 놓아도 정할 수 있어요.' });
+    hint: '+ 오른쪽(→) · − 왼쪽(←) · 수레를 끌어도 돼요' });   // R7: 한 줄(패널 = 수치 3개 + 상황 1줄)
   SK.addVar('values', { key: 'u', label: '포탄(B) 나가는 속력', symbol: 'u', unit: 'm/s', min: 0, max: 6, step: 0.5, value: 4, decimals: 1, precision: 2, ticks: [0, 2, 4, 6] });
 
   /* ---------- 3. 상황 바꾸기 ---------- */
-  SK.addChoice('situation', {
+  // R7: 실험 장면(충돌·분리·벽)은 카드 ①~⑤ 가 정해 주므로 ⚙ '더 많은 설정'으로 — 패널 상황 줄은 충돌 종류(벽 장면이면 + 범퍼)
+  SK.addChoice('deep', {
     key: 'mode', label: '실험 장면', style: 'cards', apply: 'restart',
     options: [
       { value: 'collide', label: '충돌', sub: '두 수레가 부딪쳐요' },
@@ -392,7 +394,8 @@
       syncing = true; SK.set('e', KIND_E[v]); syncing = false;
     }
   });
-  SK.addChoice('situation', {
+  // R7: 범퍼는 벽 장면(카드 ⑤ 에어백)에서만 패널(수치 칸 맨 아래)에, 다른 장면에서는 ⚙ '더 많은 설정'에(syncPanel 이 노드를 옮김 — 값·키 P 그대로)
+  SK.addChoice('deep', {
     key: 'tau', label: '범퍼 (부딪쳐 있는 시간)', apply: 'restart',
     hint: '푹신할수록 두 물체가 맞닿아 있는 시간이 길어요.',
     options: [
@@ -402,6 +405,10 @@
     ],
     value: 0.05
   });
+
+  // R7: 충돌 종류는 수치 칸 맨 아래 한 줄로(상황 묶음 머리 한 줄만큼 패널이 짧아져 1280×720 에서 스크롤 없음) — 노드·값·키 E 그대로
+  SK.panel('values').appendChild(SK.controls.kind.el);
+  Array.prototype.forEach.call(SK.controls.kind.el.querySelectorAll('.seg__opt'), function (b, i) { b.title = ['탄성 충돌 (E)', '완전 비탄성 충돌 (E)', '비탄성 충돌 (E)'][i]; });
 
   /* ---------- 4. 화면에 표시하기 ---------- */
   SK.addToggle('tools', { key: 'autoSlow', label: '부딪칠 때 자동 슬로 모션', value: true });
@@ -421,6 +428,9 @@
   });
   SK.addToggle('deep', { key: 'showCM', label: '질량 중심 함께 보기 (심화)', value: false, record: false });
 
+  // R7: 패널에서 숨긴 풀이 글은 칸에 올리면 보이게(title)
+  SK.controls.v1.el.title = '+ 는 오른쪽(→), − 는 왼쪽(←)이에요. 실험 화면에서 수레를 끌었다 놓아도 정할 수 있어요.';
+  SK.controls.tau.el.title = '푹신할수록 두 물체가 맞닿아 있는 시간이 길어요.';
   // 속도 슬라이더: 가운데 0 굵은 눈금 + ← / →
   ['v1', 'v2'].forEach(function (k) {
     var c = SK.controls[k];
@@ -433,6 +443,16 @@
     }
   });
 
+  /** R7: '아래에 더 있어요' 막대가 한 번 뜨면 그 높이만큼 패널이 줄어 다시 숨지 않는다(공통 checkMore 이력 현상 — shared 요청).
+      패널 내용이 바뀐 뒤 막대 높이를 더한 높이로 다시 재서, 실제로 넘치지 않으면 숨긴다(넘치면 공통 틀이 그대로 둠) */
+  function recheckPanelMore() {
+    setTimeout(function () {
+      var s = SK.el.panel, b = SK.el.panelMore;
+      if (!s || !b || b.hidden) return;
+      var pad = parseFloat(getComputedStyle(s).paddingBottom) || 0, bh = b.getBoundingClientRect().height;
+      if (s.scrollHeight - s.scrollTop - (s.clientHeight + bh) - pad <= 6) { b.hidden = true; s.classList.remove('has-more'); }
+    }, 0);
+  }
   /** 장면에 따라 보이는 변수 바꾸기 (패널에 보이는 값 기준) */
   function syncPanel() {
     var m = SK.get('mode');
@@ -442,25 +462,36 @@
     show('v2', m === 'collide');
     show('u', m === 'separate');
     SK.controls.kind.enable(m !== 'separate');
+    // R7: 분리(반동)에는 충돌 종류가 없어 패널에서 빼고(키 E 는 알림 그대로), 범퍼는 벽 장면이면 패널 상황 줄로
+    var simpleNow = !!(SK.isSimple && SK.isSimple());
+    show('kind', simpleNow || m !== 'separate');   // 심플 레일에서는 늘 보임(분리면 잠김)
+    var tauEl = SK.controls.tau.el, tauHome = m === 'wall' ? SK.panel('values') : SK.panel('deep');
+    if (tauEl.parentNode !== tauHome) { if (m === 'wall') tauHome.appendChild(tauEl); else tauHome.insertBefore(tauEl, SK.controls.mode.el.nextSibling); }
+    var sitSec = SK.panel('situation').closest('.panel-sec');
+    if (sitSec && !sitSec.hidden) sitSec.hidden = true;   // 상황 묶음은 비어 있다(장면 = ⚙, 충돌 종류·벽 범퍼 = 수치 칸 맨 아래)
     SK.controls.m1.el.querySelector('.var__label').firstChild.textContent = m === 'separate' ? '대포(A) 질량' : '수레 A 질량';
     SK.controls.m2.el.querySelector('.var__label').firstChild.textContent = m === 'separate' ? '포탄(B) 질량' : '수레 B 질량';
-    var la = meters.el.querySelector('[data-key="v1"] .meter__label'), lb = meters.el.querySelector('[data-key="v2"] .meter__label');
+    function mq(sel) { return meters.el.querySelector(sel) || (meters.moreEl && meters.moreEl.querySelector(sel)); }   // R7: v₁·v₂ 칸은 [수치 더 보기] 안
+    var la = mq('[data-key="v1"] .meter__label'), lb = mq('[data-key="v2"] .meter__label');
     if (la && la.firstChild) la.firstChild.textContent = m === 'separate' ? '대포 속도' : 'A 속도';
     if (lb && lb.firstChild) lb.firstChild.textContent = m === 'separate' ? '포탄 속도' : m === 'wall' ? '벽 (고정)' : 'B 속도';
-    var lp = meters.el.querySelector('[data-key="p"] .meter__label'), lk = meters.el.querySelector('[data-key="k"] .meter__label');
+    var lp = mq('[data-key="p"] .meter__label'), lk = mq('[data-key="k"] .meter__label');
     if (lp && lp.lastChild) lp.lastChild.textContent = m === 'wall' ? ' (전 → 후)' : ' 합 (전 → 후)';
     if (lk && lk.lastChild) lk.lastChild.textContent = m === 'wall' ? ' (전 → 후)' : ' 합 (전 → 후)';
+    recheckPanelMore();
     SK.requestRender();
   }
 
   /* ---------- 6. 하단 띠: 계기판 1줄 4개 (실행 전에는 빈 상태 한 줄) ---------- */
+  // R7(B4): 핵심 = 운동량 합·운동 에너지 합(전 → 후) + 판정(심플 측정 칸과 같은 key) · 두 수레 속도는 [수치 더 보기 ▸]
   var meters = SK.meters(null, [
     { key: 'v1', label: 'A 속도', symbol: 'v_1', unit: 'm/s', q: 'velocity', size: 'md' },
     { key: 'v2', label: 'B 속도', symbol: 'v_2', unit: 'm/s', q: 'velocity', size: 'md' },
-    { key: 'p', label: '{{운동량}} 합 (전 → 후)', unit: 'kg·m/s', size: 'md' },
-    { key: 'k', label: '{{운동 에너지}} 합 (전 → 후)', unit: 'J', q: 'energy-k', size: 'md' }
+    { key: 'p', label: '{{운동량}} 합 (전 → 후)', unit: 'kg·m/s', size: 'md', core: true },
+    { key: 'k', label: '{{운동 에너지}} 합 (전 → 후)', unit: 'J', q: 'energy-k', size: 'md', core: true },
+    { key: 'verdict', label: '판정', unit: '', core: true }
   ]);
-  var meterEmpty = SK.empty(SK.el.meters, '속도·운동량 값');
+  var meterEmpty = SK.empty(SK.el.meters, '속도·운동량(= 질량 × 속도) 값');   // R7(B6)
   // R5: 흐린 예시('A 처음 +2 → 부딪친 뒤 0')는 카드 ① 예측의 정답이라 지움 — 빈 상태는 안내 한 줄만
 
   /* ---------- 7. 기록 표 (비교 단계 큰 판) ---------- */
@@ -874,11 +905,11 @@
     if (!st || st.end !== 'done') return null;
     var P = st.P;
     if (P.mode === 'separate') return {
-      line: '운동량 합은 처음 0 → 나중에도 0이에요.',
+      line: '운동량 합은 처음 0 → 나중에도 0이에요.', lesson: 'conserve',
       more: '포탄이 앞(+)으로 ' + fmt(P.m2 * P.v2f, 2) + ' kg·m/s를 얻은 만큼 대포가 뒤(−)로 같은 크기를 얻어요. 운동량 크기가 같으니 가벼운 포탄이 더 빨라요(포탄 ' + fmt(P.v2f, 1) + ' m/s, 대포 ' + fmt(Math.abs(P.v1f), 1) + ' m/s). 늘어난 운동 에너지는 눌린 용수철에서 왔어요.'
     };
     if (P.mode === 'wall') return {
-      line: '충격량 ' + fmt(P.J, 2) + ' N·s, 최대 힘 ' + fmtF(P.Fmax) + ' N이에요.',
+      line: '충격량 ' + fmt(P.J, 2) + ' N·s, 최대 힘 ' + fmtF(P.Fmax) + ' N이에요.', lesson: 'impulse',
       more: '수레의 운동량 변화(충격량)는 범퍼를 바꿔도 ' + fmt(P.J, 2) + ' N·s로 같아요. 범퍼가 ' + TAU_NAME[P.tau] + '(' + P.tau + ' s)일 때 최대 힘은 ' + fmtF(P.Fmax) + ' N, 평균 힘은 ' + fmtF(P.Favg) + ' N이에요. 부딪쳐 있는 시간이 길수록 힘이 작아져요 — 에어백의 원리예요. 벽은 바깥에서 힘을 주므로 수레만의 운동량은 바뀌어요.'
     };
     var lost = P.kb - P.ka;
@@ -886,26 +917,27 @@
     if (lost > 0.005) more += ' 운동 에너지는 ' + fmt(P.kb, 2) + ' → ' + fmt(P.ka, 2) + ' J — ' + fmt(lost, 2) + ' J이 열과 소리로 바뀌었어요.';
     else more += ' 튕기기라서 운동 에너지 합(' + fmt(P.kb, 2) + ' J)도 그대로예요.';
     if (P.m1 !== P.m2) more += ' 받은 충격량이 같으니 질량이 작은 쪽의 속도가 더 크게 바뀌어요.';
-    return { line: lost > 0.005 ? '운동량 합은 그대로, 운동 에너지는 줄었어요.' : '운동량 합도, 운동 에너지 합도 그대로예요.', more: more };
+    return { line: lost > 0.005 ? '운동량 합은 그대로, 운동 에너지는 줄었어요.' : '운동량 합도, 운동 에너지 합도 그대로예요.', more: more,
+      lesson: P.m1 !== P.m2 && P.v2 < 0 ? 'action-reaction' : 'bounce-stick' };   // R7(B6): 해설 → 설명 5장(튕김/붙음)·6장(트럭 vs 승용차)
   });
 
   /* 정리 단계: 질문 카드 (모범 답·해설 포함) */
-  SK.think({ id: 'heat', q: '달라붙는 충돌에서 운동량은 그대로인데, 줄어든 {{운동 에너지}}는 어디로 갔을까?',
+  SK.think({ id: 'heat', lesson: 'bounce-stick', q: '달라붙는 충돌에서 운동량은 그대로인데, 줄어든 {{운동 에너지}}는 어디로 갔을까?',
     choices: ['그냥 사라졌다', '열·소리·찌그러짐 같은 다른 에너지로 바뀌었다', '운동량으로 바뀌었다'], answer: 2,
     why: '에너지는 사라지지 않고 형태만 바뀌어요. 범퍼가 찌그러지며 데워지고 소리가 나요. 운동량과 에너지는 서로 다른 양이라 하나가 다른 하나로 바뀌지 않아요.' });
-  SK.think({ id: 'still', q: '움직이는 A가 멈춰 있는 B에 부딪칠 때, B가 A에 주는 힘은?',
+  SK.think({ id: 'still', lesson: 'action-reaction', q: '움직이는 A가 멈춰 있는 B에 부딪칠 때, B가 A에 주는 힘은?',
     choices: ['0이다 (B는 가만히 있었으니까)', 'A가 B에 주는 힘보다 작다', 'A가 B에 주는 힘과 크기가 같다'], answer: 3,
     why: '{{작용·반작용}} — 부딪치는 순간 B도 같은 크기로 A를 되밀어요. 그래서 A가 느려지거나 멈춰요.' });
-  SK.think({ id: 'truck', q: '트럭과 승용차가 부딪칠 때 승용차에 탄 사람이 더 위험한 까닭은?',
+  SK.think({ id: 'truck', lesson: 'action-reaction', q: '트럭과 승용차가 부딪칠 때 승용차에 탄 사람이 더 위험한 까닭은?',
     choices: ['승용차가 더 큰 힘을 받아서', '힘은 같지만 승용차는 질량이 작아 속도가 더 크게 바뀌어서', '트럭이 더 단단해서'], answer: 2,
     why: '일반 규칙: 두 차가 받는 충격량은 같고, 속도 변화 $Δv$ = {{frac:충격량|질량}}이라 가벼운 쪽이 크게 바뀌어요. 이 실험은 질량비가 3 : 1이라 승용차 속도 변화가 3배예요.' });
-  SK.think({ id: 'calc', q: '2 kg 수레가 +3 m/s로 가서 멈춰 있는 1 kg 수레에 달라붙었어요. 함께 몇 m/s로 움직일까?',
+  SK.think({ id: 'calc', lesson: 'conserve', q: '2 kg 수레가 +3 m/s로 가서 멈춰 있는 1 kg 수레에 달라붙었어요. 함께 몇 m/s로 움직일까?',
     hint: '부딪치기 전 운동량 합 = 부딪친 뒤 운동량 합. 붙은 뒤 질량은 2 + 1 = 3 kg이에요.',
     reveal: '<b>모범 답</b> +2 m/s. 처음 운동량 합은 2 × 3 + 1 × 0 = 6 kg·m/s예요. 붙은 뒤에도 6 kg·m/s이므로 3 × <i class="sym">v′</i> = 6, <i class="sym">v′</i> = +2 m/s예요. (<i class="sym">m<sub>1</sub></i> 2 kg, <i class="sym">v<sub>1</sub></i> +3, 달라붙기로 실행해 확인해 봐요.)' });
-  SK.think({ id: 'airbag', q: '에어백·체육관 매트·야구 글러브의 공통점은 무엇일까요? ‘충격량’과 ‘시간’을 넣어 말해 봐요.',
+  SK.think({ id: 'airbag', lesson: 'impulse', q: '에어백·체육관 매트·야구 글러브의 공통점은 무엇일까요? ‘충격량’과 ‘시간’을 넣어 말해 봐요.',
     hint: '‘힘-시간’ 탭에서 딱딱 범퍼와 푹신 범퍼 기록을 겹쳐 보세요.',
     reveal: '<b>모범 답</b> 멈출 때까지의 충격량(운동량 변화)은 같게 두고, 부딪쳐 있는 시간을 길게 해서 받는 힘을 줄여요. 평균 힘 = 충격량 ÷ 시간이므로 시간이 길수록 힘이 작아져요.' });
-  SK.think({ id: 'cradle', q: '같은 질량끼리 튕기면 왜 두 수레의 속도가 서로 바뀔까요? (뉴턴의 요람)',
+  SK.think({ id: 'cradle', lesson: 'bounce-stick', q: '같은 질량끼리 튕기면 왜 두 수레의 속도가 서로 바뀔까요? (뉴턴의 요람)',
     reveal: '<b>모범 답</b> 튕기기에서는 운동량 합(<i class="sym">m</i><i class="sym">v<sub>1</sub></i> + <i class="sym">m</i><i class="sym">v<sub>2</sub></i>)과 운동 에너지 합(½<i class="sym">m</i><i class="sym">v<sub>1</sub></i>² + ½<i class="sym">m</i><i class="sym">v<sub>2</sub></i>²)이 둘 다 그대로여야 해요. 질량이 같을 때 두 조건을 함께 만족하는 결과는 ‘속도를 서로 바꾸기’뿐이에요(그대로 지나가는 답은 부딪치지 않은 경우). 뉴턴의 요람에서 한쪽 공 하나를 부딪치면 반대쪽 공 하나만 튀어 나가는 것도 같은 까닭이에요.' });
 
   /* ---------- 13. 수업 안내 서랍 (교사 모드에서만) ---------- */
@@ -942,7 +974,8 @@
 
   /* 처음 들어오면 카드 ① 예측 질문을 바로 띄운다 (SimKit 첫 reset 뒤) */
   setTimeout(function () {
-    if (!SK.started && SK.stepIndex === 0 && !SK.prediction) {
+    // R7: ?view=sim&preset=n(허브·설명)으로 이미 카드를 골랐으면 덮어쓰지 않는다
+    if (!SK.started && SK.stepIndex === 0 && !SK.prediction && !(SK.activePreset && SK.activePreset() >= 0)) {
       SK.applyPreset(0);
       // R3: 처음 화면에는 카드 알림(검은 알약)을 띄우지 않는다 — 칩 줄 '카드 ①' 과 겹침
       var z = SK.el.notices; if (z) Array.prototype.slice.call(z.querySelectorAll('.notice')).forEach(function (n) { if (/^카드 /.test(n.textContent)) n.remove(); });
@@ -1434,7 +1467,9 @@
   }
   function pairText(before, now, hit) { return hit ? before + ' → ' + now : before; }
   function decorateArrows() {
-    meters.el.querySelectorAll('.meter__value .num').forEach(function (el) {
+    var nums = Array.prototype.slice.call(meters.el.querySelectorAll('.meter__value .num'));
+    if (meters.moreEl) nums = nums.concat(Array.prototype.slice.call(meters.moreEl.querySelectorAll('.meter__value .num')));
+    nums.forEach(function (el) {
       var pair = !!el.querySelector('.arrow') || el.textContent.indexOf(' → ') >= 0;
       if (el.parentNode) el.parentNode.classList.toggle('cm-pair', pair);   // 두 값이면 글자 한 단계 작게(칸 넘침 방지)
       if (el.querySelector('.arrow') || el.textContent.indexOf(' → ') < 0) return;
