@@ -75,7 +75,7 @@
   /* 단계별 '지금 할 일' (모드마다 다름, 25자 안팎. null = 공통 틀 문장) */
   var TASKS = {
     cannon: [
-      '7.9 km/s로 쏘면 어떻게 될지 골라요',
+      '쏘기 전에 어떻게 될지 먼저 골라요',   // R7-3: 실험 ⑤(3 km/s)에서도 맞게 — 속력 숫자 빼기
       '쏘고 기록한 뒤 패널 칩에서 다음 속력으로',
       '몇 km/s부터 돌고, 몇부터 탈출할까요?',
       null
@@ -537,15 +537,18 @@
       cn.maxR = s.maxR; cn.minR = s.minR; cn.path.length = s.np; cn.hs.length = s.nh; cn.lastH = s.lastH || 0;
       cn.res = s.res; cn.dist = s.dist; cn.lx = s.lx; cn.ly = s.ly; cn.vImp = s.vImp;
     },
+    // R7-3(C2): 무대 공통 칩은 2개까지 — 나머지 조건은 statusNote(⚙ 설정·실험 고르기 머리 한 줄)
     status: function (p) {
       var m = p.mode || 'cannon';
-      if (m === 'cannon') {
-        var b = BODIES[p.body] || EARTH;
-        if (p.body === 'jupiter') return ['목성', '속도 범위 밖'];
-        return [b.name, '산꼭대기', '수평 발사', '공기 없음'];
-      }
-      if (m === 'sat') return ['지구', '원 궤도', '고도 ' + comma(p.alt) + ' km'];
-      return ['태양계 행성 6개', '단위 AU · 년'];
+      if (m === 'cannon') return [(BODIES[p.body] || EARTH).name, '수평 발사'];
+      if (m === 'sat') return ['지구', '고도 ' + comma(p.alt) + ' km'];
+      return ['태양계 행성 6개'];
+    },
+    statusNote: function (p) {
+      var m = p.mode || 'cannon';
+      if (m === 'cannon') return '산꼭대기 20 km · 공기 없음' + (p.body === 'jupiter' ? ' · 목성은 실험 속도 범위 밖(탈출 59.5 km/s)' : '');
+      if (m === 'sat') return '원궤도 · 공기 없음';
+      return '단위 AU · 년';
     },
     onStep: function () { SK.requestRender(); }
   };
@@ -582,10 +585,12 @@
     key: 'v0', label: '{{발사 속력}}', symbol: 'v_0', unit: 'km/s',
     min: 0, max: 12, step: 0.1, value: 6.0, decimals: 1, precision: 2,
     ticks: [{ v: 7.9, label: '지구 돌기' }, { v: 11.2, label: '탈출' }], apply: 'restart',
-    hint: '지표 기준 7.9 km/s면 지구를 돌고, 11.2 km/s 이상이면 돌아오지 않아요',   // R7(C3): 실험은 20 km 산 — '지표 기준'
+    // R7-3(C3): 안내 문장(7.9·11.2) 삭제 — 설명 2장·칩 줄·속력 띠에 같은 값이 있다
     onChange: function () { if (!seq) autoView(); updateSeq(); }
   });
   SK.controls.v0.el.classList.add('og-var-v0');
+  // R7-3(C3): 눈금 글자를 7.9·11.2 손잡이 중심에 가운데 맞춤(양끝 정렬 is-end 해제 — '탈출' 이 11.2 에서 밀리지 않게)
+  [].forEach.call(SK.controls.v0.el.querySelectorAll('.var__ticks span'), function (s) { s.classList.remove('is-start', 'is-end'); });
   SK.addVar('values', {
     key: 'alt', label: '위성 {{고도}}', symbol: 'h', unit: 'km',
     min: 200, max: 36000, step: 100, value: 400, decimals: 0, precision: 0,
@@ -705,41 +710,35 @@
     options: [{ value: 'near', label: '산 근처' }, { value: 'earth', label: '지구 전체' }, { value: 'far', label: '타원까지' }]
   });
   SK.controls.cview.el.classList.add('og-always-hide');   // 실험 화면 오른쪽 아래 버튼으로 바꿈
+  SK.addToggle('tools', { key: 'hudMore', label: '흐른 시간·화면 크기 보기', value: false, apply: 'live', record: false });   // R7-3(C2)
   SK.addChoice('tools', {
     key: 'tscale', label: '{{시간 배속}} — 화면 1초 동안 흐르는 실제 시간', apply: 'live', value: 0.5, record: false,
     options: [{ value: 0.5, label: '30초' }, { value: 2, label: '2분' }, { value: 10, label: '10분' }, { value: 30, label: '30분' }]
   });
 
-  /* 실험 화면 오른쪽 위: 시간 배속·경과·보는 범위 (진한 글자, 창이 뜨면 공통 틀이 숨김) */
+  /* 실험 화면 오른쪽 위: 시간 배속 한 줄 칩 '1초 = 30초' (R7-3 C2 — cornerTR 칩 1개)
+     흐른 시간·화면 가로 km / 1 R 는 ⚙ '화면에 표시하기' › hudMore 를 켰을 때만 칩 아래 작은 글 */
   hudEl = h('div', { class: 'og-hud' });
   SK.el.cornerTR.appendChild(hudEl);
   var hudKey = '';
   function updateHud(p) {
-    var lines;
+    var main = '', sub = '', tip = '';
     if (curMode === 'cannon' && cn) {
-      var V = viewOf(p, cn.b);
-      lines = [
-        ['b', '{{시간 배속}} 화면 1초 = 실제 ' + rateText((p.tscale || 2) * 60 * SK.speed)],
-        ['s', '흐른 시간 ' + fmtDur(cn.t) + (V.key === 'near' ? ' · 화면 가로 약 ' + comma(Math.round(1250 / NEAR_K / 10) * 10) + ' km' : ' · 1 R = ' + cn.b.name + ' 반지름')]
-      ];
+      var V = viewOf(p, cn.b), rt = rateText((p.tscale || 2) * 60 * SK.speed);
+      main = '1초 = ' + rt; tip = '시간 배속: 화면 1초 동안 실제 ' + rt + '가 흘러요';
+      sub = '흐른 시간 ' + fmtDur(cn.t) + (V.key === 'near' ? ' · 화면 가로 약 ' + comma(Math.round(1250 / NEAR_K / 10) * 10) + ' km' : ' · 1 R = ' + cn.b.name + ' 반지름');
     } else if (curMode === 'sat' && sat) {
-      var s = satCalc(p.alt), f = Math.min(SK.time / SAT_SCREEN_T, 1);
-      lines = [
-        ['b', '{{시간 배속}} 화면 1초 ≈ 실제 ' + speedText(s.T)],
-        ['s', '흐른 시간 ' + fmtDur(f * s.T) + ' / 한 바퀴 ' + (hideResults() ? '?' : periodText(s.T))]
-      ];
-    } else lines = [];
-    var key = JSON.stringify(lines);
+      var s = satCalc(p.alt), f = Math.min(SK.time / SAT_SCREEN_T, 1), st = speedText(s.T);
+      main = '1초 ≈ ' + st; tip = '시간 배속: 화면 1초 동안 실제 약 ' + st + '가 흘러요';
+      sub = '흐른 시간 ' + fmtDur(f * s.T) + ' / 한 바퀴 ' + (hideResults() ? '?' : periodText(s.T));
+    }
+    if (!p.hudMore) sub = '';
+    var key = main + '|' + sub;
     if (key === hudKey) return;
     hudKey = key; hudEl.innerHTML = '';
-    lines.forEach(function (l) { hudEl.appendChild(h('p', { class: l[0] === 'b' ? 'og-hud__main' : 'og-hud__sub' }, richTerm(l[1]))); });
-  }
-  /** '{{용어}}' → 용어 말풍선 */
-  function richTerm(t) {
-    var out = [], re = /\{\{([^}]+)\}\}/g, last = 0, m;
-    while ((m = re.exec(t))) { if (m.index > last) out.push(t.slice(last, m.index)); out.push(SK.term(m[1])); last = re.lastIndex; }
-    if (last < t.length) out.push(t.slice(last));
-    return out;
+    if (!main) return;
+    hudEl.appendChild(h('span', { class: 'chip og-hud__main', title: tip, 'aria-label': tip, text: main }));
+    if (sub) hudEl.appendChild(h('p', { class: 'og-hud__sub', text: sub }));
   }
 
   /* 실험 화면 오른쪽 아래: 보는 범위 버튼 (대포) + 화면 밖으로 나가면 '더 넓게 보기' */
@@ -1061,7 +1060,7 @@
     if (b.key === 'jupiter') { setBandTitle('목성 탈출 속도 59.5 km/s — 범위 밖', ''); return; }
     var hid = hideResults();
     setBandTitle('발사 속력 $v_0$', hid ? '예측한 뒤에 보여요' : '▼ 지금 · ● 기록');   // R6(C2): 짧은 범례(제목 줄 오른쪽), 숫자는 막대 아래
-    var vc = +b.vCirc.toFixed(1), ve = +b.vEsc.toFixed(1), MAX = 13;
+    var vc = +b.vCirc.toFixed(1), ve = +b.vEsc.toFixed(1), MAX = 14;   // R7-3(C3): 13 → 14 — '탈출' 칸에 이름이 들어가게(표시만)
     speedBar(ctx, W, H, {
       max: MAX,
       zones: hid ? [{ from: 0, to: MAX, color: '--color-paper-sunk', label: '' }] : [
@@ -1711,7 +1710,7 @@
   SK.help({
     inlineTerms: true,
     how: [
-      '아래 [실험 ▾](Y)에서 실험을 골라요 — 맨 위 단추로 뉴턴의 대포·원궤도 위성·케플러 자료를 바꿀 수 있어요.',
+      '아래 [실험 고르기 ▾](Y)에서 실험을 골라요 — 맨 위 단추로 뉴턴의 대포·원궤도 위성·케플러 자료를 바꿀 수 있어요.',
       '실험을 고르면 값이 바로 바뀌고 예측 질문이 나와요. 답을 고르고 예측하기를 눌러요.',
       '아래 ▶ 실행을 눌러 포탄을 쏘거나(뉴턴의 대포) 위성을 한 바퀴 돌려요(원궤도 위성).',
       '끝나면 위 띠의 기록하기 버튼으로 결과를 저장해요.',

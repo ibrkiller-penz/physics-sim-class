@@ -277,11 +277,28 @@
   /** R5(R4 b): 16:9 보다 세로가 긴 화면 — 장면 세로 축척 K = min(1.4, hFull/h)(가로 1 m = 240u 는 그대로라 충돌 위치는 같음).
       레일은 K 만큼 커진 위쪽(수레·화살표 ≈190u)만큼 내리고, 그래프 판은 트랙 설명 아래부터 바닥까지. K = 1 이면 예전 좌표 그대로. */
   function onStageResize(view) {
-    K = view.extra > 0 ? Math.min(1.4, view.hFull / view.h) : 1;
     view.offsetY = 0;
-    RAIL = RAILB = RAIL0 + (K - 1) * 190;
-    LOW.y = RAILB + 98 * K;
-    LOW.h = view.h + view.extra - 10 - LOW.y;
+    layoutScene(view);
+    RAIL = RAILB;
+  }
+  /** R7-3(B4): 실행 전에는 그래프 판이 56u 한 줄('실행하면 그래프가 나와요')이라 남는 세로를 트랙 장면에 준다 —
+      장면 세로 축척 K = 화면 크기 축척 KB 의 1.5배(들어가는 만큼). 실행하면(SK.started) 예전 배치(KB, 그래프 판 펼침) 그대로.
+      가로 1 m = 240u·충돌 위치·물리 계산은 그대로(세로 그림 크기만). 장면 범위: 레일 위 ≈215u(심플 240u)·아래 ≈95u(심플 70u) × K */
+  var PRE_H = 56;
+  function layoutScene(view) {
+    var KB = view.extra > 0 ? Math.min(1.4, view.hFull / view.h) : 1, VH = view.h + (view.extra || 0);
+    if (SK.started) {
+      K = KB;
+      RAILB = RAIL0 + (K - 1) * 190;
+      LOW.y = RAILB + 98 * K;
+      LOW.h = VH - 10 - LOW.y;
+      return;
+    }
+    var simple = !!(SK.isSimple && SK.isSimple()), up = simple ? 240 : 215, down = simple ? 70 : 95, top = 60;
+    LOW.h = PRE_H; LOW.y = VH - 10 - PRE_H;
+    var room = LOW.y - 16 - top;
+    K = Math.max(KB, Math.min(KB * 1.5, room / (up + down)));
+    RAILB = top + up * K + Math.max(0, (room - (up + down) * K) / 2);
   }
 
   /* ---------- 1. 뼈대 ---------- */
@@ -343,13 +360,14 @@
     capture: capture,
     save: function () { return CM.copy(st); },
     load: function (s) { st = CM.copy(s); },
+    // R7-3(B6b): 무대 위 공통 칩은 2개 이하('튕기기 · 실행 전') — 범퍼·용수철은 statusNote(⚙ 설정·실험 고르기 머리 한 줄)
     status: function (p) {
-      if (p.mode === 'separate') return ['분리(반동)', '눌린 용수철'];
-      var a = [];
-      if (p.mode === 'wall') a.push('벽에 부딪치기');
-      a.push(kindLabel(p.e));
-      a.push('범퍼 ' + TAU_NAME[p.tau]);
-      return a;
+      if (p.mode === 'separate') return ['분리(반동)'];
+      return p.mode === 'wall' ? ['벽에 부딪치기', kindLabel(p.e)] : [kindLabel(p.e)];
+    },
+    statusNote: function (p) {
+      if (p.mode === 'separate') return '눌린 용수철이 밀어내요 · 마찰 없는 트랙';
+      return '범퍼 ' + TAU_NAME[p.tau] + '(부딪쳐 있는 시간 $Δt$ ' + p.tau + ' s) · 마찰 없는 트랙';
     },
     // R6(B3): 심플 모드 — 12물리01-03 핵심(충돌 전후 운동량 합 보존, 비탄성에서 K 감소). v₂·e·범퍼·장면은 더 보기(패널)
     simple: {
@@ -650,8 +668,10 @@
   lowerEl.appendChild(SK.h('span', { class: 'cm-tabs__label', text: '그래프' }));
   lowerEl.appendChild(tabBox);
   SK.el.stage.appendChild(lowerEl);
-  var lowerEmpty = SK.empty(lowerEl, '운동량·힘·에너지 그래프');
-  var lowerEmptyS = SK.empty(lowerEl, '운동량 합 막대');   // R6(B7) 심플
+  var lowerEmpty = SK.empty(lowerEl, '그래프');
+  var lowerEmptyS = SK.empty(lowerEl, '그래프');   // R6(B7) 심플
+  // R7-3(B4): 실행 전 그래프 판 = 56u 한 줄 '▶ 실행하면 그래프가 나와요'
+  [lowerEmpty, lowerEmptyS].forEach(function (e) { e.el.textContent = ''; e.el.appendChild(SK.iconify(SK.h('span', { text: '▶ 실행하면 그래프가 나와요' }))); });
   lowerEmptyS.show(false);
   if (SK.onMode) SK.onMode(function () { SK.requestRender(); SK.update(); });
   function setTab(id) {
@@ -824,7 +844,7 @@
   }
   SK.help({
     how: [
-      '[실험 ▾]에서 실험을 고르면 값이 바뀌고 예측 질문이 나와요. 답을 고르고 예측하기를 눌러요.',
+      '아래 [실험 고르기 ▾]에서 실험을 고르면 값이 바뀌고 예측 질문이 나와요. 답을 고르고 예측하기를 눌러요.',
       '아래 ▶ 실행을 눌러요. 부딪치는 순간은 저절로 느려져서(슬로 모션) 힘 화살표 한 쌍이 보여요.',
       '끝나면 실험 화면 아래 그래프 탭(운동량 · 힘-시간 · 운동 에너지)을 차례로 눌러요. 아직 안 본 탭 옆에는 ● 점, 본 탭에는 ✓가 붙어요.',
       '위쪽 띠의 기록하기 버튼으로 저장해요. 그다음 충돌 종류나 질량 하나만 바꿔 다시 실행하고 또 기록해요.',
@@ -847,7 +867,7 @@
         formula: 'I = F Δt = Δp = m v′ − m v',
         symbols: [{ s: 'I', meaning: '충격량', unit: 'N·s (= kg·m/s)' }, { s: 'F', meaning: '힘 (시간에 따라 바뀌면 평균 힘)', unit: 'N' }, { s: 'Δt', meaning: '힘이 작용한 시간', unit: 's' }, { s: 'Δp', meaning: '운동량 변화 = 나중 운동량 − 처음 운동량', unit: 'kg·m/s' }, { s: 'v, v′', meaning: '부딪치기 전 속도, 부딪친 뒤 속도', unit: 'm/s' }],
         why: '가속도는 $a$ = {{frac:$Δv$|$Δt$}}이므로 $F$ = $ma$ = {{frac:$mΔv$|$Δt$}}예요. 양쪽에 $Δt$를 곱하면 $FΔt$ = $mΔv$가 돼요.\n멈추는 데 필요한 운동량 변화는 처음 운동량으로 정해져 있어요. 시간을 20배로 늘리면 같은 넓이를 만들기 위해 힘이 1/20로 줄어요. 에어백·체육관 매트·야구 글러브가 모두 이 원리예요.',
-        live: function (p) { if (!st || !st.P.meet) return '부딪치지 않으면 충격량은 0이에요'; return '충격량 $I$ ' + fmt(st.P.J, 2) + ' N·s ÷ 시간 ' + p.tau + ' s = 평균 힘 ' + fmtF(st.P.Favg) + ' N (최대 힘 ' + fmtF(st.P.Fmax) + ' N)'; } },
+        live: function (p) { if (!st || !st.P.meet) return '부딪치지 않으면 충격량은 0이에요'; return '평균 힘 $F$ = {{frac:충격량 ' + fmt(st.P.J, 2) + ' N·s|시간 ' + p.tau + ' s}} = ' + fmtF(st.P.Favg) + ' N (최대 힘 ' + fmtF(st.P.Fmax) + ' N)'; } },
       { title: '운동량 보존', summary: '둘이 주고받아도 합은 그대로',
         plain: '두 수레가 부딪칠 때 바깥에서 작용하는 힘(마찰 등)이 없으면, 운동량의 합은 부딪치기 전과 후가 같아요.\n한쪽이 잃은 만큼 다른 쪽이 얻기 때문이에요.',
         example: '1 kg(+2 m/s)가 멈춘 1 kg에 달라붙으면 1×2 + 1×0 = (1+1)×$v\'$이라서 $v\'$ = +1 m/s예요.',
@@ -897,7 +917,7 @@
       '범퍼': { def: '수레 앞의 완충 장치. 딱딱할수록 부딪쳐 있는 시간이 짧고(0.01 s), 푹신할수록 길어요(0.2 s)', short: '부딪치는 시간을 정하는 완충 장치' },
       '슬로 모션': { def: '부딪치는 아주 짧은 순간을 천천히 보여 주는 것. 물리 결과는 그대로예요', short: '천천히 보여 주기' },
       '반동': { def: '정지한 물체가 한 부분을 밀어낼 때 나머지가 반대 방향으로 움직이는 것(대포, 로켓)', short: '밀어낸 반대쪽으로 밀림' },
-      '반발 계수': { def: '(심화) 부딪친 뒤 멀어지는 빠르기 ÷ 다가가던 빠르기. 1이면 튕기기, 0이면 달라붙기', short: '튕기는 정도(0~1)', alias: ['e'] },
+      '반발 계수': { def: '(심화) {{frac:부딪친 뒤 멀어지는 빠르기|다가가던 빠르기}}. 1이면 튕기기, 0이면 달라붙기', short: '튕기는 정도(0~1)', alias: ['e'] },
       '질량 중심': { def: '(심화) 질량으로 가중 평균한 위치. 바깥 힘이 없으면 충돌 전후로 같은 빠르기로 움직여요', short: '질량으로 평균 낸 위치' }
     },
     keys: [['E', '충돌 종류 바꾸기 (튕기기 → 달라붙기 → 중간)'], ['P', '범퍼 바꾸기 (딱딱 → 보통 → 푹신)'], ['X', '자동 슬로 모션 켜기 / 끄기']]
@@ -913,7 +933,7 @@
     };
     if (P.mode === 'wall') return {
       line: '충격량 $I$ ' + fmt(P.J, 2) + ' N·s, 최대 힘 ' + fmtF(P.Fmax) + ' N이에요.', lesson: 'impulse',
-      more: '수레의 운동량 변화(충격량 $I$)는 범퍼를 바꿔도 ' + fmt(P.J, 2) + ' N·s로 같아요. 범퍼가 ' + TAU_NAME[P.tau] + '($Δt$ ' + P.tau + ' s)일 때 평균 힘 $F$ = $I$ ÷ $Δt$ = ' + fmtF(P.Favg) + ' N이고, 그래프 꼭대기의 최대 힘 ' + fmtF(P.Fmax) + ' N은 평균의 약 1.57배(π/2)예요 — 설명의 200 N·10 N은 평균 힘이에요. 부딪쳐 있는 시간이 길수록 힘이 작아져요 — 에어백의 원리예요. 벽은 바깥에서 힘을 주므로 수레만의 운동량은 바뀌어요.'
+      more: '수레의 운동량 변화(충격량 $I$)는 범퍼를 바꿔도 ' + fmt(P.J, 2) + ' N·s로 같아요. 범퍼가 ' + TAU_NAME[P.tau] + '($Δt$ ' + P.tau + ' s)일 때 평균 힘 $F$ = {{frac:$I$|$Δt$}} = ' + fmtF(P.Favg) + ' N이고, 그래프 꼭대기의 최대 힘 ' + fmtF(P.Fmax) + ' N은 평균의 약 1.57배(π/2)예요 — 설명의 200 N·10 N은 평균 힘이에요. 부딪쳐 있는 시간이 길수록 힘이 작아져요 — 에어백의 원리예요. 벽은 바깥에서 힘을 주므로 수레만의 운동량은 바뀌어요.'
     };
     var lost = P.kb - P.ka;
     var more = '두 수레가 받은 힘은 매 순간 크기가 같고 방향이 반대예요({{작용·반작용}}). 그래서 A가 잃은 운동량을 B가 그대로 얻어 합이 ' + sgn(P.pb, 2) + ' → ' + sgn(P.pa, 2) + ' kg·m/s로 그대로예요.';
@@ -939,7 +959,7 @@
     reveal: '<b>모범 답</b> +2 m/s. 처음 운동량 합은 2 × 3 + 1 × 0 = 6 kg·m/s예요. 붙은 뒤에도 6 kg·m/s이므로 3 × <i class="sym">v′</i> = 6, <i class="sym">v′</i> = +2 m/s예요. (<i class="sym">m<sub>1</sub></i> 2 kg, <i class="sym">v<sub>1</sub></i> +3, 달라붙기로 실행해 확인해 봐요.)' });
   SK.think({ id: 'airbag', lesson: 'impulse', q: '에어백·체육관 매트·야구 글러브의 공통점은 무엇일까요? ‘충격량’과 ‘시간’을 넣어 말해 봐요.',
     hint: '‘힘-시간’ 탭에서 딱딱 범퍼와 푹신 범퍼 기록을 겹쳐 보세요.',
-    reveal: '<b>모범 답</b> 멈출 때까지의 충격량(운동량 변화)은 같게 두고, 부딪쳐 있는 시간을 길게 해서 받는 힘을 줄여요. 평균 힘 = 충격량 ÷ 시간이므로 시간이 길수록 힘이 작아져요.' });
+    reveal: '<b>모범 답</b> 멈출 때까지의 충격량(운동량 변화)은 같게 두고, 부딪쳐 있는 시간을 길게 해서 받는 힘을 줄여요. 평균 힘은 충격량을 시간으로 나눈 값이므로 시간이 길수록 힘이 작아져요.' });
   SK.think({ id: 'cradle', lesson: 'bounce-stick', q: '같은 질량끼리 튕기면 왜 두 수레의 속도가 서로 바뀔까요? (뉴턴의 요람)',
     reveal: '<b>모범 답</b> 튕기기에서는 운동량 합(<i class="sym">m</i><i class="sym">v<sub>1</sub></i> + <i class="sym">m</i><i class="sym">v<sub>2</sub></i>)과 운동 에너지 합(½<i class="sym">m</i><i class="sym">v<sub>1</sub></i>² + ½<i class="sym">m</i><i class="sym">v<sub>2</sub></i>²)이 둘 다 그대로여야 해요. 질량이 같을 때 두 조건을 함께 만족하는 결과는 ‘속도를 서로 바꾸기’뿐이에요(그대로 지나가는 답은 부딪치지 않은 경우). 뉴턴의 요람에서 한쪽 공 하나를 부딪치면 반대쪽 공 하나만 튀어 나가는 것도 같은 까닭이에요.' });
 
@@ -1031,6 +1051,8 @@
     var ctx = view.ctx, P = st.P;
     var simple = !!(SK.isSimple && SK.isSimple());
     TS = simple ? 28 : 22; CS = simple ? 1.5 : 1;
+    layoutScene(view);   // R7-3(B4): 실행 전(그래프 판 한 줄) ↔ 실행 뒤(그래프 판 펼침)
+    lowerEl.classList.toggle('cm-lower--pre', !SK.started);
     placeLower(view);
     RAIL = RAILB + bandShift(view);   // R7-2: 예측 띠(무대 위쪽)가 수레 위 속도 글자를 가리지 않게 — 띠가 열린 동안만 장면을 아래로(그래프 판은 이때 숨어 있음)
     drawTrack(ctx, P);
@@ -1114,16 +1136,18 @@
       text(ctx, 'kg', cx, top + gap * 2.5 + 2, { size: 28, w: 400, color: '--color-ink-inverse', align: 'center' });
       return { cx: cx, top: top, mt: null, color: color };
     }
-    text(ctx, name, cx, top + 20 * K, { size: (name.length > 1 ? 22 : 24) * K, w: 500, color: '--color-ink-inverse', align: 'center' });
+    text(ctx, name, cx, top + 20 * K, { size: (name.length > 1 ? 22 : 24) * KT(), w: 500, color: '--color-ink-inverse', align: 'center' });
     // R6(B3): 단위 병기 — '1.0 kg'(22u 폭 64.6u)이 몸통 72u 안에 들어가게 여백 8 → 4. 그래도 넘치면(K>1 등) 숫자만
-    if (textW(ctx, mt, { size: 22 * K, w: 500 }) > bw - 4) mt = num;
-    text(ctx, mt, cx, top + 43 * K, { size: 22 * K, w: 500, color: '--color-ink-inverse', align: 'center' });
+    if (textW(ctx, mt, { size: 22 * KT(), w: 500 }) > bw - 4) mt = num;
+    text(ctx, mt, cx, top + 43 * K, { size: 22 * KT(), w: 500, color: '--color-ink-inverse', align: 'center' });
     return { cx: cx, top: top, mt: mt, color: color };
   }
+  /** R7-3(B4): 수레 몸통 글자 축척 — 몸통 폭(72u)은 그대로라 K 가 커져도(실행 전 장면 확대) 1.6 까지만 */
+  function KT() { return Math.min(K, 1.6); }
   /** R3: 힘 화살표가 수레 글자를 덮으면 글자를 수레색 외곽선과 함께 다시 그린다 ('1.0 kg' 잘림 방지) */
   function relabel(ctx, c) {
     if (!c || !c.mt) return;
-    text(ctx, c.mt, c.cx, c.top + 43 * K, { size: 22 * K, w: 500, color: '--color-ink-inverse', align: 'center', halo: c.color, haloWidth: 6 });
+    text(ctx, c.mt, c.cx, c.top + 43 * K, { size: 22 * KT(), w: 500, color: '--color-ink-inverse', align: 'center', halo: c.color, haloWidth: 6 });
   }
 
   function velLabel(cx, top, v) {

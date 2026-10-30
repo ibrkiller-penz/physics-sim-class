@@ -32,7 +32,8 @@
     sim: 'var(--sim)', muted: 'var(--color-ink-muted)', warn: 'var(--color-warn)', tint: 'var(--sim-tint)',
     ink: 'var(--color-ink)', paper: 'var(--color-paper-raised)', line: 'var(--color-line-strong)',
     ray1: 'var(--color-rec-1)', ray2: 'var(--color-rec-2)', ray3: 'var(--color-rec-3)',
-    force: 'var(--color-q-force)'   // R7-2: 힘·가속도 화살표 = 구리색(실험 화면 계기 '힘' 색과 같음)
+    force: 'var(--color-q-force)',   // R7-2: 힘·가속도 화살표 = 구리색(실험 화면 계기 '힘' 색과 같음)
+    chip: 'var(--color-ink-chip)'    // R7-3(S7): 보조 글자(눈금·축 이름·그림 제목) — muted 보다 진하게(선은 muted 그대로)
   };
   /** 기호 비교용: '$v_{0}$' → 'v_0' (lesson.js 와 같은 규칙) */
   function normSym(s) { return String(s || '').replace(/[$\s{}\\]/g, ''); }
@@ -54,12 +55,21 @@
         if (m.index > last) out += mathRun(seg.slice(last, m.index));
         var s = m[2].charAt(0) === '{' ? m[2].slice(1, -1) : m[2];
         var dy = m[1] === '_' ? '0.3em' : '-0.45em';
-        out += '<tspan dy="' + dy + '" style="font-size:0.7em;font-family:var(--font-sans);font-style:normal">' + esc(s) + '</tspan><tspan dy="' + (m[1] === '_' ? '-0.3em' : '0.45em') + '"></tspan>';
+        out += '<tspan dy="' + dy + '" style="font-size:0.7em;font-family:var(--font-math);font-style:normal">' + scriptRun(s, m[1] === '_') + '</tspan><tspan dy="' + (m[1] === '_' ? '-0.3em' : '0.45em') + '"></tspan>';
         last = re.lastIndex;
       }
       if (last < seg.length) out += mathRun(seg.slice(last));
     });
     return out;
+  }
+  /** R7-3(S7): 첨자 글자 — 아래첨자가 변수(x y z t 한 글자)면 그 글자만 기울임, 숫자·이름(k p max esc)은 직립, 한글은 본문 글꼴 (sim.js mathRuns 와 같은 판정) */
+  function scriptRun(s, isSub) {
+    var letters = s.replace(/[^A-Za-zα-ω]/g, ''), v = isSub && /^[xyzt]$/.test(letters);
+    return s.replace(/([가-힣]+)|([A-Za-zα-ω])|([^A-Za-zα-ω가-힣]+)/g, function (all, hg, lt, ot) {
+      if (hg) return '<tspan style="font-family:var(--font-sans)">' + esc(hg) + '</tspan>';
+      if (lt) return v && lt === letters ? '<tspan style="font-style:italic">' + esc(lt) + '</tspan>' : esc(lt);
+      return esc(ot);
+    });
   }
   function mathRun(s) {
     // 영문 글자만 기울임, 숫자·기호는 바로
@@ -81,7 +91,7 @@
   D.C = C;
   D.svg = function (kids, o) {
     o = o || {};
-    var title = o.title ? '<text x="20" y="34" style="font-size:20px;font-weight:500;fill:' + C.muted + '">' + tspans(o.title) + '</text>' : '';
+    var title = o.title ? '<text x="20" y="34" style="font-size:20px;font-weight:500;fill:' + C.chip + '">' + tspans(o.title) + '</text>' : '';
     return '<svg class="dg" viewBox="0 0 800 450" role="img" aria-label="' + esc((o.title || '') + (o.how ? ' — ' + o.how : '')) + '"' +
       (o.how ? ' data-how="' + esc(o.how) + '"' : '') + ' style="font-size:22px;font-weight:400">' + defs() + title + join(kids) + '</svg>';
   };
@@ -105,8 +115,8 @@
   };
   D.label = function (x, y, text, o) {
     o = o || {};
-    var size = Math.max(16, o.size || 22);
-    var st = 'font-size:' + size + 'px;font-weight:' + (o.weight === 500 ? 500 : 400) + ';fill:' + col(o.color, 'ink') +
+    var size = Math.max(18, o.size || 22);   // R7-3(S7): 최소 18 (1280 에서 약 12px 이상)
+    var st = 'font-size:' + size + 'px;font-weight:' + (o.weight === 500 ? 500 : 400) + ';fill:' + col(o.color === 'muted' ? 'chip' : o.color, 'ink') +
       (o.italic ? ';font-style:italic;font-family:var(--font-math)' : '') +
       (o.bg !== false ? ';stroke:' + C.paper + ';stroke-width:7;stroke-linejoin:round;paint-order:stroke' : '');
     return '<text x="' + n(x) + '" y="' + n(y) + '" text-anchor="' + (o.anchor || 'start') + '" dominant-baseline="' + (o.baseline || 'middle') + '"' + (o.sym ? ' class="dg-sym" data-sym="' + esc(normSym(o.sym)) + '"' : '') + ' style="' + st + '">' + tspans(text) + '</text>';
@@ -114,7 +124,7 @@
   /** 분수 라벨: 가운데 (x, y) = 막대 높이. num·den 은 '$v^2$' 같은 표기 */
   D.frac = function (x, y, num, den, o) {
     o = o || {};
-    var size = Math.max(16, o.size || 22), w = Math.max(String(num).replace(/\$/g, '').length, String(den).replace(/\$/g, '').length) * size * 0.62 + 10;
+    var size = Math.max(18, o.size || 22), w = Math.max(String(num).replace(/\$/g, '').length, String(den).replace(/\$/g, '').length) * size * 0.62 + 10;
     var cx = o.anchor === 'start' ? x + w / 2 : o.anchor === 'end' ? x - w / 2 : x;
     var lo = { anchor: 'middle', size: size, color: o.color, bg: o.bg };
     return '<g' + (o.sym ? ' class="dg-sym" data-sym="' + esc(normSym(o.sym)) + '"' : '') + '>' +

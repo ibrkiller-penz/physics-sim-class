@@ -65,7 +65,17 @@
     var out = [];
     fnTex(text).split(/(\*\*[^*]+\*\*)/).forEach(function (seg) {
       if (!seg) return;
-      if (/^\*\*[^*]+\*\*$/.test(seg)) out.push(h('strong', null, SK.rich(seg.slice(2, -2))));
+      if (/^\*\*[^*]+\*\*$/.test(seg)) out.push(h('strong', null, richNowrap(seg.slice(2, -2))));
+      else richNowrap(seg).forEach(function (n) { out.push(n); });
+    });
+    return out;
+  }
+  /** R7-3(S6): $…$ 수식 한 덩어리는 줄에서 끊기지 않게 <span class="nowrap"> (캡션 'r = R + h' 끊김) — {{frac:}}·{{용어}} 는 SK.rich 그대로 */
+  function richNowrap(text) {
+    var out = [];
+    String(text).split(/(\{\{.+?\}\}|\$[^$]+\$)/).forEach(function (seg) {
+      if (!seg) return;
+      if (/^\$[^$]+\$$/.test(seg) && /\s/.test(seg)) out.push(h('span', { class: 'nowrap' }, SK.rich(seg)));
       else SK.rich(seg).forEach(function (n) { out.push(n); });
     });
     return out;
@@ -82,9 +92,20 @@
     // R7-2(S13): 'N / M · 단원' — 누르면 목차(장 제목·읽음 점)
     els.where = h('button', { class: 'lesson__where', type: 'button', 'aria-haspopup': 'true', 'aria-expanded': 'false', title: '목차 — 장 고르기' });
     els.where.addEventListener('click', function (e) { if (e.detail > 0) els.where.blur(); toggleToc(); });
-    els.pace = h('span', { class: 'chip chip--outline lesson__pace teacher-only', title: '한 차시 약 45분: 설명 5분 · 예측 10분 · 실험 20분 · 정리 10분', text: '수업 진행 5·10·20·10분' });
+    // R7-3(S5): 교사 차시 진행 띠 [도입][설명][실험][정리] — 타이머 없음, 권장 분은 title 에만. 설명 층 머리줄에만(실험 화면은 .sim-task 단계 점)
+    els.pace = h('nav', { class: 'lesson__pace teacher-only', 'aria-label': '차시 진행' });
+    [['intro', '도입', '5'], ['explain', '설명', '10'], ['sim', '실험', '20'], ['wrap', '정리', '10']].forEach(function (p) {
+      var b = h('button', { class: 'lesson__pacebtn', type: 'button', 'data-pace': p[0], title: p[1] + ' — 권장 5·10·20·10분 중 ' + p[2] + '분' }, [h('i', { class: 'lesson__pacedot', 'aria-hidden': 'true' }), h('span', { class: 'lesson__pacet', text: p[1] })]);
+      b.addEventListener('click', function (e) {
+        if (e.detail > 0) b.blur();
+        if (p[0] === 'intro') go(0);
+        else if (p[0] === 'sim') close();
+        else if (p[0] === 'wrap') { close(); if (SK.openThink) setTimeout(function () { SK.openThink(); }, 0); }
+      });
+      els.pace.appendChild(b);
+    });
     els.toSimTxt = h('span', { class: 'lesson__btntxt', text: '실험으로' });
-    els.toSim = SK.btn([els.toSimTxt, ico('arrow-right', 'ico--trail')], 'btn--primary lesson__tosim', function () { close(); }, { title: '실험 화면으로 (Esc · J)' });
+    els.toSim = SK.btn([els.toSimTxt, h('span', { class: 'lesson__btntxt-s', text: '실험' }), ico('arrow-right', 'ico--trail')], 'btn--primary lesson__tosim', function () { close(); }, { title: '실험 화면으로 (Esc · J)' });
     var helpB = SK.btn([ico('help')], 'btn--outline lesson__icon', function () { toggleKeys(); }, { 'aria-label': '설명 화면 키 안내', title: '키 안내 (?)' });
     var fsB = SK.btn([ico('expand')], 'btn--outline lesson__icon', function () { SK.toggleFullscreen(); }, { 'aria-label': '전체 화면', title: '전체 화면 (F)' });
     var head = h('header', { class: 'lesson__head' }, [hub, els.title, els.where, h('span', { class: 'lesson__gap' }), els.pace, els.toSim, helpB, fsB]);
@@ -95,6 +116,7 @@
     els.how = h('figcaption', { class: 'lesson__how' });
     els.fig = h('figure', { class: 'lesson__fig' }, [els.figbox, els.how]);
     els.body = h('main', { class: 'lesson__body' }, [els.text, els.fig]);
+    els.body.addEventListener('scroll', function () { if (els.body.classList.contains('is-portrait')) markOver(); }, { passive: true });
     els.prev = SK.btn([ico('chev-left'), '이전'], 'btn--outline lesson__prev', function () { go(cur - 1); }, { title: '이전 장 (← · PageUp)' });
     els.next = SK.btn(['다음', ico('chev-right', 'ico--trail')], 'btn--primary lesson__next', function () { go(cur + 1); }, { title: '다음 장 (→ · PageDown · Space)' });
     els.start = SK.btn(['실험 시작', ico('play', 'ico--trail')], 'btn--primary lesson__start', function () { startSim(); }, { title: '실험 시작 (Enter · → · Space)' });
@@ -135,6 +157,7 @@
     keysOpen = false; els.keys.hidden = true;
     els.toc.innerHTML = '';
     var v = visible(), seen = seenList();
+    if (unitName()) els.toc.appendChild(h('p', { class: 'lesson__tocunit', text: unitName() }));   // R7-3(S6)
     v.forEach(function (c, i) {
       var b = h('button', { class: 'lesson__tocitem' + (i === cur ? ' is-now' : ''), type: 'button', role: 'menuitem' }, [
         h('span', { class: 'lesson__tocno num', text: String(i + 1) }), h('span', { class: 'lesson__toct' }, inline(c.title || '')),
@@ -148,7 +171,7 @@
     els.toc.style.left = Math.max(8, r.left - rr.left) + 'px';
     els.toc.style.top = (r.bottom - rr.top + 6) + 'px';
     var now = els.toc.querySelector('.is-now');
-    setTimeout(function () { try { (now || els.toc.firstChild).focus({ preventScroll: true }); if (now) now.scrollIntoView({ block: 'nearest' }); } catch (e) { /* 무시 */ } }, 0);
+    setTimeout(function () { try { (now || els.toc.querySelector('.lesson__tocitem')).focus({ preventScroll: true }); if (now) now.scrollIntoView({ block: 'nearest' }); } catch (e) { /* 무시 */ } }, 0);
   }
 
   /* ── 장 그리기 ── */
@@ -158,15 +181,16 @@
     if (!list.length) return null;
     var d = h('details', { class: 'lesson__std' }, [
       h('summary', { class: 'lesson__stdsum' }, [ico('info'), h('span', { text: '성취기준 ' + list.length })]),
-      h('div', { class: 'lesson__stdlist', 'aria-label': '성취기준' }, list.map(function (s) {
+      h('div', { class: 'lesson__stdlist', 'aria-label': '성취기준' }, (unitName() ? [h('p', { class: 'lesson__stdunit', text: '단원 · ' + unitName() })] : []).concat(list.map(function (s) {
         var code = typeof s === 'string' ? s : s.code, txt = typeof s === 'string' ? '' : s.text;
         var c = String(code || '').charAt(0) === '[' ? code : '[' + code + ']';
         return h('span', { class: 'chip chip--outline num', title: (s.subj ? s.subj + ' · ' : '') + (txt || '') }, c + (txt ? ' ' + txt : ''));
-      }))
+      })))
     ]);
-    if (SK.isTeacher()) d.open = true;
+    // R7-3(S5): 교사 모드도 접힘이 기본(한 장 한 화면). 단원명은 이 안 첫 줄에
     return d;
   }
+  function unitName() { return (data && data.unit) || (SK.unitName ? SK.unitName() : ''); }
   function eqBox(list) {
     if (!list || !list.length) return null;
     return h('div', { class: 'lesson__eqs' }, list.map(function (e) {
@@ -250,7 +274,7 @@
     var hasTry = !!it.try;
     var why = h('p', { class: 'lesson__why' }, inline(it.why || ''));
     // R7-2(팀장, UI팀3 요청 1): 깨진 카드는 짧게 — '깨졌어요 ✓ + 결과' 한 줄이 '실제로는' 을 대신하고(단추로 펼침), 내 생각 칩은 뺀다
-    var showWhy = !hasTry || SK.isTeacher();
+    var showWhy = !hasTry;   // R7-3(S5): 교사 모드도 '실제로는?' 접힘이 기본(한 장 한 화면) — 누르면 펼침
     why.hidden = !showWhy;
     var kids = [];
     if (broke) kids.push(h('p', { class: 'lesson__broke' }, [ico('check', ''), h('b', { text: '깨졌어요' }), it.result ? h('span', null, inline(' ' + it.result)) : null]));
@@ -259,11 +283,14 @@
       var lk0 = it.chapter ? link(it.chapter) : null;
       // 깨진 카드: 내 생각 칩·'실제로는?' 줄 대신 [설명 N장 … 해 보기] 한 줄 (결과 문장이 '실제로는' 을 대신함)
       var mine = h('div', { class: 'lesson__mine', role: 'group', 'aria-label': broke ? '다시 해 보기' : '내 생각' }, [broke ? (lk0 || h('span', { class: 'lesson__minet', text: '다시' })) : h('span', { class: 'lesson__minet', text: '내 생각' })]);
+      // R7-3(S10): 고른 '내 생각' 은 localStorage physsim.lesson.<slug>.mine.<id> — 장을 옮겨도 그대로(저장이 막혀도 이번 화면은 동작)
+      var mineSaved = it.id ? load('mine.' + it.id) : null;
       if (!broke) [['맞다', 'yes'], ['아니다', 'no']].forEach(function (m) {
-        var b = h('button', { class: 'btn btn--outline lesson__minebtn', type: 'button', 'aria-pressed': 'false' }, m[0]);
+        var b = h('button', { class: 'btn btn--outline lesson__minebtn', type: 'button', 'aria-pressed': String(mineSaved === m[1]), 'data-mine': m[1] }, m[0]);
         b.addEventListener('click', function (e) {
           if (e.detail > 0) b.blur();
           var bs = mine.querySelectorAll('.lesson__minebtn'); for (var i = 0; i < bs.length; i++) bs[i].setAttribute('aria-pressed', String(bs[i] === b));
+          if (it.id) store('mine.' + it.id, m[1]);
         });
         mine.appendChild(b);
       });
@@ -293,17 +320,20 @@
     var teacher = SK.isTeacher(), simple = SK.isSimple && SK.isSimple();
     els.title.textContent = data.title || '';
     els.where.innerHTML = '';
-    var unit = data.unit || (SK.unitName ? SK.unitName() : '');
+    // R7-3(S6): 'N / M · 장 제목' — 단원명은 목차 첫 줄·성취기준 접힘 안으로
     els.where.appendChild(h('b', { class: 'num', text: (cur + 1) + ' / ' + v.length }));
-    if (unit) els.where.appendChild(h('span', { class: 'lesson__unit', text: unit }));
+    els.where.appendChild(h('span', { class: 'lesson__unit lesson__chname', text: SK.plainMath(String(c.title || '')) }));
     els.where.appendChild(ico('chev-down', 'ico--trail'));
+    syncPace(c);
     els.where.setAttribute('aria-label', '목차 — 지금 ' + (cur + 1) + ' / ' + v.length + '장 ' + SK.plainMath(c.title || ''));
     // R7-2(S13): [바로 실험] 늘 보임 — 첫 진입 '바로 실험', 실험 중 '실험으로'
     els.toSim.hidden = false;
     els.toSimTxt.textContent = firstEntry ? '바로 실험' : '실험으로';
     // 본문
     var t = els.text; t.innerHTML = '';
-    t.appendChild(h('p', { class: 'lesson__kicker', text: (cur + 1) + '장' + (c.type === 'check' ? ' · 시뮬레이터에서 확인할 질문' : c.type === 'misconception' ? ' · 흔한 오해' : '') }));
+    var kickRow = h('div', { class: 'lesson__kickrow' });
+    t.appendChild(kickRow);
+    kickRow.appendChild(h('p', { class: 'lesson__kicker', text: (cur + 1) + '장' + (c.type === 'check' ? ' · 시뮬레이터에서 확인할 질문' : c.type === 'misconception' ? ' · 흔한 오해' : '') }));
     t.appendChild(h('h2', { class: 'lesson__h' }, inline(c.title)));
     if (c.question) t.appendChild(para(c.question, 'lesson__q'));
     if (c.type === 'goal') { var sb = standardsBox(); if (sb) t.appendChild(sb); }
@@ -312,7 +342,7 @@
     var eq = eqBox(c.eq); if (eq) t.appendChild(eq);
     var sy = symTable(c.symbols); if (sy) t.appendChild(sy);
     var tb = tableBox(c.table); if (tb) t.appendChild(tb);
-    if (c.condition) t.appendChild(para(c.condition, 'lesson__cond'));
+    if (c.condition) t.appendChild(h('p', { class: 'lesson__cond' }, [ico('info', 'lesson__condico'), h('span', null, inline(c.condition))]));   // R7-3(S6): '참고 · ' 칩(경고색 아님)
     // R7-2(S11): 개념 장 [해 보기 ▸] 한 줄
     if (c.try && c.type !== 'check') {
       var cq = {}; for (var ck in c.try) cq[ck] = c.try[ck];
@@ -344,10 +374,18 @@
       if (hasLife) { mk.push(h('p', { class: 'lesson__sub', text: '생활 속에서' })); mk.push(h('ul', { class: 'lesson__life' }, c.life.map(function (l) { return h('li', null, inline(l)); }))); }
       if (hasMore) { mk.push(h('p', { class: 'lesson__sub' }, inline(c.more.title || '더 알아보기'))); mk = mk.concat(paras(c.more.body)); mk.push(eqBox(c.more.eq)); }
       var md = h('details', { class: 'lesson__more' }, mk);
-      if (teacher && hasMore && c.more.teacherOpen !== false) md.open = true;
+      // R7-3(S5): 교사 모드도 접힘(teacherOpen 필드는 무시 — 호환)
       t.appendChild(md);
     }
-    if (teacher && c.teacherNote) t.appendChild(h('details', { class: 'lesson__note' }, [h('summary', { text: '교사 메모' })].concat(paras(c.teacherNote))));
+    if (teacher && c.teacherNote) {
+      // R7-3(S5): '교사 메모 ▸ 펼치기' (+ 내용 있으면 '메모 있음') · 펼치면 '접기'
+      var hasNote = [].concat(c.teacherNote).join('').trim().length > 0;
+      var nt = h('span', { class: 'lesson__notet', text: '펼치기' });
+      var nchev = h('span', { class: 'lesson__notechev', 'aria-hidden': 'true', text: '▸' });
+      var nd = h('details', { class: 'lesson__note' }, [h('summary', null, [h('span', { text: '교사 메모' }), nchev, nt, hasNote ? h('span', { class: 'chip chip--outline lesson__notechip', text: '메모 있음' }) : null])].concat(paras(c.teacherNote)));
+      nd.addEventListener('toggle', function () { nt.textContent = nd.open ? '접기' : '펼치기'; nchev.textContent = nd.open ? '▾' : '▸'; requestAnimationFrame(markOver); });
+      kickRow.appendChild(nd);   // 장 번호 줄 오른쪽 접힌 칩 — 펼치면 그 아래 한 줄 전체(본문 앞)
+    }
     // 그림
     var svg = '';
     if (typeof c.svg === 'function') { try { svg = c.svg(D || {}) || ''; } catch (e) { console.error('SimLesson: ' + c.id + ' 그림 오류', e); svg = ''; } }
@@ -386,16 +424,28 @@
       els.text.classList.remove('is-over');
       var over = els.text.scrollHeight - els.text.clientHeight;
       markOver();   // R7-2(팀장): 넘치면 글 칸 아래 '↓ 이어서' 표시(학생S) — 끝까지 내리면 사라진다
-      // 교사 모드는 성취기준·교사 메모·더 보기가 펼쳐져 넘치는 것이 정상(스크롤 허용) — 경고는 학생 화면 가로만 (UI팀1·3 요청)
-      if (portrait() || SK.isTeacher()) return;
-      if (over > 4) console.warn('SimLesson(R7-2): ' + (at + 1) + '장 "' + SK.plainMath(c.title || cid) + '" 글이 ' + over + ' px 넘쳐요 — 장을 나누거나 더 보기로 (' + global.innerWidth + '×' + global.innerHeight + ')');
+      // R7-3(S5): 교사 모드도 성취기준·더 보기·교사 메모가 접힘이 기본이라 경고 대상(세로만 제외)
+      if (portrait()) return;
+      if (over > 4) console.warn('SimLesson(R7-2): ' + (SK.isTeacher() ? '[교사] ' : '') + (at + 1) + '장 "' + SK.plainMath(c.title || cid) + '" 글이 ' + over + ' px 넘쳐요 — 장을 나누거나 더 보기로 (' + global.innerWidth + '×' + global.innerHeight + ')');
     });
   }
   /** 글 칸이 넘치면 .is-over(아래 '↓ 이어서' 띠) — 끝까지 내리면 뗀다 */
   function markOver() {
-    var t = els.text;
-    t.classList.remove('is-over');   // 띠 자신이 길이에 끼지 않게 뗀 뒤 잰다
-    t.classList.toggle('is-over', t.scrollHeight - t.clientHeight - t.scrollTop > 4);
+    // R7-3(S4): 세로 820 은 .lesson__body 가 스크롤 — 같은 규칙을 그쪽에
+    var t = els.text, b = els.body, pt = b.classList.contains('is-portrait');
+    var sc = pt ? b : t, other = pt ? t : b;
+    other.classList.remove('is-over');
+    sc.classList.remove('is-over');   // 띠 자신이 길이에 끼지 않게 뗀 뒤 잰다
+    sc.classList.toggle('is-over', sc.scrollHeight - sc.clientHeight - sc.scrollTop > 4);
+  }
+  /** R7-3(S5): 교사 진행 띠 현재 칸 — 설명 층에서는 '설명'(1장이면 '도입') */
+  function syncPace() {
+    if (!els.pace) return;
+    var nowId = cur === 0 ? 'intro' : 'explain';
+    var bs = els.pace.querySelectorAll('.lesson__pacebtn');
+    for (var i = 0; i < bs.length; i++) {
+      if (bs[i].getAttribute('data-pace') === nowId) bs[i].setAttribute('aria-current', 'step'); else bs[i].removeAttribute('aria-current');
+    }
   }
   /** R7-2(S12): 세로 820 — 그림을 제목·질문 뒤로(글 칸 안), 가로로 돌아오면 원위치 */
   function placeFig() {

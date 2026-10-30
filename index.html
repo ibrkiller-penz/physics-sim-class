@@ -172,32 +172,27 @@
     .hub-pop .hub-teacher { justify-content: space-between; min-height: calc(64 * var(--u)); font-size: var(--fs-meta); }
     .hub-pop__t { font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-sans); color: var(--color-ink-muted); padding-top: var(--space-2); border-top: 1px solid var(--color-line); }
     .hub-pop .hub-keys { position: static; width: auto; padding: 0; border: 0; box-shadow: none; background: none; }
-    /* R7-2(S8): [바로 실험 ▾] 분할 단추(슬릿·궤도: 갈래 메뉴) — 다른 카드는 한 단추. 링크 줄은 없앴다(카드 5장 높이 같음) */
-    .card__split { position: relative; display: flex; gap: 0; }
-    .card__split .card__open--sim { flex: 1 1 auto; border-radius: var(--radius-md) 0 0 var(--radius-md); }
-    .card__splitbtn {
-      flex: none; width: calc(64 * var(--u)); min-width: 44px; min-height: calc(56 * var(--u)); display: grid; place-items: center;
-      border: calc(2 * var(--u)) solid var(--sim); border-left-width: 1px; border-radius: 0 var(--radius-md) var(--radius-md) 0;
-      background: var(--color-paper-raised); color: var(--sim-text);
-    }
-    .card__splitbtn .ico { width: calc(28 * var(--u)); height: calc(28 * var(--u)); }
-    .card__splitbtn[aria-expanded="true"], html:not(.cursor-hidden) .card__splitbtn:hover { background: var(--sim-tint); }
-    .card__menu {
-      position: absolute; left: 0; right: 0; bottom: calc(100% + var(--space-2)); z-index: 5;
-      display: grid; gap: var(--space-1); padding: var(--space-2); border-radius: var(--radius-md);
-      background: var(--color-paper-raised); border: 1px solid var(--color-line-strong); box-shadow: var(--shadow-lg);
-    }
-    .card__menu[hidden] { display: none; }
-    .card__menu a {
-      display: grid; gap: 2px; min-height: max(44px, calc(64 * var(--u))); padding: var(--space-1) var(--space-3); align-content: center;
-      border-radius: var(--radius-sm); font: var(--font-weight-medium) var(--fs-caption)/1.25 var(--font-sans); color: var(--sim-text); text-decoration: none; word-break: keep-all;
-    }
-    .card__menu a small { font-weight: var(--font-weight-regular); color: var(--color-ink-muted); }
-    html:not(.cursor-hidden) .card__menu a:hover, .card__menu a:focus-visible { background: var(--sim-tint); }
+    /* R7-3(S9): 예전 [바로 실험][▾] 분할 단추·갈래 메뉴(card__split·card__splitbtn·card__menu) 삭제 — 갈래는 .card__forks 칩 줄 */
     .card__links { display: none; }
-    /* R7-2: 흐름 칩 3개(설명 → 실험 → 정리)는 좁으면 두 줄 — 가운데 칸이 칩 폭만큼 넓어져 글이 잘리지 않게 */
     .card__mid { grid-template-columns: minmax(0, 1fr); }
-    .card__steps { flex-wrap: wrap; row-gap: calc(4 * var(--u)); }
+    /* R7-3(S9): 흐름 칩 한 줄 고정 · 제목 옆 대표 선화(가로) · 갈래 칩 줄 36u(5장 자리 예약) · 분할 단추 없음 */
+    .card__steps { flex-wrap: nowrap; white-space: nowrap; gap: calc(4 * var(--u)); font-size: max(12px, calc(21 * var(--u))); }
+    .card__steps span { padding: calc(3 * var(--u)) calc(6 * var(--u)); }
+    .card__head { align-self: stretch; display: block; flex: none; }
+    .card__head::after { content: ""; display: block; clear: both; }
+    .card__icon--head { float: right; width: calc(96 * var(--u)); height: calc(56 * var(--u)); margin: calc(-4 * var(--u)) 0 0 var(--space-2); }
+    .card > * { flex-shrink: 0; }
+    .card > .card__mid { flex-shrink: 1; min-height: 0; }
+    @media (orientation: landscape) { .card__icon--head { display: block; } }
+    @media (orientation: portrait) { .card__icon--head { display: none; } }
+    .card__forks { min-height: max(36px, calc(36 * var(--u))); display: flex; align-items: center; justify-content: center; gap: var(--space-1); }
+    .card__fork {
+      display: inline-flex; align-items: center; justify-content: center; min-height: max(36px, calc(36 * var(--u))); min-width: max(44px, calc(72 * var(--u)));
+      padding: 0 var(--space-3); border-radius: var(--radius-pill); color: var(--sim-text); text-decoration: underline; text-underline-offset: calc(4 * var(--u));
+      font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-sans);
+    }
+    html:not(.cursor-hidden) .card__fork:hover, .card__fork:focus-visible { background: var(--sim-tint); }
+    .card__forksep { font-style: normal; color: var(--color-line-strong); }
   </style>
 </head>
 <body>
@@ -262,12 +257,12 @@
         q: '옆으로 던진 공과 떨어뜨린 공, 무엇이 먼저 땅에 닿을까?', what: '속력·각도를 바꿔 던지고 거리를 비교해요', std: '[12역학01-02]', chapters: 9, cards: 5 },
       { slug: 'double-slit-quantum', icon: 'slit', title: '이중 슬릿: 빛에서 전자 하나까지', subj: '물리학 · 전자기와 양자',
         q: '전자를 하나씩 보내도 줄무늬가 생길까?', what: '파장·틈 간격을 바꿔 무늬 간격을 재요', std: '[12물리03-01] [12전자03-01]', chapters: 11, cards: 5,
-        sub: [{ mode: 'physics', label: '빛 실험', full: '빛으로 줄무늬 재기' }, { mode: 'quantum', label: '전자 실험', full: '전자 하나씩 보내기' }] },
+        sub: [{ mode: 'physics', label: '빛', full: '빛으로 줄무늬 재기' }, { mode: 'quantum', label: '전자', full: '전자 하나씩 보내기' }] },
       { slug: 'collision-momentum', icon: 'collision', title: '일차원 충돌과 운동량 보존', subj: '물리학',
         q: '같은 질량의 두 수레가 부딪치면 어떻게 될까?', what: '두 수레를 부딪쳐 운동량·힘을 비교해요', std: '[12물리01-03]', chapters: 9, cards: 5 },
       { slug: 'orbit-gravity', icon: 'orbit', title: '인공위성과\n탈출 속도', subj: '역학과 에너지',
         q: '얼마나 빨리 던지면 땅에 떨어지지 않고 지구를 돌까?', what: '발사 속력을 높여 궤도·탈출을 찾아요', std: '[12역학01-03·04·05]', mode: 'cannon', chapters: 11, cards: 5,
-        sub: [{ mode: 'cannon', label: '뉴턴의 대포', full: '대포로 궤도 찾기' }, { mode: 'sat', label: '원궤도 위성', full: '높이별 위성 속력' }, { mode: 'kepler', label: '케플러 자료', full: '주기와 거리 규칙' }] },
+        sub: [{ mode: 'cannon', label: '대포', full: '대포로 궤도 찾기' }, { mode: 'sat', label: '위성', full: '높이별 위성 속력' }] },
       { slug: 'convex-lens', icon: 'lens', title: '볼록렌즈로\n상 만들기', subj: '물리학',
         q: '렌즈로 만든 상은 왜 거꾸로일까?', what: '물체를 옮겨 선명한 상의 위치를 찾아요', std: '[12물리03-02]', chapters: 11, cards: 5 }
     ];
@@ -297,7 +292,12 @@
       top.appendChild(el('span', 'card__key num', String(i + 1)));
       if (i === 0) top.appendChild(el('span', 'card__first', '처음이면 여기부터'));
       card.appendChild(top);
-      card.appendChild(el('h2', 'card__title', s.title));
+      // R7-3(S9): 제목 + 대표 선화(가로에서도 — 제목 오른쪽 96×56u)
+      var head = el('div', 'card__head');
+      var ich = el('div', 'card__icon card__icon--head'); ich.setAttribute('aria-hidden', 'true'); ich.innerHTML = ICON[s.icon];
+      head.appendChild(ich);   // float: 제목 첫 줄 오른쪽(제목 글은 아이콘 아래로 흘러 줄 수가 늘지 않게)
+      head.appendChild(el('h2', 'card__title', s.title));
+      card.appendChild(head);
       var mid = el('div', 'card__mid');
       var ic = el('div', 'card__icon'); ic.setAttribute('aria-hidden', 'true'); ic.innerHTML = ICON[s.icon];
       mid.appendChild(ic);
@@ -309,7 +309,8 @@
       // R7: 설명 → 실험 흐름 칩 + 읽은 장 점(저장이 있을 때만)
       var steps = el('p', 'card__steps');
       // R7-2(S14): '설명 N장 → 실험 N가지 → 정리 3문항' (약 45분) — 설명 장 수 = lesson.js 의 실험 전 장 수(wrap 제외)
-      steps.appendChild(el('span', null, '설명 ' + s.chapters + '장')); steps.appendChild(el('i', null, '→')); steps.appendChild(el('span', null, '실험 ' + s.cards + '가지')); steps.appendChild(el('i', null, '→')); steps.appendChild(el('span', null, '정리 3문항'));
+      // R7-3(S9): 한 줄 고정 '설명 9장 → 실험 5 → 정리 3'
+      steps.appendChild(el('span', null, '설명 ' + s.chapters + '장')); steps.appendChild(el('i', null, '→')); steps.appendChild(el('span', null, '실험 ' + s.cards)); steps.appendChild(el('i', null, '→')); steps.appendChild(el('span', null, '정리 3'));
       steps.setAttribute('aria-label', '설명 ' + s.chapters + '장을 읽고 실험 ' + s.cards + '가지, 정리 3문항 — 약 45분');
       steps.title = '한 차시 약 45분 (설명 5 · 예측 10 · 실험 20 · 정리 10)';
       mid.appendChild(steps);
@@ -336,28 +337,22 @@
       a2.setAttribute('data-base', base + '?view=sim' + mq);
       a2.href = a2.getAttribute('data-base');
       a2.setAttribute('aria-label', (i + 1) + '번 ' + s.title.replace(/\n/g, ' ') + ' — 설명 없이 바로 실험');
-      // R7-2(S8): 갈래가 있는 실험(슬릿·궤도)은 [바로 실험][▾] 분할 단추 — ▾ = 갈래 메뉴(?view=sim&mode=…). 예전 '빛 실험·전자 실험' 칩 줄은 흡수(카드 5장 높이 같음)
+      // R7-3(S9): [바로 실험] 은 5장 모두 한 단추. 갈래(슬릿 '빛 | 전자', 궤도 '대포 | 위성')는 아래 칩 줄 — 다섯 카드 모두 같은 높이로 자리 예약
+      go.appendChild(a2);
+      var forks = el('div', 'card__forks');
       if (s.sub) {
-        var split = el('div', 'card__split');
-        split.appendChild(a2);
-        var sb = el('button', 'card__splitbtn');
-        sb.type = 'button'; sb.setAttribute('aria-haspopup', 'true'); sb.setAttribute('aria-expanded', 'false');
-        sb.setAttribute('aria-label', (i + 1) + '번 실험 갈래 골라 바로 실험'); sb.title = '갈래 골라 바로 실험';
-        sb.innerHTML = SimIcons.html('chev-down');
-        var menu = el('div', 'card__menu'); menu.hidden = true; menu.setAttribute('role', 'menu');
-        s.sub.forEach(function (m) {
-          var l = el('a', null, m.label);
-          l.setAttribute('role', 'menuitem');
-          l.appendChild(el('small', null, m.full));
+        forks.setAttribute('role', 'group'); forks.setAttribute('aria-label', '갈래 골라 바로 실험');
+        s.sub.forEach(function (m, k) {
+          if (k) forks.appendChild(el('i', 'card__forksep', '|'));
+          var l = el('a', 'card__fork', m.label);
           l.setAttribute('data-base', base + '?view=sim&mode=' + m.mode);
           l.href = l.getAttribute('data-base');
+          l.title = m.full + ' — 바로 실험';
           l.setAttribute('aria-label', (i + 1) + '번 ' + s.title.replace(/\n/g, ' ') + ' — ' + m.full + '로 바로 실험');
-          menu.appendChild(l);
+          forks.appendChild(l);
         });
-        (function (mn, bt) { bt.addEventListener('click', function (e) { e.stopPropagation(); toggleMenu(mn, bt); }); })(menu, sb);
-        split.appendChild(sb); split.appendChild(menu);
-        go.appendChild(split);
-      } else go.appendChild(a2);
+      } else forks.setAttribute('aria-hidden', 'true');
+      go.appendChild(forks);
       var std = el('span', 'card__std', s.std); std.title = s.subj; go.appendChild(std);
       card.appendChild(go);
       card.addEventListener('click', function (e) {

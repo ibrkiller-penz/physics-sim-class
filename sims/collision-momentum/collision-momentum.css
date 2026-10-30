@@ -166,3 +166,7 @@ html:not(.is-simple) .sim-panel [data-key="tau"] .seg__opt { padding-top: calc(2
 .sim-band.cm-band .meters.has-core .meter[data-key="verdict"] .meter__label { display: none; }
 .sim-band.cm-band .meters.has-core .meter[data-key="verdict"] { align-content: center; }
 .sim-band.cm-band .meters__more { align-self: stretch; }
+
+/* R7-3(B4): 실행 전 그래프 판 = 56u 한 줄 — 탭·'그래프' 머리는 실행 뒤(판이 펼쳐진 뒤)에만 */
+.cm-lower.cm-lower--pre .cm-tabs, .cm-lower.cm-lower--pre .cm-tabs__label { display: none; }
+.cm-lower.cm-lower--pre > .empty { padding-block: 0; min-height: 0; }

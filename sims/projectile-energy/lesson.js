@@ -8,6 +8,7 @@
    수치는 pe-physics.js(g = 9.8 m/s²)로 확인: R(20 m/s, 45°) = 40.8 m, 30°·60° = 35.3 m, h 40 m: 30° 70.2 · 45° 65.7 · 60° 51.3 m,
      h 10 m: 40° 49.8 > 45° 49.1 m, 카드 ② 합 246 J, 달 61.7 m, g = 10 · h 20 · v₀ 10 · 0° → 20.0 m
    장 상한(원고 §0): 본문 ≤ 3문장 · 식 ≤ 2 · 그림 1 · 생활 예·유도는 '더 보기'
+   R7-3(2026-10-31): 그림 라벨 §0-B(sym·bg·위치) · 4·5장 condition 참고 칩 · 인라인 ÷ → {{frac:}} · 교사 메모 1~7장(§8-2) · more.teacherOpen 삭제(무시됨)
    ===================================================================== */
 (function () {
   'use strict';
@@ -69,7 +70,7 @@
 
   SK.lesson({
     slug: 'projectile-energy',
-    title: '포물선 운동과 역학적 에너지',
+    title: '던진 공은 어떻게 움직일까?',   // R7-3(팀장): 5종 같은 물음 꼴(머리줄 제목)
     standards: [
       // 코드는 docs/01 확인분만 (12물리01-02 는 쓰지 않음) — 1장에서 접힘 칩 '성취기준 3 ▸'
       { code: '12역학01-02', subj: '역학과 에너지', text: '포물선 운동의 정량적 설명 · 역학적 에너지' },
@@ -105,20 +106,21 @@
           '날아가는 동안 $E_k$ 와 $E_p$ 는 서로 바뀌지만, 합 $E$ 는 어떻게 되는지도 알아봐요.'
         ],
         goals: ['수평과 수직을 따로 생각하기', '최고점에서도 가속도는 $g$', '$E$ 가 일정해지는 조건'],
-        teacherNote: '1분. 질문을 읽고 학생 예상을 손들기로 받아 두면 실험의 예측과 이어진다.',
+        teacherNote: '1분. 질문을 읽고 손들기로 학생 예상을 받는다. 그 예상이 실험의 예측과 이어진다.',
         svg: function (D) {
           var pts = para(100, 380, 600, Math.atan(230 * 2 / 300) / RAD);   // 최고점 (400, 150)
           var ux = 0.546, uy = -0.838;   // 발사점 접선 방향(기울기 230·2/300)
+          // R7-3(A1, 원고 §0-B): v₀ 라벨은 화살 끝 왼쪽 위 14(궤적은 접선 오른쪽 아래라 이쪽이 빈 곳), '최고점'은 꼭대기 왼쪽 위
           return D.svg([defs(),
             D.line(60, 380, 740, 380, { color: 'muted', w: 2 }),
             D.curve(pts, { color: 'sim', w: 2.5, dash: '10 8' }),
             rect(220, 40, 360, 52, 'var(--sim-tint)', 'var(--sim)', 26),
             D.label(400, 66, '속도와 에너지는 어떻게 바뀔까?', { anchor: 'middle', size: 22, weight: 500, bg: false }),
             D.ball(100, 380, 11),
-            arr(D, 100, 380, 100 + ux * 70, 380 + uy * 70, { label: '$v_0$', sym: '$v_0$', lx: 100 + ux * 70 + 12, ly: 380 + uy * 70 - 10, anchor: 'start' }),
+            arr(D, 100, 380, 100 + ux * 70, 380 + uy * 70, { label: '$v_0$', sym: '$v_0$', lx: 100 + ux * 70 - 14, ly: 380 + uy * 70 - 14, anchor: 'end' }),
             D.ball(400, 150, 11),
-            D.label(330, 150, '최고점', { anchor: 'end' }),
-            arr(D, 400, 150, 460, 150, { label: '$v_x$', sym: '$v_x$', lx: 430, ly: 122, anchor: 'middle' }),
+            D.label(370, 118, '최고점', { anchor: 'end' }),
+            arr(D, 400, 150, 460, 150, { label: '$v_x$', sym: '$v_x$', lx: 430, ly: 126, anchor: 'middle' }),
             arr(D, 400, 166, 400, 206, { kind: 'a', label: '$g$', sym: '$g$', lx: 414, ly: 198, anchor: 'start' }),
             D.ball(700, 380, 11, { hollow: true })
           ], { how: '점선 = 공이 지나가는 길 · 가는 화살표 = 속도 · 굵은 화살표 = 중력 가속도 $g$' });
@@ -129,8 +131,8 @@
       {
         id: 'two-motions', type: 'concept', title: '한 번에 두 가지 운동',
         body: [
-          '옆으로는 힘이 없어 {{수평 속도}} $v_x$ 가 일정하고(**등속도**), 아래위로는 가속도 $g$ 인 **등가속도 운동**이에요.',
-          '두 운동은 독립이라, 옆으로 던져도 떨어지는 시간은 그냥 떨어뜨릴 때와 같아요.'
+          '수평으로는 힘이 없어 {{수평 속도}} $v_x$ 가 일정해요(**등속도 운동**). 수직으로는 중력 때문에 가속도 $g$ 가 일정한 **등가속도 운동**이에요.',
+          '두 운동은 서로 영향을 주지 않아서, 옆으로 던져도 떨어지는 시간은 그냥 떨어뜨릴 때와 같아요.'
         ],
         eq: [
           { tex: '$x = v_x t$', caption: '수평: $v_x$ 일정' },
@@ -144,11 +146,11 @@
         now: function (p, v, st) {
           var vx = p.v0 * Math.cos(p.theta * RAD), g = gOf(p);
           var s = '$v_x$ = ' + f(vx) + ' m/s, $h$ = ' + p.h + ' m, $g$ = ' + gTxt(p) + ' m/s²';
-          if (st && st.finished && +p.theta === 0 && p.air === 'off' && p.h > 0) s += ' → 떨어지는 시간 √(2$h$ ÷ $g$) ≈ ' + f(Math.sqrt(2 * p.h / g), 2) + ' s';
+          if (st && st.finished && +p.theta === 0 && p.air === 'off' && p.h > 0) s += ' → 떨어지는 시간 √({{frac:2$h$|$g$}}) ≈ ' + f(Math.sqrt(2 * p.h / g), 2) + ' s';
           return s;
         },
         try: { label: '실험 ① 옆으로 던지기', preset: 0 },
-        more: { teacherOpen: false, title: '기호', body: ['$x$ 수평 거리(m) · $y$ 높이(m) · $t$ 시간(s) · $g$ {{중력 가속도}}(m/s²) · $v_{y0}$ 처음 수직 속도(m/s) · $h$ 던지는 높이(m)'] },
+        more: { title: '기호', body: ['$x$ 수평 거리(m) · $y$ 높이(m) · $t$ 시간(s) · $g$ {{중력 가속도}}(m/s²) · $v_{y0}$ 처음 수직 속도(m/s) · $h$ 던지는 높이(m)'] },
         life: ['책상 모서리에서 구슬을 굴려 떨어뜨릴 때와 가만히 떨어뜨릴 때, 바닥에 닿는 소리가 거의 같이 들려요.', '물대포 호스의 물줄기가 휘어지는 모양.'],
         teacherNote: '결론: "속도를 키워도 떨어지는 시간은 그대로". 실험 ① 해설 끝 [해 보기]로 $v_0$ 20 m/s 후속(비행 시간 2.02 s 그대로, 수평 거리 20.2 → 40.4 m). ⚙ 바닥·벽 그림자로 수평·수직을 따로 보게 한다.',
         svg: function (D) {
@@ -158,7 +160,7 @@
           k.push(D.line(20, 390, 780, 390, { color: 'ink', w: 2.5 }));
           // 같은 높이 가는 점선 (3번째·6번째 찍힘)
           [3, 6].forEach(function (j) { var yy = 110 + 5 * j * j; k.push(D.line(90, yy, 80 + 80 * j - 12, yy, { color: 'muted', w: 1.5, dash: '4 6' })); });
-          k.push(D.label(330, 290, '같은 높이', { anchor: 'middle', size: 20, color: 'muted' }));
+          k.push(D.label(330, 272, '같은 높이', { anchor: 'middle', size: 20, color: 'muted' }));   // R7-3(A1): 점선 위 18 (선에 걸치지 않게)
           for (i = 0; i <= 7; i++) {
             y = 110 + 5 * i * i; x = 80 + 80 * i;   // 0.1 s 마다: 수평 같은 간격, 수직 1:3:5:7… 로 벌어짐
             if (i > 1) k.push(D.ball(80, y, 9, { color: 'muted', hollow: true }));   // 0.1 s 째는 5 px 아래라 던진 공 첫 점과 겹쳐 생략
@@ -171,7 +173,8 @@
           k.push(D.label(96, 330, '떨어뜨린 공', { color: 'muted' }));
           k.push(arr(D, 400, 206, 400, 252, { kind: 'a', label: '$g$', sym: '$g$', lx: 414, ly: 244, anchor: 'start' }));
           k.push(D.label(752, 140, '벽 그림자: 점점 벌어짐', { anchor: 'end', size: 20 }));
-          k.push(D.label(400, 432, '바닥 그림자: 같은 간격 ($x$ = $v_x t$)', { anchor: 'middle', size: 20, sym: '$x$' }));
+          // R7-3(A1): 눈금점(405, r 4) 아래 12 이상 · 괄호 없이 '같은 간격 → 식'
+          k.push(D.label(400, 433, '바닥 그림자: 같은 간격 → $x$ = $v_x t$', { anchor: 'middle', size: 20, sym: '$x$' }));
           return D.svg(k, { title: '0.1 s 마다 찍은 두 공', how: '찬 점 = 옆으로 던진 공 · 빈 점 = 떨어뜨린 공 — 같은 순간 높이가 같아요' });
         }
       },
@@ -197,9 +200,9 @@
           return '$v_0$ = ' + p.v0 + ' m/s, $θ$ = ' + p.theta + '° → $v_x$ = ' + f(p.v0 * Math.cos(p.theta * RAD)) + ' m/s, 처음 $v_y$ = ' + f(p.v0 * Math.sin(p.theta * RAD)) + ' m/s';
         },
         try: { label: '실험 ⑤ 최고점 보기', preset: 4 },
-        more: { teacherOpen: false, title: '더 알아보기 — 성분 · 최고점 시간 · 속력', body: ['던지는 각이 $θ$ 이면 처음 속도의 수평 성분은 $v_0 \cos θ$, 수직 성분은 $v_0 \sin θ$ 예요.', '최고점에 닿는 시간: $v_y$ = 0 이 되는 때, $t$ = $v_0 \\sin θ$ ÷ $g$.', '그 순간의 속력: $v$ = √($v_x^2$ + $v_y^2$). 같은 높이로 돌아오면 처음과 같은 속력이에요.'] },
+        more: { title: '더 알아보기 — 성분 · 최고점 시간 · 속력', body: ['던지는 각이 $θ$ 이면 처음 속도의 수평 성분은 $v_0 \\cos θ$, 수직 성분은 $v_0 \\sin θ$ 예요.', '최고점에 닿는 시간: $v_y$ = 0 이 되는 때, $t$ = {{frac:$v_0 \\sin θ$|$g$}}.', '그 순간의 속력: $v$ = √($v_x^2$ + $v_y^2$). 같은 높이로 돌아오면 처음과 같은 속력이에요.'] },
         life: ['농구 슛에서 공이 림 위에서 가장 느리게 보이는 것은 $v_y$ = 0 이기 때문이고, 속도가 0은 아니에요.', '스마트폰 슬로모션으로 던진 공을 찍어 프레임마다 위치를 읽어 봐요(동영상 분석).'],
-        teacherNote: '실험 ⑤는 ⚙ 설정의 속도·가속도 화살표를 켠 채 열린다. 최고점에서 $v_x$ ≈ 14.1 m/s 화살표는 남고 가속도 화살표는 아래 $g$.',
+        teacherNote: '최고점 질문: \"속도가 0일까? 가속도가 0일까?\" 손들기 뒤 실험 ⑤(속도·가속도 화살표를 켠 채 열림). 최고점에서 $v_x$ ≈ 14.1 m/s 화살표는 남고 가속도 화살표는 아래 $g$.',
         svg: function (D) {
           var pts = para(120, 370, 560, 45);   // 45° → 최고점 (400, 230)
           var c = 100 / Math.SQRT2;            // v₀ 화살표 100 → 성분 70.7
@@ -213,12 +216,12 @@
             arr(D, 120, 370, 120, 370 - c, { kind: 'comp', label: '$v_y$', sym: '$v_y$', lx: 106, ly: 370 - c / 2, anchor: 'end' }),
             D.angle(120, 370, 44, 0, 45, '$θ$', { lr: 18, size: 20 }),
             D.ball(120, 370, 10),
-            arr(D, 120, 370, 120 + c, 370 - c, { label: '$v_0$', sym: '$v_0$', lx: 120 + c + 10, ly: 370 - c - 16, anchor: 'start' }),
+            arr(D, 120, 370, 120 + c, 370 - c, { label: '$v_0$', sym: '$v_0$', lx: 120 + c - 14, ly: 370 - c - 20, anchor: 'end' }),   // R7-3(A1): 화살 왼쪽 위(궤적과 떨어지게)
             // 최고점
             D.ball(400, 230, 10),
-            D.label(400, 180, '$v_y$ = 0, $v_x$ 그대로', { anchor: 'middle' }),
-            arr(D, 400, 230, 400 + c, 230, { kind: 'comp', label: '$v_x$', sym: '$v_x$' }),
-            arr(D, 400, 246, 400, 292, { kind: 'a', label: '$g$', lx: 414, ly: 282, anchor: 'start' }),
+            D.label(400, 164, '$v_y$ = 0, $v_x$ 그대로', { anchor: 'middle', sym: '$v_y$' }),
+            arr(D, 400, 230, 400 + c, 230, { kind: 'comp', label: '$v_x$', sym: '$v_x$', lx: 436, ly: 208, anchor: 'middle' }),   // 화살 위 — 궤적(오른쪽 끝)과 떨어지게
+            arr(D, 400, 246, 400, 292, { kind: 'a', label: '$g$', sym: '$g$', lx: 414, ly: 282, anchor: 'start' }),
             // 착지점 (같은 높이 → 처음과 같은 속력)
             D.ball(680, 370, 10),
             arr(D, 680, 370, 680 + c, 370, { kind: 'comp' }),
@@ -232,9 +235,9 @@
       {
         id: 'range', type: 'formula', title: '얼마나 멀리, 얼마나 오래',
         body: [
-          '{{사거리}} $R$ = $v_x$ × $T$. $θ$ 가 크면 오래 날지만 옆으로 느려서 45°에서 가장 멀리 가요.',
-          '아래 식은 $h$ = 0, 공기 저항이 없을 때만 써요.'
+          '{{사거리}} $R$ = $v_x$ × $T$. $θ$ 가 크면 오래 날지만 옆으로 느려서 45°에서 가장 멀리 가요.'
         ],
+        condition: '$h$ = 0, 공기 없음',   // R7-3(A4, 원고 §8-2): 식이 성립하는 조건은 참고 칩 한 줄(h > 0 은 5장, 공기는 7장)
         eq: [
           { tex: '$T$ =', frac: ['$2 v_0$ sin $θ$', '$g$'], caption: '비행 시간' },
           { tex: '$R$ =', frac: ['$v_0^2$ sin 2$θ$', '$g$'], caption: '사거리' }
@@ -250,20 +253,20 @@
           var s = '$v_0$ = ' + p.v0 + ' m/s, $θ$ = ' + p.theta + '°, $g$ = ' + gTxt(p) + ' m/s²';
           if (p.h > 0) return s + ' — 지금은 $h$ = ' + p.h + ' m 라 이 식이 그대로 맞지 않아요';
           if (p.air !== 'off') return s + ' — 공기 저항이 있어 식보다 짧아요';
-          s += ' → $R$ = ' + p.v0 + '² × sin' + (2 * p.theta) + '° ÷ ' + gTxt(p);
+          s += ' → $R$ = {{frac:' + p.v0 + '² × sin ' + (2 * p.theta) + '°|' + gTxt(p) + '}}';
           // 정답 누출 방지: 실행이 끝나기 전에는 R 값을 빼고 대입까지만
           if (st && st.finished) s += ' ≈ ' + f(p.v0 * p.v0 * Math.sin(2 * p.theta * RAD) / gOf(p)) + ' m';
           return s;
         },
         try: { label: '45°로 $R$ 재 보기', preset: 2, set: { theta: 45 }, predict: false },
-        more: { teacherOpen: false, title: '더 알아보기 — 최고 높이 · 계산 예', body: [
-          '같은 높이로 돌아오면 올라가는 시간과 내려오는 시간이 같아요. 그래서 $T$ 는 최고점까지 시간의 2배예요.',
-          '최고 높이: $H$ = ($v_0 \\sin θ$)² ÷ 2$g$ (땅에서 던질 때).',
+        more: { title: '더 알아보기 — 최고 높이 · 계산 예', body: [
+          '땅에서 던져 같은 높이로 돌아오면 올라가는 시간과 내려오는 시간이 같아요. 그래서 $T$ 는 최고점까지 걸리는 시간의 2배예요.',
+          '최고 높이: $H$ = {{frac:($v_0 \\sin θ$)²|2$g$}} (땅에서 던질 때).',
           '예: $v_0$ = 20 m/s, $θ$ = 45°, $g$ = 9.8 m/s² → $T$ ≈ 2.89 s, $H$ ≈ 10.2 m, $R$ ≈ 40.8 m.',
-          '유도: $R$ = $v_x$ × $T$ = ($v_0 \\cos θ$)(2$v_0 \\sin θ$ ÷ $g$) = $v_0^2$ sin2$θ$ ÷ $g$ (2 sin$θ$ cos$θ$ = sin2$θ$).'
+          '유도: $R$ = $v_x$ × $T$ = ($v_0 \\cos θ$) × {{frac:2$v_0 \\sin θ$|$g$}} = {{frac:$v_0^2$ sin 2$θ$|$g$}} (2 sin$θ$ cos$θ$ = sin 2$θ$).'
         ] },
         life: ['물총을 쏠 때 각도를 바꿔 가며 가장 멀리 가는 각도를 찾아봐요.'],
-        teacherNote: '식을 외우게 하지 않는다. "$R$ 이 $θ$ 에 따라 어떻게 달라질까?"만. 30°·60° 대칭은 다음 장.',
+        teacherNote: '식 암기 금지 — "$R$ 이 $θ$ 에 따라 어떻게 달라질까?"만 묻는다. 식은 $h$ = 0, 공기 없음에서만 맞는다(참고 칩). 30°·60° 대칭은 다음 장.',
         svg: function (D) {
           var S = 640 / (400 / 9.8);   // 45° 사거리 40.8 m = 640 px → 1 m ≈ 15.7 px
           var R30 = 400 * Math.sin(Math.PI / 3) / 9.8 * S;   // 35.3 m
@@ -294,12 +297,12 @@
         id: 'symmetry', type: 'formula', title: '30°와 60°, 그리고 45°의 조건',
         body: [
           '합이 90°인 두 각(30°와 60°)은 sin2$θ$ 가 같아 사거리가 같아요.',
-          '이 대칭과 "45°가 가장 멀다"는 $h$ = 0 일 때만 맞아요.',
-          '절벽 위($h$ > 0)에서는 가장 멀리 가는 각도가 45°보다 작아요.'
+          '절벽 위($h$ > 0)에서는 이 대칭이 깨지고, 가장 멀리 가는 각도도 45°보다 작아요.'
         ],
         eq: [
-          { tex: '$R(θ) = R(90° − θ)$', caption: '$h$ = 0, 공기 저항 없을 때' }
+          { tex: '$R(θ) = R(90° − θ)$', caption: '합이 90°인 두 각' }
         ],
+        condition: '$h$ = 0 일 때만',   // R7-3(A4, 원고 §8-2)
         symbols: [
           { sym: '$θ$', target: 'theta' },
           { sym: '$h$', target: 'h' }
@@ -309,12 +312,12 @@
           return '$θ$ = ' + a + '° ↔ 짝 각도 ' + b + '°, $h$ = ' + p.h + ' m' + (p.h > 0 ? ' — 높이가 있어 두 거리가 달라요' : '');
         },
         try: { label: '실험 ③ 30° 기록 → 60°로 다시', preset: 2, set: { theta: 30 } },
-        more: { teacherOpen: false, title: '더 알아보기 — 절벽 위에서', body: [
+        more: { title: '더 알아보기 — 절벽 위에서', body: [
           '$v_0$ = 20 m/s, $h$ = 0: 30°와 60° 모두 $R$ ≈ 35.3 m, 45°는 40.8 m.',
           '$v_0$ = 20 m/s, $h$ = 40 m: 30° → 70.2 m, 45° → 65.7 m, 60° → 51.3 m. 30°가 가장 멀리 가요.',
           '$h$ > 0 이면 내려오는 동안 더 날 수 있어서, 옆으로 빠른 낮은 각도가 유리해요.'
         ] },
-        teacherNote: '목표는 "45°가 항상 최대"에서 벗어나기. $h$ = 40 m 의 최적 각도(약 30°)·$h$ = 10 m 의 최적 각도(약 40°, 49.8 m > 45° 49.1 m)는 확인 질문·흔한 오해 카드로 확인.',
+        teacherNote: '핵심: 45°가 항상 최대는 아님. 목표는 "45°가 항상 최대"에서 벗어나기. $h$ = 40 m 의 최적 각도(약 30°)·$h$ = 10 m 의 최적 각도(약 40°, 49.8 m > 45° 49.1 m)는 확인 질문·흔한 오해 카드로 확인.',
         svg: function (D) {
           var k = [defs()];
           // 위: 땅에서 (h = 0), 1 m = 8 px
@@ -324,7 +327,7 @@
           k.push(D.curve(b.pts, { color: 'sim', w: 2.5, dash: '16 6 3 6' }));
           k.push(D.ball(70, 180, 8));
           k.push(D.dots([[70 + a.R * 8, 180]], { r: 7 }));
-          k.push(D.label(70 + a.R * 8, 204, '같은 거리 35.3 m', { anchor: 'middle', size: 20 }));
+          k.push(D.label(70 + a.R * 8, 206, '같은 거리 35.3 m', { anchor: 'middle', size: 20 }));   // R7-3(A1): 지면선 아래 26 — 궤적·선에 걸치지 않게
           k.push(D.label(500, 70, '땅에서 ($h$ = 0)', { size: 22, weight: 500, sym: '$h$' }));
           k.push(D.label(500, 108, '30°와 60° → 같은 곳', { size: 20 }));
           // 아래: 절벽 위 (h = 40 m), 1 m = 3.4 px
@@ -336,9 +339,12 @@
           k.push(D.ball(x0, G - 40 * sc, 8));
           k.push(D.dots([[x0 + c.R * sc, G], [x0 + e.R * sc, G]], { r: 6 }));
           k.push(D.label(x0 + c.R * sc + 10, G - 18, '30° ' + r1(c.R) + ' m', { size: 20, weight: 500 }));
-          k.push(D.label(x0 + e.R * sc - 8, G - 18, '60° ' + r1(e.R) + ' m', { size: 20, anchor: 'end' }));
-          k.push(D.label(500, 300, '절벽 위 ($h$ = 40 m)', { size: 22, weight: 500 }));
-          k.push(D.label(500, 338, '$h$ 가 있으면 달라요', { size: 20 }));
+          // R7-3(A1, §0-B): '60° 51.3 m' 는 60° 궤적 왼쪽으로 12 이상 띄우고 착지점까지 지시선
+          var e60 = x0 + e.R * sc;
+          k.push(D.line(e60 - 16, G - 12, e60 - 4, G - 3, { color: 'muted', w: 1.5 }));
+          k.push(D.label(e60 - 20, G - 20, '60° ' + r1(e.R) + ' m', { size: 20, anchor: 'end' }));
+          k.push(D.label(500, 300, '절벽 위 ($h$ = 40 m)', { size: 22, weight: 500, sym: '$h$' }));
+          k.push(D.label(500, 338, '$h$ 가 있으면 달라요', { size: 20, sym: '$h$' }));
           k.push(D.label(500, 372, '45°는 65.7 m', { size: 20, color: 'muted' }));
           return D.svg(k, { title: '같은 속력 20 m/s · 30°와 60°', how: '점선 = 30° · 일점쇄선 = 60° · 위와 아래는 축척이 달라요' });
         }
@@ -369,14 +375,14 @@
           return '$m$ = ' + (+m.toFixed(4)) + ' kg, $v_0$ = ' + p.v0 + ' m/s, $h$ = ' + p.h + ' m → 처음 $E_k$ = ' + f(K, d) + ' J, $E_p$ = ' + f(U, d) + ' J, $E$ = ' + f(K + U, d) + ' J';
         },
         try: { label: '실험 ② 에너지 막대 보기', preset: 1 },
-        more: { teacherOpen: false, title: '더 알아보기 — 실험 ② 값으로 계산', body: [
+        more: { title: '더 알아보기 — 실험 ② 값으로 계산', body: [
           '{{운동 에너지}} $E_k$ = ½$mv$², {{위치 에너지}} $E_p$ = $mgh$. 최고점에서 $E_p$ 가 가장 크고 $E_k$ 는 가장 작아요.',
           '$m$ = 1 kg, $v_0$ = 10 m/s, $θ$ = 30°, $h$ = 20 m, $g$ = 9.8 m/s² → 처음 $E_k$ = 50 J, $E_p$ = 196 J, $E$ = 246 J.',
           '최고점(약 21.3 m)에서 $E_k$ ≈ 37.5 J, $E_p$ ≈ 208.5 J, 합 246 J. 착지 직전 $E_k$ = 246 J(속력 약 22.2 m/s).',
           '질량을 3 kg 으로(⚙ $m$) 바꾸면 궤적은 같고 에너지만 3배(738 J).'
         ] },
         life: ['롤러코스터가 첫 언덕을 지난 뒤 속력이 바뀌는 모습(마찰이 작을 때).'],
-        teacherNote: '실험 화면 에너지 막대의 값은 막대 제목 옆 $m$ 기준(기본 1.0 kg). 막대 이름 = 운동 에너지 $E_k$ / 위치 에너지 $E_p$ / 역학적 에너지 $E$.',
+        teacherNote: '$E$ 일정 → 질량을 3배로 하면 궤적은 같고 에너지만 3배(더 보기 · 흔한 오해 1). 실험 화면 에너지 막대의 값은 막대 제목 옆 $m$ 기준(기본 1.0 kg). 막대 이름 = 운동 에너지 $E_k$ / 위치 에너지 $E_p$ / 역학적 에너지 $E$.',
         svg: function (D) {
           var top = 140, base = 380, S = (base - top) / 246;
           var cols = [
@@ -384,7 +390,7 @@
             { x: 400, K: 37.5, U: 208.5, name: '최고점 (약 21.3 m)' },
             { x: 630, K: 246, U: 0, name: '착지 직전' }
           ];
-          var k = [defs(), D.line(80, top, 780, top, { color: 'muted', w: 2, dash: '6 6' }), D.label(780, top - 18, '합 $E$ = 246 J 같음', { anchor: 'end', size: 20, weight: 500, sym: '$E$' })];
+          var k = [defs(), D.line(80, top, 780, top, { color: 'muted', w: 2, dash: '6 6' }), D.label(780, top - 22,'합 $E$ = 246 J 같음', { anchor: 'end', size: 20, weight: 500, sym: '$E$' })];
           cols.forEach(function (c) {
             var hk = c.K * S, hu = c.U * S;
             k.push(rect(c.x - 40, base - hk, 80, hk, KC, 'var(--color-ink)'));
@@ -394,7 +400,7 @@
             k.push(D.label(c.x, 408, c.name, { anchor: 'middle', size: 20, bg: false }));
           });
           k.push(D.line(80, base, 780, base, { color: 'ink', w: 2 }));
-          return D.svg(k, { title: '세 장면의 에너지 (실험 ②)', how: '진한 칸 = $E_k$ · 빗금 칸 = $E_p$ · 막대 꼭대기가 모두 같은 점선 위 — 합 $E$ 가 같아요 ($m$ = 1 kg)' });
+          return D.svg(k, { title: '세 장면의 에너지 (실험 ②)', how: '진한 칸 = $E_k$ · 빗금 칸 = $E_p$ ($m$ = 1 kg) · 꼭대기가 같은 점선 위 — 합 $E$ 가 같아요' });
         }
       },
 
@@ -420,13 +426,13 @@
           return s;
         },
         try: { label: '실험 ④ 달에서 던지기', preset: 3 },
-        more: { teacherOpen: false, title: '더 알아보기 — 실험 ④ 값 · 공기 저항', body: [
-          '달의 $g$ 는 지구의 약 1/6 이라, 같은 던지기로 약 6배 멀리 가요($R$ ∝ 1/$g$).',
+        more: { title: '더 알아보기 — 실험 ④ 값 · 공기 저항', body: [
+          '달의 $g$ 는 지구의 약 1/6 이라, 같은 던지기로 약 6배 멀리 가요($R$ ∝ {{frac:1|$g$}}).',
           '$v_0$ = 10 m/s, 45° → 지구 $R$ ≈ 10.2 m, 달($g$ = 1.62 m/s²) $R$ ≈ 61.7 m 로 약 6배. 달에서 $T$ ≈ 8.7 s.',
           '줄어든 역학적 에너지 = 공기 저항이 한 일의 크기. 총에너지 = $E$ + 열 = 일정 [12물리01-05, 정성].'
         ] },
         life: ['아폴로 우주인이 달에서 골프공을 멀리 보낸 장면.', '탁구공은 지구에서 이상 궤적보다 짧게 날아가요.'],
-        teacherNote: ['공기 저항(없음/쇠공/탁구공)은 ⚙ 설정 › 더 많은 설정에 있다. 필수 아님.',
+        teacherNote: ['공기 저항과 최적 각도는 심화(필수 아님). 공기 저항(없음/쇠공/탁구공)은 ⚙ 설정 › 더 많은 설정에 있다.',
           '발문: 공기 저항이 있으면 최적 각도는 45°보다 큰가 작은가? → 공기 저항이 있으면 최적 각도는 45°보다 작다(탁구공 20 m/s: 약 35°). 35° 10.4 m, 40° 10.3 m, 45° 10.0 m, 50° 9.5 m.'],
         svg: function (D) {
           var Rm = 635, Re = Rm * 1.62 / 9.8;   // 달 61.7 m : 지구 10.2 m (g 에 반비례, 약 6배)
@@ -493,11 +499,11 @@
         quiz: [
           { kind: 'concept', q: '수평으로 던진 공이 땅에 닿을 때까지 걸리는 시간 $T$ 는 무엇으로 정해질까?',
             choices: ['처음 속력 $v_0$', '던지는 높이 $h$ 와 중력 가속도 $g$', '공의 질량 $m$'], answerIdx: 1,
-            why: '$T$ = √(2$h$ ÷ $g$) 에 $v_0$ 와 $m$ 이 없어요. 세게 던지면 $x$ 만 커져요.', chapter: 'two-motions',
+            why: '$T$ = √({{frac:2$h$|$g$}}) 에 $v_0$ 와 $m$ 이 없어요. 세게 던지면 $x$ 만 커져요.', chapter: 'two-motions',
             try: { preset: 0, set: { v0: 20 } } },
           { kind: 'calc', q: '$g$ = 10 m/s² 로 계산해요. $h$ = 20 m, $θ$ = 0°, $v_0$ = 10 m/s 로 던진 공은 몇 m 앞에 떨어질까?',
             choices: ['10 m', '40 m', '20 m'], answerIdx: 2,
-            why: '$T$ = √(2 × 20 ÷ 10) = 2 s, $x$ = $v_x T$ = 10 × 2 = 20 m.', chapter: 'two-motions',
+            why: '$T$ = √({{frac:2 × 20|10}}) = 2 s, $x$ = $v_x T$ = 10 × 2 = 20 m.', chapter: 'two-motions',
             try: { preset: 0, set: { gEarth: 10, h: 20, v0: 10, theta: 0 } } },
           { kind: 'misconception', q: '"최고점에서는 공이 멈춘 순간이라 속도도 0, 가속도도 0이다." 옳은 판단은?',
             choices: ['틀렸다. $v_y$ 만 0 이고 $v_x$ 가 남아 있으며 가속도는 $g$ 다.', '맞다. 속도와 가속도가 모두 0이다.', '틀렸다. 속도는 그대로이고 가속도만 0이다.'], answerIdx: 0,

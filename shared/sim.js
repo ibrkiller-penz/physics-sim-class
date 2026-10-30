@@ -171,7 +171,7 @@
     while ((m = re.exec(text))) {
       if (m.index > last) pushText(text.slice(last, m.index));
       var fr = /^frac:([^|]*)\|(.*)$/.exec(m[1]);
-      if (fr) out.push(fracEl(fr[1], fr[2]));   // R5: {{frac:λL|d}} → 가로선 분수
+      if (fr) { var fe = fracEl(fr[1], fr[2]); fe.classList.add('frac--inline'); out.push(fe); }   // R5: {{frac:λL|d}} → 가로선 분수 · R7-3(S7): 글 속 인라인(0.85em, 줄 높이 안)
       else termNodes(m[1]).forEach(function (n) { out.push(n); });
       last = re.lastIndex;
     }
@@ -180,7 +180,7 @@
   }
   function plain(text) {
     if (typeof text !== 'string') return '';
-    text = text.replace(/\{\{frac:([^|}]*)\|(.+?)\}\}/g, function (m0, a, b) { return (a.length > 1 ? '(' + a + ')' : a) + '/' + (b.length > 1 ? '(' + b + ')' : b); });
+    text = text.replace(/\{\{frac:([^|}]*)\|(.+?)\}\}/g, function (m0, a, b) { return '(' + a + ')/(' + b + ')'; });   // R7-3(S7): '(분자)/(분모)'
     return plainMath(text.replace(/\{\{(.+?)\}\}/g, '$1'));
   }
   /** R5: HTML 분수 — <span class="frac"><span class="frac__n">분자</span><span class="frac__d">분모</span></span> ($…$ 수식 표기 가능) */
@@ -304,8 +304,16 @@
       if (c === '_' || c === '^') {
         i++;
         var g = group(), sc = c === '_' ? 'sub' : 'sup';
-        var multi = g.replace(/[^A-Za-zα-ω]/g, '').length > 1;    // 여러 글자 첨자(esc·max)는 정체
-        for (var k = 0; k < g.length; k++) { var ch = g.charAt(k) === "'" ? '′' : g.charAt(k); if (ch !== '{' && ch !== '}') push(ch, kindOf(ch, multi), sc); }
+        var letters = g.replace(/[^A-Za-zα-ω]/g, '');
+        var multi = letters.length > 1;    // 여러 글자 첨자(esc·max)는 정체
+        // R7-3(S7): 아래첨자는 변수(x y z t 한 글자)만 기울임 — 숫자·이름(k p max esc)·한글은 직립 (HTML·캔버스·SVG 같은 규칙)
+        var subVar = sc === 'sub' && /^[xyzt]$/.test(letters);
+        for (var k = 0; k < g.length; k++) {
+          var ch = g.charAt(k) === "'" ? '′' : g.charAt(k);
+          if (ch === '{' || ch === '}') continue;
+          var kd = sc === 'sub' ? (HANGUL_RE.test(ch) ? 'sans' : subVar && ch === letters ? 'mi' : 'mu') : kindOf(ch, multi);
+          push(ch, kd, sc);
+        }
         continue;
       }
       if (c === '{' || c === '}') { i++; continue; }
@@ -367,6 +375,7 @@
   var SUB_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
   /** 글자만 쓰는 곳(aria·title·표 머리)용: '$v_0$' → 'v₀', '$v_{esc}$' → 'v_esc' */
   function plainMath(text) {
+    if (typeof text === 'string' && text.indexOf('{{frac:') >= 0) text = text.replace(/\{\{frac:([^|}]*)\|(.+?)\}\}/g, function (m0, a, b) { return '(' + a + ')/(' + b + ')'; });   // R7-3(S7)
     if (!hasMath(text)) return text;
     return text.replace(/\$([^$]*)\$/g, function (m, g) {
       return g.replace(/_\{?([0-9])\}?/g, function (mm, d) { return SUB_DIGITS.charAt(+d); })
@@ -685,7 +694,7 @@
     colorCache = {};
     if (/[?&]teacher=1\b/.test(location.search)) setTeacher(true, true);
 
-    SK.view = SK.canvas(SK.el.stage, { w: 1250, h: cfg.stageH || 700, fit: cfg.stageFit !== false, grow: cfg.stageGrow !== false, className: 'stage-canvas' });
+    SK.view = SK.canvas(SK.el.stage, { w: 1250, h: cfg.stageH || 700, fit: cfg.stageFit !== false, grow: cfg.stageGrow !== false, className: 'stage-canvas', inset: function () { return bandInset(); }, insetShift: !!cfg.stageBandShift });
     // R4: cfg.onResize(view) — 무대 크기가 바뀔 때마다(태블릿 세로 여유 view.extra) view.offsetY 를 정한다
     if (cfg.onResize) { SK.view.onResize = cfg.onResize; SK.view.resize(); }
     installKeys();
@@ -803,7 +812,7 @@
     var helpBtn = toolBtn('help', '도움말', '?', function () { SK.toggleHelp(); });
     var fsBtn = toolBtn('expand', '전체 화면', 'F', function () { SK.toggleFullscreen(); });
     var btnLesson = toolBtn('book', '설명', 'J', function () { SK.toggleLesson(); }, { hidden: true });
-    var btnPresetsTop = toolBtn('flask', '실험', 'Y', function () { togglePresets(btnPresetsTop); }, { 'aria-haspopup': 'dialog', 'aria-expanded': 'false' });
+    var btnPresetsTop = toolBtn('flask', '실험', 'Y', function () { togglePresets(btnPresetsTop); }, { 'aria-haspopup': 'dialog', 'aria-expanded': 'false', hidden: true });   // R7-3(S1): 실험 고르기는 하단 한 곳 — 머리줄 단추는 숨김(노드·SK.el 유지)
     var btnSettings = toolBtn('gear', '설정', 'U', function () { toggleSettings(btnSettings); }, { 'aria-haspopup': 'dialog', 'aria-expanded': 'false' });
     var recBadge = h('span', { class: 'tool-btn__badge num', text: '0/' + MAX_RECORDS });
     var btnRecords = toolBtn('table', '기록', '', function () { toggleRecords(); }, { 'aria-haspopup': 'dialog', 'aria-expanded': 'false' });
@@ -829,6 +838,7 @@
       modeSeg.appendChild(b);
     });
     // R7: 머리줄 현재 카드 칩(누르면 실험 시트) · 설명에서 해 보기로 왔으면 '설명 N장 ↩' 칩
+    // R7-3(S1): cardChip 은 5종 모두 늘 숨김(하단 [실험 고르기 ③ ▾] 와 같은 말) — 노드·SK.el.cardChip 은 유지, sim 이 hidden=false 로 해도 CSS 가 숨긴다
     var cardChip = h('button', { class: 'chip top-chip top-chip--card', type: 'button', hidden: true, title: '실험 카드 고르기 (Y)' });
     cardChip.addEventListener('click', function (e) { blurOnMouse(e); togglePresets(cardChip); });
     var lessonChip = h('button', { class: 'chip top-chip top-chip--lesson', type: 'button', hidden: true });
@@ -948,6 +958,10 @@
     ]);
     secEls.tools.classList.add('set-sec'); deep.classList.add('set-sec');
     var settingsBody = h('div', { class: 'set-body' }, [layoutSec, secEls.tools, deep]);
+    // R7-3(S2): '지금 조건 · …' 한 줄(cfg.statusNote) — ⚙ '화면에 표시하기' 맨 위 + 실험 고르기 시트 머리
+    var setNote = h('p', { class: 'settings__note', hidden: true });
+    secEls.tools.insertBefore(setNote, secEls.tools.querySelector('.panel-sec__title') ? secEls.tools.querySelector('.panel-sec__title').nextSibling : secEls.tools.firstChild);
+    var presetNote = h('p', { class: 'settings__note presets__note', hidden: true });
 
     /* ── 기록 표 큰 판 · 정리 질문 판 (R7: [기록 n/5]·[정리] 모달 안) ── */
     var recNeed = h('div');
@@ -1009,7 +1023,9 @@
     var btnReset = btn([h('span', { class: 'reset-txt', text: '기본값으로 되돌리기' }), keyHint('R')], 'btn--outline bar-reset', function () { resetTwoStep(); }, { title: '바꾼 값을 기본값으로 되돌리고 실험을 처음 상태로 (기록은 그대로) — 두 번 눌러요' });
     var setClose = btn(['닫기', keyHint('Esc')], 'btn--outline', function () { closePop(true); });
     var moreMenu = h('div', { class: 'pop-menu', role: 'menu', 'aria-label': '그 밖의 기능' });
-    var btnPresets = btn([ico('flask', '', { cls: 'ico--lead' }), '실험 ▾'], 'btn--outline bar-presets', function () { togglePresets(btnPresets); }, { 'aria-haspopup': 'dialog', 'aria-expanded': 'false', title: '실험 카드 고르기 (Y · 숫자 1~5)' });
+    // R7-3(S1): [☰ 실험 고르기 ③ ▾] — 5종 같은 자리·아이콘·글자. 번호는 markPreset → syncPresetBtn 이 갱신
+    var btnPresetsNo = h('span', { class: 'bar-presets__no', hidden: true });
+    var btnPresets = btn([ico('check-list', '', { cls: 'ico--lead' }), h('span', { class: 'bar-presets__txt', text: '실험 고르기' }), btnPresetsNo, ico('chev-down', '▾', { cls: 'ico--trail bar-presets__chev' })], 'btn--outline bar-presets', function () { togglePresets(btnPresets); }, { 'aria-haspopup': 'dialog', 'aria-expanded': 'false', title: '실험 고르기 (Y · 숫자 1~5)', 'aria-label': '실험 고르기 (Y · 숫자 1~5)' });
     var presetModesRow = h('div', { class: 'preset-modes', role: 'group', 'aria-label': '무엇을 할까요', hidden: true });
     var bar = h('footer', { class: 'sim-bar', 'aria-label': '실행 조절' }, [
       h('div', { class: 'sim-bar__ctl' }, [btnRun, btnBack, btnFwd, h('div', { class: 'pop-wrap' }, [btnSpeed]), btnRec]),
@@ -1057,7 +1073,8 @@
     noteEls = noteEl;
     // R7: 팝업 셸을 미리 만들어 노드를 상주시킨다(⚙ tools·deep, 실험 카드, 기록 표, 정리 판) — SK.panel('tools') 는 같은 노드
     ensureShell({ id: 'settings', title: '설정', body: [settingsBody], foot: [btnReset, setClose] });
-    ensureShell({ id: 'presets', title: '실험 고르기', body: [presetModesRow, presetsBox, simpleEls.presetGrid] });
+    ensureShell({ id: 'presets', title: '실험 고르기', body: [presetNote, presetModesRow, presetsBox, simpleEls.presetGrid] });
+    SK.el.statusNotes = [setNote, presetNote];
     ensureShell({ id: 'records', title: '기록 비교', body: [recBig] });
     // R7-2(S5): 정리 모달 = ① 기록 요약 칩 ② 형성평가 3문항(lesson quiz) ③ '더 생각하기 ▸'(기존 think 카드 + more) · 바닥 [설명 다시 보기][닫기]
     var thinkRecs = h('div', { class: 'think-recs', hidden: true });
@@ -1073,7 +1090,7 @@
     ensureShell({ id: 'speed', title: '재생 속도', body: [speedMenu] });
     ensureShell({ id: 'more-menu', title: '그 밖의 기능', body: [moreMenu] });
     ensureShell({ id: 'speed-s', title: '재생 속도', body: [simpleEls.speedMenu] });
-    ensureShell({ id: 'more', title: '더 보기', body: [simpleEls.moreBody, simpleEls.moreTools] });   // 심플 '더 보기' — 옮겨 온 패널이 문서 안에 있게
+    ensureShell({ id: 'more', title: '더 보기', body: [simpleEls.moreTop, simpleEls.moreBody, simpleEls.moreTools] });   // R7-3(S1): 맨 위 [ƒ 식과 기호][⚙ 설정]   // 심플 '더 보기' — 옮겨 온 패널이 문서 안에 있게
     updateTransport();
     try { localStorage.removeItem('simkit:legend-seen'); } catch (e) { /* R3: 예전 말풍선 저장 키 정리 */ }
   }
@@ -1083,13 +1100,13 @@
   /* ── R7 도구 줄 팝업 여닫기 ── */
   function toggleSettings(anchor) {
     if (SK.pop.open === 'settings') { popClose('toggle'); return; }
-    tidyPanel(); syncChecks();
-    SK.pop({ id: 'settings', kind: 'popover', persist: true, anchor: anchor || (simpleOn ? simpleEls.settingsBtn : SK.el.btnSettings), title: '설정', cls: 'pop--settings' });
+    tidyPanel(); syncChecks(); syncStatusNote();
+    SK.pop({ id: 'settings', kind: 'popover', persist: true, anchor: anchor || (simpleOn ? simpleEls.moreBtn : SK.el.btnSettings), title: '설정', cls: 'pop--settings' });
   }
   function togglePresets(anchor) {
     if (SK.pop.open === 'presets') { popClose('toggle'); return; }
     if (!presets.length && !(cfg.presetModes && cfg.presetModes.length)) { SK.notice('이 실험은 실험 카드가 없어요', 'info'); return; }
-    renderPresetSheet();
+    renderPresetSheet(); syncStatusNote();
     SK.pop({
       id: 'presets', kind: 'sheet', persist: true, anchor: anchor === false ? null : anchor || (simpleOn ? simpleEls.presetsBtn : SK.el.btnPresets), title: '실험 고르기', cls: 'pop--presets',   // anchor === false: 첫 진입 자동 열기(닫아도 [실험 ▾] 로 포커스를 돌리지 않아 Space 가 시트를 다시 열지 않게)
       onKey: function (e) {
@@ -1358,7 +1375,15 @@
     if (seen) return;
     try { localStorage.setItem(SIMPLE_TOAST_KEY, '1'); } catch (e) { /* 이번 한 번만 */ }
     // 설명 층이 덮고 있으면(첫 진입) 설명이 닫힌 뒤에 — 설명 위에 겹쳐 뜨지 않게 (팀장 R7 마무리)
-    function show() { SK.notice('자세히 모드는 ⚙ 설정에서 바꿔요', 'info', 4000); }
+    // R7-3(S1): 문구 · 자리(하단 막대 바로 위 — 무대 눈금을 안 가림) · 1회 5초
+    function show() {
+      var z = SK.el.notices; if (z) z.classList.add('is-low');
+      SK.notice('자세히 모드는 ⋯ 더 보기 › ⚙ 설정에서 바꿔요', 'info', 5000);
+      // R7-3(팀장): 무대 안이 아니라 하단 막대 바로 위(고정 위치) — 무대 눈금·'보는 범위'·스크린 손잡이를 안 가림 (UI팀3 요청 3)
+      var bar = document.querySelector('.simple-bar');
+      if (z && bar && bar.getBoundingClientRect().height) { var r = bar.getBoundingClientRect(); z.style.position = 'fixed'; z.style.top = 'auto'; z.style.bottom = Math.round(window.innerHeight - r.top + SK.px(8)) + 'px'; }
+      setTimeout(function () { if (z) { z.classList.remove('is-low'); z.style.position = ''; z.style.top = ''; z.style.bottom = ''; } }, 5300);
+    }
     setTimeout(function () {
       if (!lessonOpenNow()) { show(); return; }
       var prev = SK._lessonClosed;
@@ -1386,17 +1411,19 @@
       E.speedMenu.appendChild(it);
     });
     E.speed = btn('', 'btn--outline num simple-speed', function () { togglePop(E.speedMenu); }, { 'aria-haspopup': 'menu', 'aria-expanded': 'false', title: '재생 속도' });
-    E.presetsBtn = btn('실험 ▾', 'btn--outline simple-presets-btn', function () { togglePresets(E.presetsBtn); }, { 'aria-haspopup': 'dialog', 'aria-expanded': 'false', title: '실험 카드 고르기 (Y)' });
+    E.presetsBtn = btn('실험 고르기 ▾', 'btn--outline simple-presets-btn', function () { togglePresets(E.presetsBtn); }, { 'aria-haspopup': 'dialog', 'aria-expanded': 'false', title: '실험 고르기 (Y)' });
     E.moreDot = h('span', { class: 'simple-more-dot', hidden: true, title: '더 보기 안에서 바꾼 값이 있어요' });
     E.moreBtn = btn('⋯ 더 보기', 'btn--outline simple-more-btn', function () { toggleSheet('more'); }, { 'aria-haspopup': 'dialog', 'aria-expanded': 'false', title: '기록 표·해설·정리 질문·패널' });
     E.moreBtn.appendChild(E.moreDot);
     // R7: 심플 막대에도 같은 ⚙ 설정·[설명] (52u 터치)
-    E.settingsBtn = btn([ico('gear', '⚙', { cls: 'ico--lead' })], 'btn--outline simple-settings-btn', function () { toggleSettings(E.settingsBtn); }, { 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': '설정', title: '설정 (U)' });
+    // R7-3(S1): [ƒ 식과 기호][⚙ 설정] 은 ⋯ 더 보기 시트 맨 위 한 줄(.simple-more__tools) — 막대는 [설명][실험 고르기 ▾][⋯ 더 보기] 3개. 팝업 anchor 는 ⋯ 더 보기
+    E.settingsBtn = btn([ico('gear', '⚙', { cls: 'ico--lead' }), h('span', { text: '설정' })], 'btn--outline simple-settings-btn', function () { toggleSettings(E.moreBtn); }, { 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': '설정', title: '설정 (U)' });
     E.lessonBtn = btn([ico('book', '', { cls: 'ico--lead' }), '설명'], 'btn--outline simple-lesson-btn', function () { SK.toggleLesson(); }, { title: '교과 설명 (J)', hidden: true });
-    E.formulaBtn = btn([h('i', { class: 'band-formula__f', text: 'ƒ' })], 'btn--outline simple-formula-btn', function () { SK.formulaPop({ anchor: E.formulaBtn }); }, { title: '식과 기호 보기', 'aria-label': '식과 기호 보기', hidden: true, 'aria-haspopup': 'dialog', 'aria-expanded': 'false' });
+    E.formulaBtn = btn([h('i', { class: 'band-formula__f', text: 'ƒ' }), h('span', { text: '식과 기호' })], 'btn--outline simple-formula-btn', function () { SK.formulaPop({ anchor: E.moreBtn }); }, { title: '식과 기호 보기', 'aria-label': '식과 기호 보기', hidden: true, 'aria-haspopup': 'dialog', 'aria-expanded': 'false' });
+    E.moreTop = h('div', { class: 'simple-more__tools' }, [E.formulaBtn, E.settingsBtn]);
     E.bar = h('footer', { class: 'simple-bar simple-only', 'aria-label': '실행' }, [
       E.run, E.again, h('div', { class: 'pop-wrap simple-speed-wrap' }, [E.speed]),
-      h('span', { class: 'simple-bar__gap' }), E.lessonBtn, E.formulaBtn, E.settingsBtn, E.presetsBtn, E.moreBtn
+      h('span', { class: 'simple-bar__gap' }), E.lessonBtn, E.presetsBtn, E.moreBtn
     ]);
 
     /* 더 보기 시트(R7: SK.pop sheet): 위 = 원래 조절 패널·기록 판·정리 판(옮겨 옴, 안쪽 스크롤 한 겹) · 아래 = 도구 줄 */
@@ -1430,7 +1457,7 @@
     if (name === 'presets') { if (SK.pop.open !== 'presets') togglePresets(E.presetsBtn); return; }
     syncSheetTools();
     if (SK.pop.open !== 'more') {
-      SK.pop({ id: 'more', kind: 'sheet', persist: true, anchor: E.moreBtn, title: '더 보기', body: [E.moreBody, E.moreTools], cls: 'pop--more',
+      SK.pop({ id: 'more', kind: 'sheet', persist: true, anchor: E.moreBtn, title: '더 보기', body: [E.moreTop, E.moreBody, E.moreTools], cls: 'pop--more',
         onClose: function () { if (openSheet === 'more') openSheet = null; } });
       openSheet = 'more';
     }
@@ -2179,10 +2206,18 @@
       b.addEventListener('click', function (e) { blurOnMouse(e); popCloseIf(['presets']); SK.applyPreset(i); });
       box.appendChild(b);
     });
-    if (SK.el.btnPresets) { var none = !presets.length && !(cfg.presetModes && cfg.presetModes.length); SK.el.btnPresets.hidden = none; SK.el.btnPresetsTop.hidden = none; }
+    if (SK.el.btnPresets) { var none = !presets.length && !(cfg.presetModes && cfg.presetModes.length); SK.el.btnPresets.hidden = none; SK.el.btnPresetsTop.hidden = true; }
     if (simpleEls.presetsBtn && simpleOn) simpleEls.presetsBtn.hidden = !simplePresetList().length && !(cfg.presetModes && cfg.presetModes.length);
     updateTask();
   };
+  /** R7-3(S1): 하단 [실험 고르기 ③ ▾] 글자·title 갱신 */
+  function syncPresetBtn(i) {
+    var b = SK.el.btnPresets; if (!b) return;
+    var no = b.querySelector('.bar-presets__no'), p = i >= 0 ? presets[i] : null;
+    if (no) { no.innerHTML = ''; if (p) no.appendChild(circ(i + 1)); no.hidden = !p; }
+    var t = '실험 고르기 (Y · 숫자 1~5)' + (p ? ' — 지금 ' + String.fromCharCode(0x2460 + i) + ' ' + plain(p.name) : '');
+    b.title = t; b.setAttribute('aria-label', t);
+  }
   function markPreset(i) {
     activePreset = i;
     var bs = SK.el.presets.querySelectorAll('.preset-card');
@@ -2190,8 +2225,9 @@
     if (presetInfoEl) { presetInfoEl.remove(); presetInfoEl = null; }
     // R7: 머리줄 현재 카드 칩 · '설명 N장 ↩' 칩은 다른 카드를 고르면 지운다
     var cc = SK.el.cardChip;
+    syncPresetBtn(i);
     if (cc) {
-      cc.hidden = i < 0; cc.innerHTML = '';
+      cc.hidden = true; cc.innerHTML = '';   // R7-3(S1): 늘 숨김(내용만 갱신 — 예전 코드 호환)
       if (i >= 0) { cc.appendChild(h('b', null, ['실험 ', circ(i + 1)])); cc.appendChild(h('span', { class: 'top-chip__name', text: presets[i].name })); cc.appendChild(ico('chev-down', '▾', { cls: 'ico--trail' })); cc.setAttribute('aria-label', '지금 실험 ' + (i + 1) + ' ' + presets[i].name + ' — 다른 카드 고르기'); }
     }
     if (SK.el.lessonChip && !SK.el.lessonChip.hidden && SK.el.lessonChip._preset !== i) setLessonChip(null);
@@ -2432,20 +2468,39 @@
     var el = SK.el.status; if (!el) return;
     var main = statusOverride !== null ? statusOverride : (cfg.status ? cfg.status(SK.params) : '');
     if (main && !Array.isArray(main)) warnOnce('status', 'SimKit(R2): status() 는 배열로 돌려주세요 — 예: [\'지구\', \'공기 저항 없음\']. 지금은 \' · \' 로 나눠 씁니다.');
-    var parts = Array.isArray(main) ? main : (main ? String(main).split(/\s+·\s+/) : []);
-    var t = ' · t = ' + fmt(SK.time, 2) + ' s';
-    var run = SK.running ? ['▶ 실행 중' + t, 'is-run'] : SK.finished ? ['✓ 끝' + t, 'is-done'] : SK.started ? ['⏸ 멈춤' + t, ''] : ['실행 전 · t = 0.00 s', ''];
-    var sig = parts.join('|') + '#' + run[0] + '#' + SK.speed + '#' + SK.hasPending();
+    var parts = (Array.isArray(main) ? main : (main ? String(main).split(/\s+·\s+/) : [])).filter(function (p) { return p !== '' && p !== null && p !== undefined; });
+    // R7-3(S2): 무대 위 공통 칩은 하나 — status() 앞 2개 + 실행 상태. 나머지 조건은 cfg.statusNote(⚙ 설정·실험 고르기 시트 머리)
+    if (parts.length > 2) { warnOnce('status3', 'SimKit(R7-3): status() 는 2개 이하 — 나머지는 statusNote 로 (앞 2개만 씁니다)'); parts = parts.slice(0, 2); }
+    var tt = fmt(SK.time, 2) + ' s';
+    var run = SK.running ? ['▶ ' + tt, 'is-run'] : SK.finished ? ['✓ 끝 ' + tt, 'is-done'] : SK.started ? ['⏸ ' + tt, 'is-stop'] : ['실행 전', ''];
+    var pend = SK.hasPending() && !SK.running;
+    var sig = parts.join('|') + '#' + run[0] + '#' + SK.speed + '#' + pend;
     if (el._sig !== sig) {
       el._sig = sig; el.innerHTML = '';
-      parts.forEach(function (p) { if (p !== '' && p !== null && p !== undefined) el.appendChild(h('span', { class: 'chip' }, rich(String(p)))); });
-      el.appendChild(SK.iconify(h('span', { class: 'chip num is-time ' + run[1], text: run[0] + (SK.speed !== 1 ? ' · 속도 ×' + SK.speed : '') })));
-      if (SK.hasPending()) el.appendChild(SK.iconify(h('span', { class: 'chip is-pend', text: '↻ 바꾼 값은 다음 실행부터' })));
+      var one = h('span', { class: 'chip stage-status__one' + (run[1] ? ' has-' + run[1] : '') });
+      parts.forEach(function (p) { appendNodes(one, rich(String(p))); one.appendChild(document.createTextNode(' · ')); });
+      one.appendChild(SK.iconify(h('b', { class: 'num stage-status__run' + (run[1] ? ' ' + run[1] : ''), text: run[0] })));
+      if (SK.speed !== 1) one.appendChild(h('span', { class: 'num', text: ' · ×' + SK.speed }));
+      el.appendChild(one);
+      if (pend) el.appendChild(SK.iconify(h('span', { class: 'chip is-pend', text: '↻ 바꾼 값은 다음 실행부터' })));
+      syncStatusNote();
     }
     if (simpleOn) { countRail(); updateMoreDot(); }
     syncToolBtns();
     updateTask();
   };
+  /** R7-3(S2): cfg.statusNote(p) → '산꼭대기 20 km · 공기 없음' — ⚙ 설정 '화면에 표시하기' 맨 위·실험 고르기 시트 머리 한 줄. 없으면 숨김 */
+  function appendNodes(parent, kids) { (Array.isArray(kids) ? kids : [kids]).forEach(function (k) { if (k === null || k === undefined) return; parent.appendChild(typeof k === 'string' ? document.createTextNode(k) : k); }); }
+  function syncStatusNote() {
+    var txt = '';
+    if (typeof cfg.statusNote === 'function') { try { txt = cfg.statusNote(SK.params) || ''; } catch (e) { console.error(e); txt = ''; } }
+    if (Array.isArray(txt)) txt = txt.filter(Boolean).join(' · ');
+    (SK.el.statusNotes || []).forEach(function (n) {
+      if (n._t === txt) return;
+      n._t = txt; n.innerHTML = ''; n.hidden = !txt;
+      if (txt) { n.appendChild(h('b', { text: '지금 조건 · ' })); appendNodes(n, rich(String(txt))); }
+    });
+  }
   /** R7: 도구 줄 [기록]·[정리] 는 쓸 것이 있을 때만 (기록 칩을 sim 이 숨기면 같이) */
   function syncToolBtns() {
     var E = SK.el; if (!E.btnRecords) return;
@@ -2631,7 +2686,7 @@
       }
       // 화면에 없는 값(⚙ 안·심플 더 보기 안): 그 자리를 여는 단추를 깜빡이고 말풍선에 이름, 토스트는 28자 안쪽
       var host = null, where;
-      if (SK.el.settings && SK.el.settings.contains(c.el)) { host = simpleOn ? simpleEls.settingsBtn : SK.el.btnSettings; where = '⚙ 설정 › ' + (deepHas(c.el) ? '더 많은 설정' : '화면에 표시하기') + '에 있어요'; }
+      if (SK.el.settings && SK.el.settings.contains(c.el)) { host = simpleOn ? simpleEls.moreBtn : SK.el.btnSettings; where = (simpleOn ? '⋯ 더 보기 › ' : '') + '⚙ 설정 › ' + (deepHas(c.el) ? '더 많은 설정' : '화면에 표시하기') + '에 있어요'; }
       else if (simpleOn && simpleEls.moreBody && simpleEls.moreBody.contains(c.el)) { host = simpleEls.moreBtn; where = '⋯ 더 보기 안에 있어요'; }
       else where = '지금 화면에는 없는 값이에요';
       if (isShown(host)) { flashClass(host, ms); flashTip(host, lab, ms); }
@@ -2670,7 +2725,7 @@
     if (!ch && key) ch = lessonApi.chapterForSym(key);
     if (!ch) ch = lessonApi.formulaOf(activePreset);
     if (!ch) ch = list[0].id;
-    var anchor = o.anchor || (simpleOn ? simpleEls.formulaBtn : SK.el.formulaBtn);
+    var anchor = o.anchor || (simpleOn ? simpleEls.moreBtn : SK.el.formulaBtn);
     var box = h('div', { class: 'formula' });
     var chips = h('div', { class: 'formula__chs', role: 'tablist', 'aria-label': '식이 있는 장' });
     var body = h('div', { class: 'formula__body' });
@@ -3303,7 +3358,7 @@
   };
   SK.pop.close = function () { popClose('api'); };
   SK.pop.open = null;
-  SK.pop.relayout = function () { if (popCur) popLayout(popCur); if (bandCur) bandLayout(); };
+  SK.pop.relayout = function () { if (popCur) popLayout(popCur); if (bandCur) bandFit(); };
 
   /* ------------------------------------------------------------------
      R7-2(S1) 예측 띠 kind:'band' — 무대(SK.el.stage) 안 위쪽 가로 띠(left/right 16u, top var(--band-top, 16u), 높이 ≤ 240u)
@@ -3311,31 +3366,58 @@
        · 다른 팝업(⚙·실험 ▾·⋯)과 함께 열려 있을 수 있다 — 띠는 popCur 가 아니라 bandCur 한 칸
        · 접기: el.dataset.folded='1' → 왼쪽 위 칩 '예측 대기 ▾' 만 (SK.pop.fold)
      ------------------------------------------------------------------ */
-  var bandCur = null, bandProbe = null;
-  function bandTopPx() {
-    var st = SK.el.stage;
-    if (!bandProbe || bandProbe.parentNode !== st) {
-      bandProbe = h('i', { class: 'band-probe', 'aria-hidden': 'true' });
-      st.appendChild(bandProbe);
+  var bandCur = null, bandFitRaf = 0;
+  /** R7-3(S3): 띠는 무대(.sim-stage, flex column)의 첫 자식 — 흐름 안이라 그림을 덮지 않는다. 캔버스는 띠 높이만큼 위를 비우고(SK.view 의 inset) 다시 맞춘다 */
+  function bandInset() {
+    var c = bandCur; if (!c || !c.el || c.el.hidden || c.el.parentNode !== SK.el.stage) return 0;
+    var cs = getComputedStyle(c.el);
+    return c.el.offsetHeight + (parseFloat(cs.marginTop) || 0) + (parseFloat(cs.marginBottom) || 0);
+  }
+  /** 무대 캔버스를 지금 무대·띠 크기에 다시 맞춘다(창 크기 바뀜과 같은 경로) */
+  SK.fitCanvas = function () {
+    var st = SK.el && SK.el.stage; if (!st) return;
+    st.style.setProperty('--band-h', bandInset() + 'px');
+    st.classList.toggle('has-band', !!bandCur);
+    if (SK.view && SK.view.resize) SK.view.resize();
+    dirty = true;
+  };
+  /** 띠 한 줄(72u) / 두 줄(질문 줄 + 보기·단추 줄) — 질문 칸이 360u 보다 좁아지면 두 줄, 세로 화면은 늘 두 줄 */
+  function bandRows() {
+    var c = bandCur; if (!c || c.el.hidden || c.el.dataset.folded === '1') return;
+    var card = c.el.querySelector('.predict'); if (!card) return;
+    var two = false;
+    try { two = window.matchMedia('(orientation: portrait)').matches; } catch (e) { two = false; }
+    card.classList.remove('is-2row');
+    if (!two) {
+      var used = 0, n = 0;
+      ['predict__ans', 'predict__foot', 'predict__tools'].forEach(function (k) {
+        var e = card.querySelector(':scope > .' + k); if (e && e.offsetWidth) { used += e.offsetWidth; n++; }
+      });
+      two = card.clientWidth - used - SK.px(16) * (n + 2) < SK.px(360);
     }
-    return bandProbe.offsetTop;
+    card.classList.toggle('is-2row', two);
+  }
+  function bandFit() {
+    if (bandFitRaf) cancelAnimationFrame(bandFitRaf);
+    bandRows();
+    SK.fitCanvas();   // 바로 한 번(깜빡임 없게) + 글꼴·줄바꿈이 끝난 다음 프레임에 한 번 더
+    bandFitRaf = requestAnimationFrame(function () { bandFitRaf = 0; SK.fitCanvas(); });
   }
   function bandLayout() {
     var c = bandCur; if (!c) return;
     var el = c.el, st = SK.el.stage;
     el.className = 'pop pop--band' + (c.cls ? ' ' + c.cls : '');
-    if (!st || !st.offsetWidth) return;
-    var sl = SK.el.slide.getBoundingClientRect(), sr = st.getBoundingClientRect(), side = SK.px(16);
-    el.style.left = (sr.left - sl.left + side) + 'px';
-    el.style.top = (sr.top - sl.top + bandTopPx()) + 'px';
-    el.style.width = el.dataset.folded === '1' ? '' : Math.max(0, sr.width - side * 2) + 'px';
-    el.style.maxHeight = Math.max(SK.px(120), Math.min(SK.px(240), sr.height - bandTopPx() - side)) + 'px';
+    if (!st) return;
+    if (el.parentNode !== st || st.firstChild !== el) st.insertBefore(el, st.firstChild);
+    el.style.left = el.style.top = el.style.width = el.style.maxHeight = '';
+    bandFit();
   }
   function bandClose(reason) {
     var c = bandCur; if (!c) return;
     bandCur = null; SK.pop.band = null;
     c.el.hidden = true; delete c.el.dataset.folded;
     if (!c.persist) c.el.remove();
+    bandFit();
     if (c.onClose) { try { c.onClose(reason); } catch (e) { console.error(e); } }
     dirty = true;
   }
@@ -3351,6 +3433,7 @@
     bandCur = c; SK.pop.band = id;
     if (o.onOpen) { try { o.onOpen(sh); } catch (e) { console.error(e); } }
     bandLayout();
+    if (bandRO && !sh._ro) { sh._ro = true; bandRO.observe(sh.el); }   // 띠 높이(줄바꿈·접기)가 바뀌면 캔버스 다시 맞춤
     sh.body.scrollTop = 0;
     dirty = true;
     return { el: sh.el, body: sh.body, close: function () { if (bandCur === c) bandClose('api'); } };
@@ -3362,18 +3445,20 @@
     var el = bandCur.el, f = on === undefined ? el.dataset.folded !== '1' : !!on;
     if (f) el.dataset.folded = '1'; else delete el.dataset.folded;
     bandLayout();
+    setTimeout(bandFit, 0);
     var tgt = el.querySelector(f ? '.band-unfold' : '.band-fold');
     if (tgt) setTimeout(function () { try { tgt.focus({ preventScroll: true }); } catch (e) { /* 무시 */ } }, 0);
     return f;
   };
   /** 띠 안 [▴ 접기] 단추 + 접혔을 때 칩 '예측 대기 ▾' (label 로 바꿈) */
-  function bandFoldUI(label) {
-    var fold = btn([ico('chev-up', '▴', { cls: 'ico--lead' }), '접기', keyHint('V')], 'btn--outline band-fold', function () { SK.pop.fold(true); }, { title: '띠를 접고 그림 전부 보기 (V)' });
-    var unfold = btn([label || '예측 대기', ico('chev-down', '▾', { cls: 'ico--trail' })], 'btn--primary band-unfold', function () { SK.pop.fold(false); }, { title: '다시 펼치기 (V)' });
+  function bandFoldUI(label, extra) {
+    var fold = btn([ico('chev-up', '▴', { cls: 'ico--lead' }), h('span', { class: 'band-fold__t', text: '접기' }), keyHint('V')], 'btn--outline band-fold', function () { SK.pop.fold(true); }, { title: '띠를 접고 그림 크게 보기 (V)', 'aria-label': '띠 접기 (V)' });
+    var unfold = btn([label || '예측 대기', ico('chev-down', '▾', { cls: 'ico--trail' }), extra ? h('span', { class: 'band-unfold__q', text: '· ' + extra }) : null], 'btn--primary band-unfold', function () { SK.pop.fold(false); }, { title: '다시 펼치기 (V)' });
     return { fold: fold, unfold: unfold };
   }
+  var bandRO = null;
   if (typeof ResizeObserver === 'function') {
-    var bandRO = new ResizeObserver(function () { if (bandCur) bandLayout(); });
+    bandRO = new ResizeObserver(function () { if (bandCur) bandFit(); });
     document.addEventListener('DOMContentLoaded', function () { if (SK.el.stage) bandRO.observe(SK.el.stage); });
     setTimeout(function () { if (SK.el.stage) bandRO.observe(SK.el.stage); }, 0);
   }
@@ -3398,7 +3483,7 @@
     if (t.closest && (t.closest('.dialog-layer') || t.closest('.term-tip') || t.closest('.pop-scrim'))) return;
     popClose('outside');
   }, true);
-  window.addEventListener('resize', function () { if (popCur) popLayout(popCur); if (bandCur) bandLayout(); });
+  window.addEventListener('resize', function () { if (popCur) popLayout(popCur); if (bandCur) bandFit(); });
 
   SK.dialog = function (o) {
     return new Promise(function (resolve) {
@@ -3539,7 +3624,7 @@
       }
       var okBtn = btn('예측하기', 'btn--primary predict__ok', function () { submit(); });
       var btns = choices.map(function (c, i) {
-        var b = h('button', { class: 'btn btn--secondary predict__opt', type: 'button', 'aria-pressed': 'false' }, [h('span', { class: 'predict__no' }, circ(i + 1)), h('span', { class: 'predict__txt' }, rich(c)), keyHint(String(i + 1))]);
+        var b = h('button', { class: 'btn btn--secondary predict__opt', type: 'button', 'aria-pressed': 'false', title: (i + 1) + ' ' + plain(String(c)) }, [h('span', { class: 'predict__no' }, circ(i + 1)), h('span', { class: 'predict__txt' }, rich(c)), keyHint(String(i + 1))]);
         b.addEventListener('click', function (e) { blurOnMouse(e); choose(i); });
         b.addEventListener('dblclick', function () { choose(i); submit(); });
         return h('div', { class: 'predict__choice' }, [b, counts[i]]);
@@ -3604,18 +3689,21 @@
       });
       var fig = null;
       if (o.figure) { fig = h('div', { class: 'predict__figure', 'aria-hidden': 'true' }); fig.innerHTML = o.figure; }
-      var skip = h('button', { class: 'btn btn--outline predict__skip', type: 'button' }, '예측 없이 바로 실행');   // R6(S14): 밑줄 글 → 윤곽선 단추
+      var skip = h('button', { class: 'btn btn--quiet predict__skip', type: 'button', title: '예측 없이 바로 실행 (Space)' }, '예측 없이 실행');   // R7-3(S3): 띠 한 줄 — 글자 단추
       skip.addEventListener('click', function (e) { blurOnMouse(e); close(null, null, true); });
-      var fold = bandFoldUI('예측 대기');   // R7-2(S1): [그림 보기] 대신 [▴ 접기] / 접힌 칩 '예측 대기 ▾'
+      var qPlain = plain(String(o.question || ''));
+      var fold = bandFoldUI('예측 대기', qPlain.length > 30 ? qPlain.slice(0, 30) + '…' : qPlain);   // R7-3(S3): 접힌 칩 '예측 대기 ▾ · 질문 앞 30자…'
       // R6(S7): 보기 3개가 모두 14자 이하(그림 없음)면 한 줄 3칸 — 창 높이를 줄인다
       var isShort = !fig && choices.length === 3 && choices.every(function (c) { return plain(c).length <= 14; });
       card = h('div', { class: 'predict' + (fig ? ' has-figure' : '') + (choices.length > 2 ? ' is-many' : '') + (isShort ? ' is-short' : '') + (o.place === 'top' ? ' predict--top' : ''), role: 'dialog', 'aria-modal': 'true', 'aria-label': '예측' }, [
         h('div', { class: 'predict__top' }, [h('span', { class: 'predict__label', text: '먼저 예측해 보세요' }), o.tag ? h('span', { class: 'chip chip--sim', text: SK.tagText(o.tag) }) : null]),
         h('div', { class: 'predict__tools' }, [handBtn, fold.fold, btn('✕', 'btn--quiet predict__close', function () { close(null, null); }, { 'aria-label': '예측 띠 닫기', title: '닫기 (예측하기 단추로 다시 열 수 있어요)' })]),
-        h('p', { class: 'predict__q' }, rich(o.question || '')),
+        h('p', { class: 'predict__q', title: qPlain + (o.info ? ' — ' + plain(String(o.info)) : '') }, rich(o.question || '')),
         o.info ? h('p', { class: 'predict__info' }, rich(o.info)) : null,
-        fig || btns.length ? h('div', { class: 'predict__mid' }, [fig, btns.length ? h('div', { class: 'predict__choices' }, btns) : null]) : null,
-        numBox,
+        h('div', { class: 'predict__ans' }, [   // R7-3(S3): 보기·숫자 입력 한 칸(띠 격자 'ans')
+          fig || btns.length ? h('div', { class: 'predict__mid' }, [fig, btns.length ? h('div', { class: 'predict__choices' }, btns) : null]) : null,
+          numBox
+        ]),
         h('div', { class: 'predict__foot' }, [hintEl, skip, okBtn])
       ]);
       // R7-2(S1): 바깥 상자 = SK.pop band (무대 위쪽 가로 띠 — 오른쪽 패널 슬라이더를 가리지 않는다, 세로에서도 띠)
@@ -4316,20 +4404,33 @@
     function resize() {
       var r = container.getBoundingClientRect();
       var cw = Math.max(1, r.width), ch = Math.max(1, r.height);
+      // R7-3(S3): 무대 캔버스는 위쪽 inset(예측 띠 높이)을 비우고 그 아래에 그림을 맞춘다 — 캔버스 상자 자체는 무대 전체 그대로
+      var inset = o.inset ? Math.max(0, Math.min(ch - 1, o.inset() || 0)) : 0;
       var dpr = Math.min(window.devicePixelRatio || 1, 3);
       cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
       view.dpr = dpr;
       view.offsetY = 0;
       if (view.fit) {
         // 축척은 예전 그대로(min). R4: 위에 붙이고(oy 0) 남는 세로는 extra 로 — grow:false 면 예전처럼 가운데
-        var s = Math.min(cw / view.w, ch / view.h);
-        view.scale = s; view.ox = (cw - view.w * s) / 2;
-        view.wFull = cw / s; view.hFull = ch / s;
-        if (view.grow) { view.oy = 0; view.extra = Math.max(0, view.hFull - view.h); }
-        else { view.oy = (ch - view.h * s) / 2; view.extra = 0; }
+        if (o.insetShift) {
+          // R7-3(총괄) cfg.stageBandShift: 축척은 띠와 상관없이 무대 전체로(그래프 눈금·글자가 작아지지 않게) — 띠는 남는 세로 여백만큼만 그림을 내리고, 모자라면 위쪽 빈 곳에 겹친다
+          var s = Math.min(cw / view.w, ch / view.h);
+          var free = Math.max(0, ch - view.h * s), shift = Math.min(inset, free);
+          view.scale = s; view.ox = (cw - view.w * s) / 2;
+          view.wFull = cw / s; view.hFull = (ch - shift) / s;
+          if (view.grow) { view.oy = shift; view.extra = Math.max(0, view.hFull - view.h); }
+          else { view.oy = Math.max(free / 2, shift); view.extra = 0; }
+        } else {
+          var chE = ch - inset;
+          var s = Math.min(cw / view.w, chE / view.h);
+          view.scale = s; view.ox = (cw - view.w * s) / 2;
+          view.wFull = cw / s; view.hFull = chE / s;
+          if (view.grow) { view.oy = inset; view.extra = Math.max(0, view.hFull - view.h); }
+          else { view.oy = inset + (chE - view.h * s) / 2; view.extra = 0; }
+        }
       } else {
         var u = SK.px(1) || 1;
-        view.scale = u; view.ox = 0; view.oy = 0; view.w = cw / u; view.h = ch / u;
+        view.scale = u; view.ox = 0; view.oy = inset; view.w = cw / u; view.h = (ch - inset) / u;
         view.wFull = view.w; view.hFull = view.h; view.extra = 0;
       }
       dirty = true;

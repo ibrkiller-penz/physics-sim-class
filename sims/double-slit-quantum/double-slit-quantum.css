@@ -216,8 +216,7 @@ html:not(.is-simple) .sim-panel .dsq-speed .btn { min-height: calc(64 * var(--u)
 /* '1만 개 한꺼번에' 는 빠르기 단계가 아니라 동작 — 눌린 모양(채움)과 헷갈리지 않게 단원색 테두리 + 앞 칸과 간격 */
 .dsq-speed .dsq-skip { margin-left: var(--space-2); border-color: var(--sim); color: var(--sim-text, var(--color-ink)); }
 
-/* R7-2(B3): 예측 띠는 무대 위쪽 상태 칩 줄 아래에서 시작 (공통 SK.pop band 의 --band-top) */
-.sim-stage { --band-top: calc(84 * var(--u)); }   /* 팀장: 72u 는 '확대 보기 ±15 mm' 라벨에 걸침 */
+/* R7-3(B2): --band-top 삭제 — 예측 띠는 무대 흐름 안 첫 자식(공통 S3) */
 
 /* R7-2(B3): 빛 갈래 식 칸 — 윗줄 '이론 Δy | 🔒 기록 뒤 보여요(또는 값)', 아랫줄 값 칩 3개를 칸 전체 폭에 한 줄로
    (1280·820 에서 칩이 오른쪽 칸 안에서 두 줄로 접혀 세 줄이 되며 아래가 잘리던 것) */
