@@ -186,8 +186,10 @@
   /** R5: HTML 분수 — <span class="frac"><span class="frac__n">분자</span><span class="frac__d">분모</span></span> ($…$ 수식 표기 가능) */
   function fracEl(num, den) {
     var n = h('span', { class: 'frac__n' }), d = h('span', { class: 'frac__d' });
-    mathNodes(String(num)).forEach(function (x) { n.appendChild(typeof x === 'string' ? document.createTextNode(x) : x); });
-    mathNodes(String(den)).forEach(function (x) { d.appendChild(typeof x === 'string' ? document.createTextNode(x) : x); });
+    // R7-2(팀장): '$' 없는 한글 낱말('상 거리')은 본문 글꼴로(.frac__txt) — 수식 글꼴은 $…$ 기호만 (UI팀3 요청 4)
+    function put(box, x) { box.appendChild(typeof x === 'string' ? (/[가-힣]/.test(x) ? h('span', { class: 'frac__txt', text: x }) : document.createTextNode(x)) : x); }
+    mathNodes(String(num)).forEach(function (x) { put(n, x); });
+    mathNodes(String(den)).forEach(function (x) { put(d, x); });
     return h('span', { class: 'frac', role: 'math', 'aria-label': plainMath(String(num)) + ' 나누기 ' + plainMath(String(den)) }, [n, d]);
   }
   function stripNo(label) { return String(label || '').replace(/^\s*(?:[①-⑨]|\d+[.)]?)\s*/, ''); }
@@ -743,7 +745,7 @@
     cfg.autoPredict = !!v; cfg.predictOnPreset = !!v;
     try { localStorage.setItem('sk.autoPredict', v ? '1' : '0'); } catch (e) { /* 저장 안 돼도 이번에는 적용 */ }
   }
-  function autoPredictToggle() { return checkRow('카드 바꿀 때 예측 창 자동으로 띄우기', function () { return cfg.autoPredict; }, setAutoPredict); }
+  function autoPredictToggle() { return checkRow('실험 바꿀 때 예측 띠 자동으로 띄우기', function () { return cfg.autoPredict; }, setAutoPredict); }
   /** 교사 모드가 켜질 때만 저장된 선택을 읽는다(학생 화면은 sim 기본값) */
   function loadAutoPredict() {
     var v = null;
@@ -809,6 +811,13 @@
     var btnThink = toolBtn('check-list', '정리', '', function () { toggleThink(); }, { 'aria-haspopup': 'dialog', 'aria-expanded': 'false' });
     var btnMore = toolBtn('more', '그 밖의 기능', '', function () { openMoreMenu(); }, { 'aria-haspopup': 'menu', 'aria-expanded': 'false' });
     btnMore.classList.add('tool-btn--more');
+    // R7-2(S3): 머리줄은 [설명][실험 ▾][⚙][⋯] 4개 — 기록·정리·도움말·전체 화면 노드는 ⋯ 메뉴 항목으로(이름·토글 함수·aria 그대로). ⋯ 에 기록 배지(기록 ≥ 1)
+    var moreBadge = h('span', { class: 'tool-btn__badge tool-btn__badge--more num', hidden: true, 'aria-hidden': 'true' });
+    btnMore.appendChild(moreBadge);
+    [btnRecords, btnThink, helpBtn, fsBtn].forEach(function (b) {
+      b.setAttribute('role', 'menuitem'); b.classList.add('menu-tool');
+      b.addEventListener('click', function () { if (popIs('more-menu')) popClose('silent'); }, true);   // 메뉴를 먼저 닫고 제 일(기록·정리 모달, 도움말 서랍)
+    });
     infoBtn.classList.add('sim-top__info');
     infoBtn.setAttribute('aria-label', '수업 정보 · 교사용');
     infoBtn.hidden = true;   // R7: 여는 자리는 ⋯ 메뉴 '수업 정보' (노드·SK.el.infoBtn 이름은 유지)
@@ -830,7 +839,7 @@
       h('div', { class: 'sim-top__chips' }, [cardChip, lessonChip]),
       teacherInfo,
       h('span', { class: 'sim-top__spacer' }),
-      h('div', { class: 'sim-top__tools' }, [btnLesson, btnPresetsTop, btnSettings, btnRecords, btnThink, helpBtn, fsBtn, btnMore, guideBtn, infoBtn, infoPop])
+      h('div', { class: 'sim-top__tools' }, [btnLesson, btnPresetsTop, btnSettings, btnMore, guideBtn, infoBtn, infoPop])
     ]);
 
     /* ── 지금 할 일 띠 (R7 48u): [●○○○ 예측] 문장 ……… [주 행동 1개] — 점을 누르면 단계 팝오버(단계 4개 + ○○하러 가기) ── */
@@ -926,9 +935,16 @@
     /* ── R7 ⚙ 설정 본문: 화면 구성 → 화면에 표시하기(노드 이동) → 더 많은 설정(노드 이동) · 바닥 [기본값으로 되돌리기][닫기] ── */
     var collapseRow = checkRow('조작판 접기 — 실험 화면 크게 (T)', function () { return !!(SK.el.slide && SK.el.slide.classList.contains('is-collapsed')); }, function (v) { if (!!(SK.el.slide && SK.el.slide.classList.contains('is-collapsed')) !== !!v) SK.toggleCollapse(); });
     collapseRow.classList.add('set-collapse');
+    // R7-2(S7): 설명 글자 [보통 | 크게] (설명 층에만 — 실험 화면엔 영향 없음). lesson 이 있을 때만 보인다
+    var lessonFsSeg = h('div', { class: 'set-fs', hidden: true }, [h('span', { class: 'set-fs__t', text: '설명 글자' }),
+      h('div', { class: 'mode-seg', role: 'group', 'aria-label': '설명 글자 크기' }, [['보통', 'normal'], ['크게', 'large']].map(function (m) {
+        var b = h('button', { class: 'mode-seg__opt', type: 'button', 'data-fs': m[1], 'aria-pressed': String(m[1] === 'normal') }, m[0]);
+        b.addEventListener('click', function (e) { blurOnMouse(e); setLessonFs(m[1], true); });
+        return b;
+      }))]);
     var layoutSec = h('section', { class: 'panel-sec set-sec', 'data-sec': 'layout' }, [
       h('h2', { class: 'panel-sec__title', text: '화면 구성' }),
-      h('div', { class: 'panel-sec__body set-layout' }, [modeSeg, collapseRow, h('div', { class: 'teacher-only' }, autoPredictToggle())])
+      h('div', { class: 'panel-sec__body set-layout' }, [modeSeg, lessonFsSeg, collapseRow, h('div', { class: 'teacher-only' }, autoPredictToggle())])
     ]);
     secEls.tools.classList.add('set-sec'); deep.classList.add('set-sec');
     var settingsBody = h('div', { class: 'set-body' }, [layoutSec, secEls.tools, deep]);
@@ -965,6 +981,10 @@
     var meters = h('div', { class: 'band-cell band-cell--meters' });
     var graph = h('div', { class: 'band-cell band-cell--graph' });
     var band = h('section', { class: 'sim-band', 'aria-label': '측정값·그래프' }, [meters, graph]);
+    // R7-2(S4): 띠 맨 왼쪽 [ƒ 식] — 설명의 식·기호를 실험 중에 다시 보기(lesson 에 식 장이 있을 때만). 띠 격자 밖(왼쪽 여백 자리)에 둔다
+    var formulaBtn = h('button', { class: 'btn btn--outline band-formula', type: 'button', hidden: true, 'aria-label': '식과 기호 보기', title: '식과 기호 보기 — 기호를 누르면 실험의 값이 깜빡여요', 'aria-haspopup': 'dialog', 'aria-expanded': 'false' }, [h('i', { class: 'band-formula__f', text: 'ƒ' }), h('span', { class: 'band-formula__t', text: '식' })]);
+    formulaBtn.addEventListener('click', function (e) { blurOnMouse(e); SK.formulaPop({ anchor: formulaBtn }); });
+    band.insertBefore(formulaBtn, band.firstChild);
     var chipCount = h('span', { class: 'rec-chip__count' });
     var chipBtn = btn('표 보기', 'btn--outline', function () { toggleRecords(); });
     var recChip = h('div', { class: 'rec-chip', 'aria-label': '저장한 실험' }, [chipCount, h('div', { class: 'rec-chip__row' }, [h('span', { class: 'rec-chip__max', text: '(최대 5)' }), chipBtn])]);
@@ -1030,8 +1050,8 @@
       cornerTL: cTL, cornerTR: cTR, cornerBL: cBL, cornerBR: cBR,
       btnRun: btnRun, btnBack: btnBack, btnFwd: btnFwd, btnSpeed: btnSpeed, btnRec: btnRec, btnReset: btnReset, btnMore: btnMore,
       speedMenu: speedMenu, moreMenu: moreMenu, infoBtn: infoBtn, infoPop: infoPop, helpBtn: helpBtn, fsBtn: fsBtn, guideBtn: guideBtn,
-      btnLesson: btnLesson, btnSettings: btnSettings, btnPresets: btnPresets, btnPresetsTop: btnPresetsTop, btnRecords: btnRecords, recBadge: recBadge, btnThink: btnThink,
-      cardChip: cardChip, lessonChip: lessonChip, settings: settingsBody,
+      btnLesson: btnLesson, btnSettings: btnSettings, btnPresets: btnPresets, btnPresetsTop: btnPresetsTop, btnRecords: btnRecords, recBadge: recBadge, btnThink: btnThink, moreBadge: moreBadge,
+      cardChip: cardChip, lessonChip: lessonChip, settings: settingsBody, formulaBtn: formulaBtn, lessonFsSeg: lessonFsSeg,
       modeSeg: modeSeg, colorbar: colorbar, simple: simpleEls
     };
     noteEls = noteEl;
@@ -1039,7 +1059,16 @@
     ensureShell({ id: 'settings', title: '설정', body: [settingsBody], foot: [btnReset, setClose] });
     ensureShell({ id: 'presets', title: '실험 고르기', body: [presetModesRow, presetsBox, simpleEls.presetGrid] });
     ensureShell({ id: 'records', title: '기록 비교', body: [recBig] });
-    ensureShell({ id: 'think', title: '정리해 봐요', body: [thinkBoard] });
+    // R7-2(S5): 정리 모달 = ① 기록 요약 칩 ② 형성평가 3문항(lesson quiz) ③ '더 생각하기 ▸'(기존 think 카드 + more) · 바닥 [설명 다시 보기][닫기]
+    var thinkRecs = h('div', { class: 'think-recs', hidden: true });
+    var thinkQuiz = h('div', { class: 'think-quiz', hidden: true });
+    var thinkMoreExtra = h('div', { class: 'think-more__extra', hidden: true });
+    var thinkMore = h('details', { class: 'think-more' }, [h('summary', { class: 'think-more__sum', text: '더 생각하기' }), thinkBoard, thinkMoreExtra]);
+    var thinkLessonBtn = btn([ico('book', '', { cls: 'ico--lead' }), '설명 다시 보기'], 'btn--outline think-lesson', function () { SK.lessonOpen(); });
+    thinkLessonBtn.hidden = true;
+    var thinkClose = btn(['닫기', keyHint('Esc')], 'btn--outline', function () { popClose('x'); });
+    ensureShell({ id: 'think', title: '정리해 봐요', body: [thinkRecs, thinkQuiz, thinkMore], foot: [thinkLessonBtn, thinkClose] });
+    SK.el.thinkRecs = thinkRecs; SK.el.thinkQuiz = thinkQuiz; SK.el.thinkMore = thinkMore; SK.el.thinkMoreExtra = thinkMoreExtra; SK.el.thinkLessonBtn = thinkLessonBtn;
     ensureShell({ id: 'steps', title: '수업 단계', body: [stepList, h('div', { class: 'steps-next' }, [taskNext])] });
     ensureShell({ id: 'speed', title: '재생 속도', body: [speedMenu] });
     ensureShell({ id: 'more-menu', title: '그 밖의 기능', body: [moreMenu] });
@@ -1074,14 +1103,81 @@
     if (simpleOn) { showSheet('more'); setSide('records', true); return; }
     if (SK.pop.open === 'records') { popClose('toggle'); return; }
     renderRecords();
-    SK.pop({ id: 'records', kind: 'modal', persist: true, anchor: SK.el.btnRecords, title: '기록 비교', cls: 'pop--records' });
+    SK.pop({ id: 'records', kind: 'modal', persist: true, anchor: SK.el.btnMore, title: '기록 비교', cls: 'pop--records',
+      onKey: function (e) { if (e.code === 'PageDown') { popClose('key'); SK.nextStep(); return true; } if (e.code === 'PageUp') { popClose('key'); return true; } return false; } });   // R7-2: 클리커 — PageDown 다음 단계(정리), PageUp 닫기   // R7-2: 여는 단추는 ⋯ 안 — 닫으면 ⋯ 로 포커스
     setTimeout(checkRecScroll, 0);
   }
   function toggleThink() {
     if (simpleOn) { showSheet('more'); setSide('think', true); return; }
     if (SK.pop.open === 'think') { popClose('toggle'); return; }
     refreshThinks();
-    SK.pop({ id: 'think', kind: 'modal', persist: true, anchor: SK.el.btnThink, title: '정리해 봐요', cls: 'pop--think' });
+    buildThinkModal();
+    SK.pop({ id: 'think', kind: 'modal', persist: true, anchor: SK.el.btnMore, title: '정리해 봐요', cls: 'pop--think',
+      onKey: function (e) { if (e.code === 'PageUp') { popClose('key'); return true; } return false; } });   // R7-2: 클리커 PageUp = 닫기
+  }
+  /* ── R7-2(S5) 정리 모달 본문: 기록 요약 → 형성평가(quiz 3) → 더 생각하기(기존 think 카드 + more) ── */
+  var quizCards = [], moreCards = [], revealOn = false;
+  function lessonQuiz() { try { return lessonApi && lessonApi.quiz ? lessonApi.quiz() || [] : []; } catch (e) { return []; } }
+  function lessonMore() { try { return lessonApi && lessonApi.quizMore ? lessonApi.quizMore() || [] : []; } catch (e) { return []; } }
+  function hasThinkContent() { return thinks.length > 0 || lessonQuiz().length > 0; }
+  var QUIZ_KIND = { concept: '개념', calc: '계산', misconception: '오개념' };
+  function buildThinkModal() {
+    var E = SK.el;
+    // ① 기록 요약 칩 — 기록마다 표식 + 핵심 열 2개
+    E.thinkRecs.innerHTML = '';
+    if (SK.records.length && cfg.capture) {
+      var cols = tableCols(mainTable || {}, true).slice(0, 2);
+      E.thinkRecs.appendChild(h('span', { class: 'think-recs__t', text: '오늘 기록' }));
+      SK.records.forEach(function (r, i) {
+        var parts = cols.map(function (c) { var p = colParts(c); return plain(p.name) + ' ' + cellText(c, r, i ? SK.records[i - 1] : null) + (p.unit ? ' ' + p.unit : ''); });
+        E.thinkRecs.appendChild(h('span', { class: 'chip chip--outline think-recs__chip num' }, [h('b', { text: SK.recMark(r.slot) + ' ' + r.n }), ' ' + parts.join(' · ')]));
+      });
+    }
+    E.thinkRecs.hidden = !E.thinkRecs.children.length;
+    // ② 형성평가 3문항
+    E.thinkQuiz.innerHTML = ''; quizCards = [];
+    var qz = lessonQuiz();
+    if (qz.length) E.thinkQuiz.appendChild(h('p', { class: 'think-quiz__t', text: '확인 문제 ' + qz.length + '개' }));
+    qz.forEach(function (q, i) {
+      var hasIdx = typeof q.answerIdx === 'number' && q.choices && q.choices.length;
+      var card = SK.think({
+        where: E.thinkQuiz, q: q.q, choices: q.choices || null, answer: hasIdx ? q.answerIdx + 1 : null, why: hasIdx ? q.why : null,
+        lesson: q.chapter || null, no: [circ(i + 1), QUIZ_KIND[q.kind] ? ' ' + QUIZ_KIND[q.kind] : ''], teacherAnswer: hasIdx ? null : (q.answer || null), teacherWhy: hasIdx ? null : (q.why || null)
+      });
+      if (q.try) {
+        var tq = {}; for (var k in q.try) tq[k] = q.try[k];
+        if (!tq.chapter && q.chapter) tq.chapter = q.chapter;
+        if (tq.predict === undefined) tq.predict = false;
+        card.appendChild(btn([ico('play', '', { cls: 'ico--lead' }), '이 값으로 해 보기'], 'btn--outline think-card__try', function () { SK.lessonTry(tq); }));
+      }
+      quizCards.push(card);
+    });
+    E.thinkQuiz.hidden = !qz.length;
+    // ③ 더 생각하기: 기존 think 카드(정리 질문) + more 심화 — 퀴즈가 없으면 펼친 채(예전과 같음)
+    E.thinkMoreExtra.innerHTML = ''; moreCards = [];
+    lessonMore().forEach(function (m) {
+      moreCards.push(SK.think({ where: E.thinkMoreExtra, q: m.q, choices: m.choices || null, answer: typeof m.answerIdx === 'number' ? m.answerIdx + 1 : null, why: typeof m.answerIdx === 'number' ? m.why : null, lesson: m.chapter || null, no: '더 생각하기', teacherAnswer: typeof m.answerIdx === 'number' ? null : (m.answer || null), teacherWhy: typeof m.answerIdx === 'number' ? null : (m.why || null) }));
+    });
+    E.thinkMoreExtra.hidden = !moreCards.length;
+    var anyMore = visibleThinks() > 0 || moreCards.length > 0;
+    E.thinkMore.hidden = !anyMore;
+    E.thinkMore.open = !qz.length || SK.isTeacher();
+    var sum = E.thinkMore.querySelector('.think-more__sum');
+    if (sum) sum.textContent = qz.length ? '더 생각하기 (' + (visibleThinks() + moreCards.length) + ')' : '정리 질문';
+    // 바닥 [설명 다시 보기]
+    E.thinkLessonBtn.hidden = !lessonApi;
+    // 교사 [정답 공개] — 교사 모드일 때만 만든다(학생 DOM 에는 단추·정답 속성 없음)
+    var sh = popShells.think, old = sh && sh.head && sh.head.querySelector('.think-reveal');
+    if (old) old.remove();
+    revealOn = false;
+    if (SK.isTeacher() && sh && sh.head && (quizCards.length || moreCards.length)) {
+      var rb = btn([ico('eye', '', { cls: 'ico--lead' }), '정답 공개'], 'btn--outline btn--sm think-reveal', function () {
+        revealOn = !revealOn;
+        rb.setAttribute('aria-pressed', String(revealOn));
+        quizCards.concat(moreCards).forEach(function (c) { if (c._reveal) c._reveal(revealOn); });
+      }, { 'aria-pressed': 'false', title: '세 문항의 정답과 이유를 한꺼번에 보여 줘요(교사 모드)' });
+      sh.head.insertBefore(rb, sh.head.lastChild);
+    }
   }
   function openSteps() {
     SK.pop({ id: 'steps', kind: 'popover', persist: true, anchor: SK.el.stepBtn, title: '수업 단계', cls: 'pop--steps', overlap: true });
@@ -1297,9 +1393,10 @@
     // R7: 심플 막대에도 같은 ⚙ 설정·[설명] (52u 터치)
     E.settingsBtn = btn([ico('gear', '⚙', { cls: 'ico--lead' })], 'btn--outline simple-settings-btn', function () { toggleSettings(E.settingsBtn); }, { 'aria-haspopup': 'dialog', 'aria-expanded': 'false', 'aria-label': '설정', title: '설정 (U)' });
     E.lessonBtn = btn([ico('book', '', { cls: 'ico--lead' }), '설명'], 'btn--outline simple-lesson-btn', function () { SK.toggleLesson(); }, { title: '교과 설명 (J)', hidden: true });
+    E.formulaBtn = btn([h('i', { class: 'band-formula__f', text: 'ƒ' })], 'btn--outline simple-formula-btn', function () { SK.formulaPop({ anchor: E.formulaBtn }); }, { title: '식과 기호 보기', 'aria-label': '식과 기호 보기', hidden: true, 'aria-haspopup': 'dialog', 'aria-expanded': 'false' });
     E.bar = h('footer', { class: 'simple-bar simple-only', 'aria-label': '실행' }, [
       E.run, E.again, h('div', { class: 'pop-wrap simple-speed-wrap' }, [E.speed]),
-      h('span', { class: 'simple-bar__gap' }), E.lessonBtn, E.settingsBtn, E.presetsBtn, E.moreBtn
+      h('span', { class: 'simple-bar__gap' }), E.lessonBtn, E.formulaBtn, E.settingsBtn, E.presetsBtn, E.moreBtn
     ]);
 
     /* 더 보기 시트(R7: SK.pop sheet): 위 = 원래 조절 패널·기록 판·정리 판(옮겨 옴, 안쪽 스크롤 한 겹) · 아래 = 도구 줄 */
@@ -1620,12 +1717,13 @@
     dirty = true;
   };
   var prevStepIdx = 0;
-  SK.nextStep = function () { if (SK.stepIndex < STEPS.length - 1) SK.goStep(SK.stepIndex + 1); };
+  /** R7-2(S5): 마지막 단계(정리)에서 한 번 더 = 정리 모달 (클리커 PageDown) */
+  SK.nextStep = function () { if (SK.stepIndex < STEPS.length - 1) SK.goStep(SK.stepIndex + 1); else if (!simpleOn && hasThinkContent() && SK.pop.open !== 'think') toggleThink(); };
   SK.prevStep = function () { if (SK.stepIndex > 0) SK.goStep(SK.stepIndex - 1); };
 
   function autoSide() {
     if (SK.stepIndex === 2 && cfg.capture && !SK.el.records.hidden) return 'records';
-    if (SK.stepIndex === 3 && visibleThinks()) return 'think';
+    if (SK.stepIndex === 3 && (visibleThinks() || lessonQuiz().length)) return 'think';   // R7-2: 형성평가만 있어도
     return 'panel';
   }
   /**
@@ -1660,7 +1758,7 @@
 
   /* R2(B1): 띠 문장 기본값 (25자 안팎). 실행이 다음 행동이면 띠 버튼은 숨기고 '아래 ▶ 실행을 눌러요' */
   var DEFAULT_TASK_TEXT = [
-    '실험 카드를 고르고 결과를 먼저 예측해요',
+    '실험을 고르고 결과를 먼저 예측해요',
     '아래 ▶ 실행을 눌러요',
     '값 하나만 바꿔 실행하고 기록끼리 비교해요',
     '오른쪽 질문으로 오늘 실험을 정리해요'
@@ -1732,6 +1830,7 @@
     if (act && /^(▶|⏸|↻)|실행하기|이어서 실행|다시 실행/.test(act.label || '')) act = null;
     // 실행 중·일시정지 중에는 '기록하기'로 바뀌지 않는다
     if (act && /기록하기/.test(act.label || '') && !bandCanRecord() && (SK.running || (SK.started && !SK.finished))) act = null;
+    if (bandCur && (bandCur.id === 'predict' || bandCur.id === 'mode')) act = null;   // R7-2(S2): 예측 띠가 열린 동안 [예측하기] 는 띠 안 하나만
     var b = SK.el.taskAct;
     if (act) {
       b.hidden = false;
@@ -2093,14 +2192,14 @@
     var cc = SK.el.cardChip;
     if (cc) {
       cc.hidden = i < 0; cc.innerHTML = '';
-      if (i >= 0) { cc.appendChild(h('b', null, ['카드 ', circ(i + 1)])); cc.appendChild(h('span', { class: 'top-chip__name', text: presets[i].name })); cc.appendChild(ico('chev-down', '▾', { cls: 'ico--trail' })); cc.setAttribute('aria-label', '지금 실험 카드 ' + (i + 1) + ' ' + presets[i].name + ' — 다른 카드 고르기'); }
+      if (i >= 0) { cc.appendChild(h('b', null, ['실험 ', circ(i + 1)])); cc.appendChild(h('span', { class: 'top-chip__name', text: presets[i].name })); cc.appendChild(ico('chev-down', '▾', { cls: 'ico--trail' })); cc.setAttribute('aria-label', '지금 실험 ' + (i + 1) + ' ' + presets[i].name + ' — 다른 카드 고르기'); }
     }
     if (SK.el.lessonChip && !SK.el.lessonChip.hidden && SK.el.lessonChip._preset !== i) setLessonChip(null);
     if (i >= 0) {
       // R2 원칙 6: 실험 화면에는 모서리 칩 한 줄만 ('카드 ① 이름'), 자세한 값은 말풍선
       var p = presets[i];
       presetInfoEl = h('div', { class: 'preset-info', title: [p.change ? '바꾸는 값: ' + plain(p.change) : '', p.fixed ? '그대로: ' + plain(p.fixed) : ''].filter(Boolean).join('\n') || null }, [
-        h('b', null, ['카드 ', circ(i + 1)]), h('span', { class: 'preset-info__name', text: p.name })
+        h('b', null, ['실험 ', circ(i + 1)]), h('span', { class: 'preset-info__name', text: p.name })
       ]);
       SK.el.cornerTL.appendChild(presetInfoEl);
     }
@@ -2121,7 +2220,7 @@
   }
   /** R2(E3): '카드 ①: v₀ 10 m/s · 각도 0°' (28자 안쪽으로), 모드가 바뀌면 '… 모드로 바뀌어요' */
   function presetToast(p, i) {
-    var head = '카드 ' + CIRCLED[i];
+    var head = '실험 ' + CIRCLED[i];   // R7-2: 학생 문구 '카드 ①' → '실험 ①'
     if (p.mode) return head + ': ' + withJosa(p.mode, '으로/로') + ' 바뀌어요';
     var ch = changesText(p);   // 시뮬레이터가 쓴 '바꾸는 값' 요약이 짧으면 그것을 먼저
     if (ch && (head + ': ' + ch).length <= 28) return head + ': ' + ch;
@@ -2192,6 +2291,8 @@
   }
   SK.reset = function () { doReset(true); };
   SK.play = function () {
+    // R7-2(팀장): 예측 띠가 열린 채 [▶ 실행](해 보기 직후 포커스)·Space 를 누르면 '예측 없이 바로 실행' — 흔들기만 하지 않는다(UI팀1·3 요청)
+    if (modal && modal.type === 'predict' && modal.runNow) { modal.runNow(); return; }
     if (modal) { if (modal.shake) modal.shake(); return; }
     if (SK.finished) doReset(true);
     SK.running = true; lastTs = null;
@@ -2203,8 +2304,11 @@
   SK.toggle = function () { if (SK.running) SK.pause(); else SK.play(); };
   /** 시뮬레이터가 실행이 끝났을 때 부른다 */
   SK.finish = function (msg) {
+    var firstEnd = !SK.finished;
     SK.running = false; SK.finished = true; dirty = true;
     updateTransport();
+    // R7-2(S11): 오해 카드 [해 보기] 로 온 실행이 끝나면 '깨졌어요 ✓' 를 기억(physsim.lesson.<slug>.broke)
+    if (firstEnd && pendingBroke) { var pb = pendingBroke; pendingBroke = null; try { if (lessonApi && lessonApi.markBroke) lessonApi.markBroke(pb); } catch (e) { /* 저장 안 돼도 실험은 그대로 */ } }
     var v = judgePrediction();
     showNote(v, true);
     // R6: 심플 모드는 해설 카드가 시트 안 — 끝나면 토스트 [해설 보기 ▸] 로 시트를 해설 위치로 연다
@@ -2347,17 +2451,18 @@
     var E = SK.el; if (!E.btnRecords) return;
     var recHide = !cfg.capture || !!E.records.hidden;
     if (E.btnRecords.hidden !== recHide) E.btnRecords.hidden = recHide;
-    var thHide = !thinks.length;
+    var thHide = !hasThinkContent();
     if (E.btnThink.hidden !== thHide) E.btnThink.hidden = thHide;
   }
-  /** R7: 첫 화면 쿼리 — ?view=sim&preset=n(0부터) → 그 카드 · ?view=sim 이고 cfg.presetModes 가 있으면 [실험 ▾] 시트를 연 채 */
+  /** R7: 첫 화면 쿼리 — ?view=sim&preset=n(0부터) → 그 카드 · R7-2: 시트 자동 열기는 없앴다(갈래는 &mode=) */
   function bootView() {
     var q = null;
     try { q = new URLSearchParams(location.search); } catch (e) { q = null; }
     if (!q || lessonOpenNow()) return;
     var view = q.get('view'), pn = q.get('preset');
     if (pn !== null && /^\d+$/.test(pn) && presets[+pn]) { SK.applyPreset(+pn, { noConfirm: true }); return; }
-    if (view === 'sim' && cfg.presetModes && cfg.presetModes.length) setTimeout(function () { if (!modal && !popCur && !lessonOpenNow()) togglePresets(false); }, 120);
+    // R7-2(S8): ?view=sim 에서 [실험 ▾] 시트를 저절로 열지 않는다(패널을 가리던 것). 갈래는 &mode= (없으면 sim 기본 갈래)
+    void view;
   }
 
   /* ------------------------------------------------------------------
@@ -2365,14 +2470,26 @@
      ------------------------------------------------------------------ */
   var lessonApi = null;
   function lessonOpenNow() { return !!(lessonApi && lessonApi.isOpen()); }
-  SK._lesson = function (api) { lessonApi = api; syncLessonBtns(); fillLessonLinks(); };
+  SK._lesson = function (api) {
+    lessonApi = api; syncLessonBtns(); fillLessonLinks();
+    var fs = null; try { fs = localStorage.getItem(LESSON_FS_KEY); } catch (e) { fs = null; }
+    setLessonFs(fs === 'large' ? 'large' : 'normal', false);
+    syncToolBtns();
+  };
   SK.hasLesson = function () { return !!lessonApi; };
+  SK.unitName = function () { return cfg.unit || ''; };   // R7-2: 설명 머리줄 'N / M · 단원'
   SK.activePreset = function () { return activePreset; };
   SK.presetInfo = function (i) { var p = presets[i]; return p ? { name: p.name, changes: changesText(p), predict: !!p.predict } : null; };
   function syncLessonBtns() {
     var on = !!lessonApi;
     if (SK.el.btnLesson) SK.el.btnLesson.hidden = !on;
     if (simpleEls.lessonBtn) simpleEls.lessonBtn.hidden = !on;
+    // R7-2(S4): [ƒ 식] — 식(eq)이 있는 장이 하나라도 있을 때만
+    var hasF = !!(on && lessonApi.formulas && lessonApi.formulas().length);
+    if (SK.el.formulaBtn) { SK.el.formulaBtn.hidden = !hasF; SK.el.band.classList.toggle('has-formula', hasF); }
+    if (simpleEls.formulaBtn) simpleEls.formulaBtn.hidden = !hasF;
+    if (SK.el.lessonFsSeg) SK.el.lessonFsSeg.hidden = !on;
+    if (hasF) markMeterLinks();
   }
   /** 설명 층 열기 — id 가 없으면 지금 카드의 장(없으면 마지막 본 장) */
   SK.lessonOpen = function (id) {
@@ -2380,7 +2497,9 @@
     closePop(true);
     if (modal && modal.close && modal.type !== 'dialog') modal.close(null);
     if (SK.running) SK.pause();
-    lessonApi.open(id === undefined || id === null ? lessonApi.chapterForPreset(activePreset) : id);
+    // R7-2(팀장): 해 보기로 온 뒤(머리줄 '설명 N장 ↩' 칩이 보일 때) J·[설명] 은 그 장으로 — 칩과 같은 곳
+    var chip = SK.el.lessonChip, from = chip && !chip.hidden && chip._ch && lessonApi.has(chip._ch) ? chip._ch : null;
+    lessonApi.open(id === undefined || id === null ? (from || lessonApi.chapterForPreset(activePreset)) : id);
   };
   SK.lessonClose = function () { if (lessonApi && lessonApi.isOpen()) lessonApi.close(); };
   SK.toggleLesson = function () { if (!lessonApi) return; if (lessonApi.isOpen()) lessonApi.close(); else SK.lessonOpen(); };
@@ -2419,8 +2538,10 @@
    *          → ⑤ 자세히·predict !== false·카드에 예측이 있으면 예측 dock → ⑥ 머리줄 '설명 N장' 칩
    * q = {q, preset(0부터|null), set:{key:value}, predict, chapter}
    */
+  var pendingBroke = null;
   SK.lessonTry = function (q) {
     q = q || {};
+    pendingBroke = q.broke || null;   // R7-2(S11): 이 실행이 끝나면(SK.finished 첫 전환) 오해 id 저장
     if (lessonApi && lessonApi.isOpen()) lessonApi.close({ focus: false });
     closePop(true);
     if (modal && modal.close && modal.type !== 'dialog') modal.close(null);
@@ -2444,6 +2565,184 @@
     setLessonChip(q.chapter || null, pi);
     SK.update();
   };
+
+  /* ------------------------------------------------------------------
+     R7-2(S4) 식 팝업 · 기호 ↔ 실험 대응
+       SK.formulaPop({ch?, sym?, target?, anchor?})  [ƒ 식] 칩·계기판 라벨에서. 무대 왼쪽 아래 popover(폭 520u, ≤ 360u), 세로 = 시트
+       SK.flashTarget(target, ms=1500)   target = 'v0'(SK.controls 키) · 'meter:vx' · 'bar:Ek' · 'stage:ray1' · 'record:R'
+                                         또는 갈래별 객체 {physics:'d', quantum:'dR'} (지금 갈래 값으로 고른다)
+       SK.flashTargets[name] = function (ms) {…}  /  SK.addFlashTarget(name, fn)   sim 이 막대 칸·그림 화살표 강조를 등록
+       render 안에서는 SK.isFlashing('bar:Ek') 로 묻는다(flashTarget 이 그 시간 동안 true)
+     ------------------------------------------------------------------ */
+  SK.flashTargets = SK.flashTargets || {};
+  SK.addFlashTarget = function (name, fn) { if (name && typeof fn === 'function') SK.flashTargets[name] = fn; };
+  /** 지금 갈래 값 — chooseMode(modeApi) → cfg.presetModes 의 key 값 */
+  function currentBranch() {
+    if (modeApi && modeApi.get) return modeApi.get();
+    var pm = cfg.presetModes && cfg.presetModes[0];
+    return pm && pm.key ? SK.params[pm.key] : null;
+  }
+  SK.currentBranch = currentBranch;
+  SK.resolveTarget = function (t) {
+    if (!t) return null;
+    if (typeof t === 'string') return t;
+    if (typeof t === 'object') {
+      var b = currentBranch();
+      if (b !== null && b !== undefined && t[b]) return t[b];
+      for (var k in t) if (Object.prototype.hasOwnProperty.call(t, k) && t[k]) return t[k];
+    }
+    return null;
+  };
+  function isShown(el) { return !!(el && el.offsetParent !== null && el.getClientRects().length); }
+  function ctlLabel(k) {
+    var d = SK.defs[k] || {};
+    return plain(d.label || k) + (d.symbol ? ' ' + symPlain(d.symbol) : '');
+  }
+  function flashTip(el, text, ms) {
+    if (!el || !text) return;
+    var r = el.getBoundingClientRect();
+    var tip = h('div', { class: 'flash-tip', role: 'status' }, rich(String(text)));
+    document.body.appendChild(tip);
+    var tw = tip.offsetWidth, th = tip.offsetHeight;
+    var x = clamp(r.left + r.width / 2 - tw / 2, 8, window.innerWidth - tw - 8);
+    var y = r.top - th - 8; if (y < 8) y = r.bottom + 8;
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+    setTimeout(function () { tip.remove(); }, ms || 1500);
+  }
+  function flashClass(el, ms) {
+    el.classList.remove('is-flash-long'); void el.offsetWidth; el.classList.add('is-flash-long');
+    clearTimeout(el._flashT); el._flashT = setTimeout(function () { el.classList.remove('is-flash-long'); }, ms);
+  }
+  function deepHas(el) { var d = SK.el.sections && SK.el.sections.deep; return !!(d && d.contains(el)); }
+  SK.flashTarget = function (target, ms) {
+    ms = ms || 1500;
+    var t = SK.resolveTarget(target);
+    if (!t) return false;
+    var m = /^(meter|bar|stage|record):(.+)$/.exec(t);
+    if (!m) {
+      var c = SK.controls[t];
+      if (!c) { warnOnce('flash:' + t, 'SimKit(R7-2): flashTarget 에 없는 key — ' + t); return false; }
+      var lab = ctlLabel(t);
+      SK.flash(t, ms);   // 실험 그림 쪽 깜빡임(render 의 SK.isFlashing(key))
+      if (isShown(c.el)) {
+        try { c.el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { /* 무시 */ }
+        flashClass(c.el, ms); flashTip(c.el, lab, ms);
+        return true;
+      }
+      // 화면에 없는 값(⚙ 안·심플 더 보기 안): 그 자리를 여는 단추를 깜빡이고 말풍선에 이름, 토스트는 28자 안쪽
+      var host = null, where;
+      if (SK.el.settings && SK.el.settings.contains(c.el)) { host = simpleOn ? simpleEls.settingsBtn : SK.el.btnSettings; where = '⚙ 설정 › ' + (deepHas(c.el) ? '더 많은 설정' : '화면에 표시하기') + '에 있어요'; }
+      else if (simpleOn && simpleEls.moreBody && simpleEls.moreBody.contains(c.el)) { host = simpleEls.moreBtn; where = '⋯ 더 보기 안에 있어요'; }
+      else where = '지금 화면에는 없는 값이에요';
+      if (isShown(host)) { flashClass(host, ms); flashTip(host, lab, ms); }
+      SK.notice(where, 'info', 2600);
+      return false;
+    }
+    var kind = m[1], key = m[2];
+    if (kind === 'meter') {
+      var list = document.querySelectorAll('.meter[data-key]'), any = null, shown = null;
+      for (var i = 0; i < list.length; i++) if (list[i].getAttribute('data-key') === key) { any = any || list[i]; if (!shown && isShown(list[i])) shown = list[i]; }
+      if (shown) { flashClass(shown, ms); var lb = shown.querySelector('.meter__label'); flashTip(shown, lb ? lb.textContent : key, ms); return true; }
+      if (any) { SK.notice('그 값은 ' + (simpleOn ? '⋯ 더 보기' : '[수치 더 보기 ▸]') + ' 안에 있어요', 'info', 2600); return false; }
+      var br = currentBranch();
+      if (br !== null && br !== undefined) { SK.notice('다른 실험 갈래에서 보이는 값이에요', 'info', 2600); return false; }   // R7-2(팀장): 궤도 위성 모드 계기(g) 등 — 경고가 아니라 안내
+      warnOnce('flash:' + t, 'SimKit(R7-2): flashTarget 에 없는 계기 — ' + t);
+      return false;
+    }
+    if (kind === 'record') { SK.notice('기록 표(⋯ › 기록)에서 봐요', 'info', 2600); return true; }
+    flashes[t] = Date.now() + ms; dirty = true;   // bar:· stage: — render 에서 SK.isFlashing(t)
+    var fn = SK.flashTargets[t];
+    if (typeof fn === 'function') { try { fn(ms); } catch (e) { console.error(e); } }
+    return true;
+  };
+  /** '지금 값' 대입 한 줄에 넘길 측정값(cfg.capture) — 실행 전이면 빈 값 */
+  SK.nowValues = function () {
+    if (!cfg.capture || !SK.started) return {};
+    try { var cap = cfg.capture(SK.params); return (cap && cap.values) || {}; } catch (e) { return {}; }
+  };
+  SK.formulaPop = function (o) {
+    o = o || {};
+    if (!lessonApi || !lessonApi.formulas) return null;
+    var list = lessonApi.formulas();
+    if (!list.length) return null;
+    var key = o.sym || o.target || null;
+    var ch = o.ch && list.some(function (c) { return c.id === o.ch; }) ? o.ch : null;
+    if (!ch && key) ch = lessonApi.chapterForSym(key);
+    if (!ch) ch = lessonApi.formulaOf(activePreset);
+    if (!ch) ch = list[0].id;
+    var anchor = o.anchor || (simpleOn ? simpleEls.formulaBtn : SK.el.formulaBtn);
+    var box = h('div', { class: 'formula' });
+    var chips = h('div', { class: 'formula__chs', role: 'tablist', 'aria-label': '식이 있는 장' });
+    var body = h('div', { class: 'formula__body' });
+    var linkBox = h('div', { class: 'formula__foot' });
+    function show(id) {
+      ch = id;
+      for (var i = 0; i < chips.children.length; i++) chips.children[i].setAttribute('aria-selected', String(chips.children[i]._id === id));
+      body.innerHTML = '';
+      var b = lessonApi.formulaBody(id, { simple: simpleOn });
+      if (b) body.appendChild(b);
+      linkBox.innerHTML = '';
+      if (!simpleOn) linkBox.appendChild(SK.lessonLink(id, '설명 ' + lessonApi.number(id) + '장 ↩'));
+    }
+    if (list.length > 1 && !simpleOn) list.forEach(function (c) {
+      var b = h('button', { class: 'formula__ch num', type: 'button', role: 'tab', 'aria-selected': 'false', title: plainMath(String(c.title || '')), 'aria-label': lessonApi.number(c.id) + '장 ' + plainMath(String(c.title || '')) }, lessonApi.number(c.id) + '장');
+      b._id = c.id;
+      b.addEventListener('click', function (e) { blurOnMouse(e); show(c.id); });
+      chips.appendChild(b);
+    });
+    box.appendChild(chips); box.appendChild(body); box.appendChild(linkBox);
+    chips.hidden = !chips.children.length;
+    show(ch);
+    var r = SK.pop({ id: 'formula', kind: 'popover', anchor: anchor, overlap: true, toggle: !key, cls: 'pop--formula', title: '식과 기호', body: [box], maxH: 640 });   // R7-2(팀장): 360u 는 1280×720 에서 240px 뿐이라 기호 칩이 스크롤 밑에 숨었다(UI팀1·3)
+    if (r && key) setTimeout(function () { lessonApi.symFlashIn(box, key); }, 30);
+    return r;
+  };
+  /** 계기판 라벨 → 그 값이 나오는 식 장으로 (lesson 에 symbols[].target 'meter:key' 가 있을 때만 점선 밑줄) */
+  function markMeterLinks(root) {
+    if (!lessonApi || !lessonApi.chapterForSym) return;
+    var ms = (root || document).querySelectorAll('.meter[data-key]');
+    for (var i = 0; i < ms.length; i++) {
+      var m = ms[i], key = m.getAttribute('data-key'), lab = m.querySelector('.meter__label');
+      if (!lab || m.classList.contains('has-formula')) continue;
+      if (!lessonApi.chapterForSym('meter:' + key)) continue;
+      m.classList.add('has-formula');
+      lab.setAttribute('role', 'button'); lab.setAttribute('tabindex', '0');
+      lab.setAttribute('title', '이 값이 나오는 식 보기');
+    }
+  }
+  document.addEventListener('click', function (e) {
+    var lab = e.target.closest && e.target.closest('.meter.has-formula .meter__label');
+    if (!lab || e.target.closest('.term')) return;
+    SK.formulaPop({ target: 'meter:' + lab.closest('.meter').getAttribute('data-key'), anchor: lab });
+  });
+  document.addEventListener('keydown', function (e) {
+    var t = e.target;
+    if ((e.code === 'Enter' || e.code === 'Space') && t && t.classList && t.classList.contains('meter__label') && t.closest('.meter.has-formula')) {
+      e.preventDefault(); e.stopPropagation();
+      SK.formulaPop({ target: 'meter:' + t.closest('.meter').getAttribute('data-key'), anchor: t });
+    }
+  }, true);
+  /* R7-2(S9) 용어 사전 terms — SimKit.lesson({terms:[{term, sym, unit, mean, where}]}). SK.term 풀이가 이것을 먼저 쓴다 */
+  var lessonTerms = {}, lessonTermSym = {};
+  SK._lessonTerms = function (list) {
+    (list || []).forEach(function (t) {
+      if (!t || !t.term) return;
+      var txt = (t.sym ? t.sym + ' — ' : '') + (t.mean || '') + (t.unit ? ' (단위 ' + t.unit + ')' : '');
+      lessonTerms[t.term] = txt; termDict[t.term] = txt;
+      if (t.sym) lessonTermSym[t.term] = t.sym;
+    });
+  };
+  SK.termSym = function (name) { return lessonTermSym[name] || lessonTermSym[canonTerm(name)] || ''; };
+  /* R7-2(S7) 설명 글자 단계 [보통 | 크게] — html[data-lesson-fs=large], 저장 physsim.lesson.fs */
+  var LESSON_FS_KEY = 'physsim.lesson.fs';
+  function setLessonFs(v, save) {
+    var big = v === 'large';
+    if (big) document.documentElement.setAttribute('data-lesson-fs', 'large'); else document.documentElement.removeAttribute('data-lesson-fs');
+    if (SK.el.lessonFsSeg) Array.prototype.forEach.call(SK.el.lessonFsSeg.querySelectorAll('button'), function (b) { b.setAttribute('aria-pressed', String((b.getAttribute('data-fs') === 'large') === big)); });
+    if (save) { try { localStorage.setItem(LESSON_FS_KEY, big ? 'large' : 'normal'); } catch (e) { /* 저장 안 돼도 이번에는 적용 */ } }
+    if (lessonApi && lessonApi.isOpen() && lessonApi.refresh) lessonApi.refresh();
+  }
+  SK.setLessonFs = function (v) { setLessonFs(v, true); };
 
   /* ------------------------------------------------------------------
      10. 기록 · 직전 실행 · 지우기 · 기록 표 큰 판 · 나란히 보기
@@ -2745,6 +3044,11 @@
     SK.el.recChipCount.appendChild(document.createTextNode('저장한 실험 '));
     SK.el.recChipCount.appendChild(h('b', { text: n + '/' + MAX_RECORDS }));
     if (SK.el.recBadge) { SK.el.recBadge.textContent = n + '/' + MAX_RECORDS; SK.el.btnRecords.setAttribute('aria-label', '기록 표 — 저장한 실험 ' + n + '/' + MAX_RECORDS); SK.el.recBadge.classList.toggle('is-full', n >= MAX_RECORDS); }
+    if (SK.el.moreBadge) {   // R7-2(S3): ⋯ 단추 배지 = 기록 수(1개 이상일 때만)
+      var mb = SK.el.moreBadge, showMb = n > 0 && !!cfg.capture && !SK.el.records.hidden;
+      mb.hidden = !showMb; mb.textContent = String(n); mb.classList.toggle('is-full', n >= MAX_RECORDS);
+      SK.el.btnMore.setAttribute('aria-label', '그 밖의 기능' + (showMb ? ' — 기록 ' + n + '/' + MAX_RECORDS : ''));
+    }
     SK.el.recCount.textContent = '저장 ' + n + '/' + MAX_RECORDS;
     if (!cfg.capture) SK.el.records.hidden = true;
     smallTables.forEach(function (t) { t.render(); });
@@ -2920,7 +3224,8 @@
         var ar = a.getBoundingClientRect(), w = el.offsetWidth, ht = el.scrollHeight, gap = SK.px(8), mg = SK.px(16);
         var below = ar.top + ar.height / 2 < sl.top + sl.height / 2;
         var avail = below ? sl.bottom - mg - (ar.bottom + gap) : (ar.top - gap) - (sl.top + mg);
-        var hh = Math.min(ht, Math.max(SK.px(160), avail));
+        var cap = c.maxH ? SK.px(c.maxH) : Infinity;   // R7-2: 식 팝업 ≤ 360u
+        var hh = Math.min(ht, Math.max(SK.px(160), avail), cap);
         var top = below ? ar.bottom + gap : ar.top - gap - hh;
         var cands = [ar.right - w, ar.left, ar.left + ar.width / 2 - w / 2].map(function (l) { return clamp(l, sl.left + mg, sl.right - mg - w); });
         var st = c.overlap ? null : stageRect(), pick = null;
@@ -2933,7 +3238,7 @@
           if (pick === null) pick = cands[0];
           el.style.left = (pick - sl.left) + 'px';
           el.style.top = (top - sl.top) + 'px';
-          el.style.maxHeight = Math.max(SK.px(160), avail) + 'px';
+          el.style.maxHeight = Math.min(cap, Math.max(SK.px(160), avail)) + 'px';
         }
       }
       if (kind === 'dock') { el.className = 'pop pop--dock' + (c.cls ? ' ' + c.cls : ''); c.kind = 'dock'; }
@@ -2969,6 +3274,7 @@
   SK.pop = function (o) {
     o = o || {};
     var id = o.id || ('pop' + (++popSeq));
+    if (o.kind === 'band') return openBand(o, id);   // R7-2(S1): 예측 띠는 따로(다른 팝업과 함께 열림)
     if (popCur && popCur.id === id && o.toggle !== false) { popClose('toggle'); return null; }
     if (popCur) popClose('replace');
     if (!popScrim) {
@@ -2982,7 +3288,7 @@
     if (o.persist && o.restore) warnOnce('pop-restore', 'SimKit(R7): SK.pop 의 persist 와 restore 는 함께 쓰지 않아요 — persist 를 씁니다.');
     var c = {
       id: id, el: sh.el, base: o.kind || 'popover', kind: o.kind || 'popover', anchor: o.anchor || null, cls: o.cls || '',
-      onClose: o.onClose || null, onKey: o.onKey || null, persist: !!o.persist, outside: o.outside !== false, overlap: !!o.overlap,
+      onClose: o.onClose || null, onKey: o.onKey || null, persist: !!o.persist, outside: o.outside !== false, overlap: !!o.overlap, maxH: o.maxH || 0,
       restoreList: o.restore && !o.persist ? sh.restore : null
     };
     sh.el.hidden = false;
@@ -2997,7 +3303,80 @@
   };
   SK.pop.close = function () { popClose('api'); };
   SK.pop.open = null;
-  SK.pop.relayout = function () { if (popCur) popLayout(popCur); };
+  SK.pop.relayout = function () { if (popCur) popLayout(popCur); if (bandCur) bandLayout(); };
+
+  /* ------------------------------------------------------------------
+     R7-2(S1) 예측 띠 kind:'band' — 무대(SK.el.stage) 안 위쪽 가로 띠(left/right 16u, top var(--band-top, 16u), 높이 ≤ 240u)
+       · 스크림 없음 · 바깥 눌러도 안 닫힘 · 세로·좁은 폭에서도 시트로 바꾸지 않는다(오른쪽·아래 패널 슬라이더를 가리지 않게)
+       · 다른 팝업(⚙·실험 ▾·⋯)과 함께 열려 있을 수 있다 — 띠는 popCur 가 아니라 bandCur 한 칸
+       · 접기: el.dataset.folded='1' → 왼쪽 위 칩 '예측 대기 ▾' 만 (SK.pop.fold)
+     ------------------------------------------------------------------ */
+  var bandCur = null, bandProbe = null;
+  function bandTopPx() {
+    var st = SK.el.stage;
+    if (!bandProbe || bandProbe.parentNode !== st) {
+      bandProbe = h('i', { class: 'band-probe', 'aria-hidden': 'true' });
+      st.appendChild(bandProbe);
+    }
+    return bandProbe.offsetTop;
+  }
+  function bandLayout() {
+    var c = bandCur; if (!c) return;
+    var el = c.el, st = SK.el.stage;
+    el.className = 'pop pop--band' + (c.cls ? ' ' + c.cls : '');
+    if (!st || !st.offsetWidth) return;
+    var sl = SK.el.slide.getBoundingClientRect(), sr = st.getBoundingClientRect(), side = SK.px(16);
+    el.style.left = (sr.left - sl.left + side) + 'px';
+    el.style.top = (sr.top - sl.top + bandTopPx()) + 'px';
+    el.style.width = el.dataset.folded === '1' ? '' : Math.max(0, sr.width - side * 2) + 'px';
+    el.style.maxHeight = Math.max(SK.px(120), Math.min(SK.px(240), sr.height - bandTopPx() - side)) + 'px';
+  }
+  function bandClose(reason) {
+    var c = bandCur; if (!c) return;
+    bandCur = null; SK.pop.band = null;
+    c.el.hidden = true; delete c.el.dataset.folded;
+    if (!c.persist) c.el.remove();
+    if (c.onClose) { try { c.onClose(reason); } catch (e) { console.error(e); } }
+    dirty = true;
+  }
+  function bandIs(id) { return !!bandCur && bandCur.id === id; }
+  function openBand(o, id) {
+    if (bandCur && bandCur.id === id && o.toggle !== false) { bandClose('toggle'); return null; }
+    if (bandCur) bandClose('replace');
+    var sh = o.persist ? popShells[id] : null;
+    if (!sh) { sh = popShell(o, id); if (o.persist) popShells[id] = sh; }
+    var c = { id: id, el: sh.el, kind: 'band', cls: o.cls || '', onClose: o.onClose || null, persist: !!o.persist };
+    delete sh.el.dataset.folded;
+    sh.el.hidden = false;
+    bandCur = c; SK.pop.band = id;
+    if (o.onOpen) { try { o.onOpen(sh); } catch (e) { console.error(e); } }
+    bandLayout();
+    sh.body.scrollTop = 0;
+    dirty = true;
+    return { el: sh.el, body: sh.body, close: function () { if (bandCur === c) bandClose('api'); } };
+  }
+  SK.pop.band = null;
+  /** 띠 접기/펼치기 (on 생략 = 뒤집기) */
+  SK.pop.fold = function (on) {
+    if (!bandCur) return false;
+    var el = bandCur.el, f = on === undefined ? el.dataset.folded !== '1' : !!on;
+    if (f) el.dataset.folded = '1'; else delete el.dataset.folded;
+    bandLayout();
+    var tgt = el.querySelector(f ? '.band-unfold' : '.band-fold');
+    if (tgt) setTimeout(function () { try { tgt.focus({ preventScroll: true }); } catch (e) { /* 무시 */ } }, 0);
+    return f;
+  };
+  /** 띠 안 [▴ 접기] 단추 + 접혔을 때 칩 '예측 대기 ▾' (label 로 바꿈) */
+  function bandFoldUI(label) {
+    var fold = btn([ico('chev-up', '▴', { cls: 'ico--lead' }), '접기', keyHint('V')], 'btn--outline band-fold', function () { SK.pop.fold(true); }, { title: '띠를 접고 그림 전부 보기 (V)' });
+    var unfold = btn([label || '예측 대기', ico('chev-down', '▾', { cls: 'ico--trail' })], 'btn--primary band-unfold', function () { SK.pop.fold(false); }, { title: '다시 펼치기 (V)' });
+    return { fold: fold, unfold: unfold };
+  }
+  if (typeof ResizeObserver === 'function') {
+    var bandRO = new ResizeObserver(function () { if (bandCur) bandLayout(); });
+    document.addEventListener('DOMContentLoaded', function () { if (SK.el.stage) bandRO.observe(SK.el.stage); });
+    setTimeout(function () { if (SK.el.stage) bandRO.observe(SK.el.stage); }, 0);
+  }
   function popIs(id) { return !!popCur && popCur.id === id; }
   function popCloseIf(ids) { if (popCur && ids.indexOf(popCur.id) >= 0) popClose('api'); }
   function popFocusables(root) {
@@ -3019,7 +3398,7 @@
     if (t.closest && (t.closest('.dialog-layer') || t.closest('.term-tip') || t.closest('.pop-scrim'))) return;
     popClose('outside');
   }, true);
-  window.addEventListener('resize', function () { if (popCur) popLayout(popCur); });
+  window.addEventListener('resize', function () { if (popCur) popLayout(popCur); if (bandCur) bandLayout(); });
 
   SK.dialog = function (o) {
     return new Promise(function (resolve) {
@@ -3143,8 +3522,8 @@
       var closed = false;
       function close(idx, num, runNow) {
         if (closed) return; closed = true;
-        if (popIs('predict')) popClose('silent');
-        modal = null; peek.off();
+        if (bandIs('predict')) bandClose('silent');
+        modal = null;
         SK.el.slide.classList.remove('is-modal');
         firePredict(false, o);
         if (idx === null && (num === null || num === undefined)) {
@@ -3226,40 +3605,42 @@
       var fig = null;
       if (o.figure) { fig = h('div', { class: 'predict__figure', 'aria-hidden': 'true' }); fig.innerHTML = o.figure; }
       var skip = h('button', { class: 'btn btn--outline predict__skip', type: 'button' }, '예측 없이 바로 실행');   // R6(S14): 밑줄 글 → 윤곽선 단추
-      var spaceT = 0;
-      function spaceHint() {
-        clearTimeout(spaceT);
-        showHint('보기를 고르거나 [예측 없이 바로 실행]을 눌러요'); hintEl.classList.add('is-alert');
-        spaceT = setTimeout(function () { hintEl.classList.remove('is-alert'); showHint(sel !== null || (numIn && numIn.value.trim()) ? HINT_AFTER : (choices.length ? '보기를 고르면 눌러져요' : HINT_AFTER)); }, 3000);
-      }
       skip.addEventListener('click', function (e) { blurOnMouse(e); close(null, null, true); });
-      var peek = peekButton(function () { return layer; });
+      var fold = bandFoldUI('예측 대기');   // R7-2(S1): [그림 보기] 대신 [▴ 접기] / 접힌 칩 '예측 대기 ▾'
       // R6(S7): 보기 3개가 모두 14자 이하(그림 없음)면 한 줄 3칸 — 창 높이를 줄인다
       var isShort = !fig && choices.length === 3 && choices.every(function (c) { return plain(c).length <= 14; });
       card = h('div', { class: 'predict' + (fig ? ' has-figure' : '') + (choices.length > 2 ? ' is-many' : '') + (isShort ? ' is-short' : '') + (o.place === 'top' ? ' predict--top' : ''), role: 'dialog', 'aria-modal': 'true', 'aria-label': '예측' }, [
-        h('div', { class: 'predict__top' }, [h('span', { class: 'predict__label', text: '먼저 예측해 보세요' }), o.tag ? h('span', { class: 'chip chip--sim', text: SK.tagText(o.tag) }) : null, handBtn]),
-        btn('✕', 'btn--quiet predict__close', function () { close(null, null); }, { 'aria-label': '예측 창 닫기', title: '닫기 (띠의 예측하기 버튼으로 다시 열 수 있어요)' }),
+        h('div', { class: 'predict__top' }, [h('span', { class: 'predict__label', text: '먼저 예측해 보세요' }), o.tag ? h('span', { class: 'chip chip--sim', text: SK.tagText(o.tag) }) : null]),
+        h('div', { class: 'predict__tools' }, [handBtn, fold.fold, btn('✕', 'btn--quiet predict__close', function () { close(null, null); }, { 'aria-label': '예측 띠 닫기', title: '닫기 (예측하기 단추로 다시 열 수 있어요)' })]),
         h('p', { class: 'predict__q' }, rich(o.question || '')),
         o.info ? h('p', { class: 'predict__info' }, rich(o.info)) : null,
         fig || btns.length ? h('div', { class: 'predict__mid' }, [fig, btns.length ? h('div', { class: 'predict__choices' }, btns) : null]) : null,
         numBox,
         h('div', { class: 'predict__foot' }, [hintEl, skip, okBtn])
       ]);
-      // R7: 바깥 상자 = SK.pop dock (가로 = 패널 자리 570u — 그림을 가리지 않는다, 세로 = 아래 시트 + [그림 보기])
-      card.appendChild(peek.btn);
-      var pp = SK.pop({ id: 'predict', kind: 'dock', head: false, body: [card], cls: 'pop--predict', outside: false, label: '예측',
+      // R7-2(S1): 바깥 상자 = SK.pop band (무대 위쪽 가로 띠 — 오른쪽 패널 슬라이더를 가리지 않는다, 세로에서도 띠)
+      card.appendChild(fold.unfold);
+      var pp = SK.pop({ id: 'predict', kind: 'band', head: false, body: [card], cls: 'pop--predict', outside: false, label: '예측',
         onClose: function () { if (!closed) close(null, null); } });
       layer = pp.el;
       SK.el.slide.classList.add('is-modal');   // R3: 모서리 칩·캔버스 위 버튼·카드 말풍선 숨김
       modal = {
         type: 'predict', close: function (v) { close(v, null); },
+        runNow: function () { close(null, null, true); },   // R7-2(팀장): SK.play 가 띠 열림 중 호출되면 예측 없이 실행
         shake: function () {
           card.classList.remove('is-shake'); void card.offsetWidth; card.classList.add('is-shake');
           taskAlertUntil = Date.now() + 3000; updateTask();
         },
         onKey: function (e) {
+          // R7-2(S2): 띠 밖(패널 슬라이더·단추·입력)에 포커스가 있으면 그 조작이 먼저
+          var tg = e.target, outside = tg && tg.nodeType === 1 && !layer.contains(tg) && tg !== document.body;
+          if (outside && (isTyping(tg) || (tg.tagName === 'INPUT' && tg.type === 'range' && /^(Arrow|Page|Home|End)/.test(e.code)) || (/^(BUTTON|SUMMARY|A|INPUT)$/.test(tg.tagName) && /^(Space|Enter|NumpadEnter)$/.test(e.code)))) return false;
+          if (e.ctrlKey || e.metaKey || e.altKey) return false;
           if (e.code === 'Escape') { close(null, null); return true; }
-          if (e.code === 'KeyV') { peek.on(); return true; }   // R5: V 누르는 동안 그림 보기
+          if (e.code === 'KeyV') { if (!e.repeat) SK.pop.fold(); return true; }   // V = 접기 / 펼치기
+          if (/^Key[UYJM]$/.test(e.code)) return false;   // ⚙·실험 ▾·설명·심플 은 통과
+          if (e.code === 'ArrowRight' || e.code === 'PageDown') { close(null, null); SK.nextStep(); return true; }   // 예측 건너뛰고 다음 단계
+          if (e.code === 'ArrowLeft' || e.code === 'PageUp') return true;
           var m = /^(?:Digit|Numpad)([1-9])$/.exec(e.code);
           if (m && +m[1] <= choices.length) { choose(+m[1] - 1); return true; }
           if (e.code === 'Enter' || e.code === 'NumpadEnter') {
@@ -3267,7 +3648,7 @@
             if (t && (t === skip || (t.tagName === 'BUTTON' && t !== okBtn && !t.classList.contains('predict__opt')))) return false;
             submit(); return true;
           }
-          if (e.code === 'Space') { modal.shake(); spaceHint(); return true; }   // R6(S14): 무엇을 눌러야 하는지 창 안에 한 줄
+          if (e.code === 'Space') { if (!e.repeat) close(null, null, true); return true; }   // R7-2(S2): Space = 예측 없이 바로 실행
           if (e.code === 'KeyF') return false;
           if (e.code === 'Tab') return false;
           return true;
@@ -3275,7 +3656,6 @@
       };
       firePredict(true, o);
       updateTask();
-      if (numIn && !choices.length) setTimeout(function () { numIn.focus(); }, 50);
     });
   };
 
@@ -3328,7 +3708,7 @@
   function normTake(t) {
     if (!t) return null;
     if (typeof t === 'string') return { line: t, more: '' };
-    if (typeof t === 'object' && (t.line || t.more)) return { line: t.line || '', more: t.more || '', lesson: t.lesson || null };
+    if (typeof t === 'object' && (t.line || t.more)) return { line: t.line || '', more: t.more || '', lesson: t.lesson || null, try: t.try || null };   // R7-2(팀장): try = {label, preset, set, chapter, predict} 후속 [해 보기]
     return null;
   }
   /** 해설 내용(카드·팝오버 공통): 1행 판정 → 2행 한 줄 → [왜 그럴까? ▾] */
@@ -3358,6 +3738,13 @@
       }
     }
     if (t && t.line) out.push(h('p', { class: 'note-line' }, rich(t.line)));
+    // R7-2(팀장): takeaway({…, try:{label, preset, set, chapter}}) → 후속 [해 보기 ▸] 한 줄 (UI팀1 요청 5 — pe-follow 끼워 넣기 대신)
+    if (t && t.try && (t.try.set || typeof t.try.preset === 'number')) {
+      var tq = {}; for (var tk in t.try) if (tk !== 'label') tq[tk] = t.try[tk];
+      if (!tq.chapter && t.lesson) tq.chapter = t.lesson;
+      if (tq.predict === undefined) tq.predict = false;
+      out.push(h('div', { class: 'note-try' }, [btn([h('span', null, rich(t.try.label || '이 값으로 해 보기')), ico('chev-right', '', { cls: 'ico--trail' })], 'btn--primary btn--sm note-try__btn', function () { SK.lessonTry(tq); })]));
+    }
     if (t && t.lesson) out.push(SK.lessonLink(t.lesson, '개념 다시 보기'));   // R7: takeaway({line, more, lesson:'장 id'})
     var whyKids = [];
     if (v && v.why) whyKids.push(h('p', null, rich(v.why)));
@@ -3454,11 +3841,11 @@
       if (!quiet) SK.notice(withJosa(labelOf(v), '으로/로') + ' 시작해요', 'info');
       if (!noAuto) autoPredictAfterMode();
     }
-    var peek = peekButton(function () { return layer; }), marker = null;
+    var marker = null;
     function closeLayer() {
-      if (layer) { layer = null; if (popIs('mode')) popClose('silent'); }
+      if (layer) { layer = null; if (bandIs('mode')) bandClose('silent'); }
       if (marker) { marker.remove(); marker = null; }
-      peek.off(); modal = null; SK.el.slide.classList.remove('is-modal');
+      modal = null; SK.el.slide.classList.remove('is-modal');
     }
     function open() {
       if (layer) return;
@@ -3481,10 +3868,12 @@
         h('p', { class: 'mode-card__sub', text: '하나를 누르면 바로 시작해요. 나중에 조절 패널 위 실험 고르기 버튼으로 바꿀 수 있어요.' }),
         h('div', { class: 'mode-opts', style: 'grid-template-columns:repeat(' + (modes.length === 4 ? 2 : Math.min(modes.length, 3)) + ',minmax(0,1fr))' }, opts)   // R6(S7): 4개면 2열
       ]);
-      // R7: 바깥 상자 = SK.pop dock (예측 창과 같은 자리)
-      card.appendChild(peek.btn);
-      var mp = SK.pop({ id: 'mode', kind: 'dock', head: false, body: [card], cls: 'pop--mode', outside: false, label: o.title || '무엇을 알아볼까요?',
-        onClose: function () { if (layer) { layer = null; if (marker) { marker.remove(); marker = null; } peek.off(); modal = null; SK.el.slide.classList.remove('is-modal'); pick(current, true, true); } } });
+      // R7-2(S1): 바깥 상자 = SK.pop band (예측 띠와 같은 자리)
+      var fold = bandFoldUI('실험 고르기');
+      card.insertBefore(fold.fold, card.firstChild);
+      card.appendChild(fold.unfold);
+      var mp = SK.pop({ id: 'mode', kind: 'band', head: false, body: [card], cls: 'pop--mode', outside: false, label: o.title || '무엇을 알아볼까요?',
+        onClose: function () { if (layer) { layer = null; if (marker) { marker.remove(); marker = null; } modal = null; SK.el.slide.classList.remove('is-modal'); pick(current, true, true); } } });
       layer = mp.el;
       // 예전 코드 호환: SK.el.stage.querySelector('.mode-layer') 로 '모드 창이 떠 있나' 를 보던 sim 용 표시(보이지 않음). 새 코드는 SK.choosingMode()
       marker = h('i', { class: 'mode-layer mode-layer--marker', 'aria-hidden': 'true', style: 'display:none' });
@@ -3495,8 +3884,8 @@
           var m = /^(?:Digit|Numpad)([1-9])$/.exec(e.code);
           if (m && +m[1] <= modes.length) { start(+m[1] - 1); return true; }
           if (e.code === 'Escape') { closeLayer(); pick(current, true, true); return true; }
-          if (e.code === 'KeyV') { peek.on(); return true; }
-          if (e.code === 'KeyF') return false;
+          if (e.code === 'KeyV') { if (!e.repeat) SK.pop.fold(); return true; }
+          if (e.code === 'KeyF' || /^Key[UYJM]$/.test(e.code)) return false;
           if (e.code === 'Enter' || e.code === 'NumpadEnter' || e.code === 'Space') return !(document.activeElement && document.activeElement.classList.contains('mode-opt')) || false;
           return e.code !== 'Tab';
         }
@@ -3587,6 +3976,7 @@
     for (var k in terms) {
       if (!Object.prototype.hasOwnProperty.call(terms, k)) continue;
       var t = terms[k];
+      if (lessonTerms[k]) continue;   // R7-2(S9): lesson terms 사전이 먼저
       if (t && typeof t === 'object') {
         termDict[k] = t.def || t.text || '';
         if (t.short) termShort[k] = t.short;
@@ -3671,7 +4061,10 @@
       ['[ ]', '속도 느리게 / 빠르게'], ['F', '전체 화면'], ['T', '조작판 접기 / 펴기'], ['?', '이 도움말'],
       ['Esc', '창 닫기 (두 번 누르면 허브로)'], ['H (3초 누르기)', '교사 모드 켜기 / 끄기'],
       ['U', '설정(⚙) 열기 / 닫기'], ['Y', '실험 고르기 (실험 ▾)'], ['M', '심플 / 자세히 바꾸기']
-    ].concat(lessonApi ? [['J', '교과 설명 열기 / 닫기'], ['설명 화면', '→ · Space 다음 장 · ← 이전 장 · Home / End · 1~9 장 고르기 · Esc 실험으로']] : []).concat(o.keys || []);
+    ].concat([['예측 띠', 'Space 예측 없이 실행 · → 건너뛰기 · V 접기 / 펴기 · 1~9 보기 고르기 · Enter 예측하기']])
+      .concat(lessonApi ? [['J', '교과 설명 열기 / 닫기'], ['설명 화면', '→ · Space 다음 장 · ← 이전 장 · Home / End · 1~9 장 고르기 · Esc 실험으로 · 마지막 장에서 → 실험 시작']] : [])
+      .concat(lessonApi && lessonApi.formulas && lessonApi.formulas().length ? [['ƒ 식', '계기판 왼쪽 ƒ 단추 — 식과 기호(기호를 누르면 실험의 값이 깜빡여요)']] : [])
+      .concat([['정리 단계', '→ · PageDown 한 번 더 = 정리 모달 · 모달에서 PageUp = 닫기']]).concat(o.keys || []);
     var kl = h('dl', { class: 'key-list' });
     keys.forEach(function (k) { kl.appendChild(h('dt', null, h('kbd', { text: k[0] }))); kl.appendChild(h('dd', { text: k[1] })); });
     var extra = guideKeys ? h('p', { class: 'var__hint', text: '이 실험 전용: ' + guideKeys }) : null;
@@ -3776,12 +4169,12 @@
           bs.forEach(function (x) { x.classList.remove('is-right', 'is-wrong'); x.setAttribute('aria-pressed', 'false'); });
           b.setAttribute('aria-pressed', 'true');
           fb.hidden = false; fb.innerHTML = '';
-          if (!o.answer) { fb.appendChild(h('p', { text: '고른 답: ' + plain(c) + ' — 친구와 이유를 이야기해 봐요.' })); if (o.why) fb.appendChild(h('p', { class: 'think-card__why' }, rich(o.why))); return; }
+          if (!o.answer) { fb.appendChild(h('p', null, ['고른 답: '].concat(rich(c), [' — 친구와 이유를 이야기해 봐요.']))); if (o.why) fb.appendChild(h('p', { class: 'think-card__why' }, rich(o.why))); return; }
           var hit = i + 1 === o.answer;
           b.classList.add(hit ? 'is-right' : 'is-wrong');
           if (!hit) bs[o.answer - 1].classList.add('is-right');
           fb.className = 'think-card__fb ' + (hit ? 'is-hit' : 'is-miss');
-          fb.appendChild(SK.iconify(h('p', { class: 'think-card__res' }, hit ? '✓ 맞았어요' : ['✗ 아니에요. 답은 ', h('b', { text: plain(o.choices[o.answer - 1]) })])));
+          fb.appendChild(SK.iconify(h('p', { class: 'think-card__res' }, hit ? '✓ 맞았어요' : ['✗ 아니에요. 답은 ', h('b', null, rich(o.choices[o.answer - 1]))])));   // R7-2(팀장): 판정 글의 수식도 조판
           if (o.why) fb.appendChild(h('p', { class: 'think-card__why' }, [h('b', { text: '이유 ' })].concat(rich(o.why))));
         });
         bs.push(b);
@@ -3795,13 +4188,32 @@
         ? h('details', { class: 'think-card__hintbox' }, [h('summary', { text: '힌트 보기' }), h('p', { class: 'think-card__hint' }, rich(o.hint))])
         : h('p', { class: 'think-card__hint' }, rich(o.hint));
     }
-    var noEl = h('span', { class: 'think-card__no', text: '질문' });
-    var card = h('div', { class: 'think-card', 'data-think': o.id || null }, [
+    var noEl = h('span', { class: 'think-card__no' }, o.no ? (typeof o.no === 'string' ? circText(o.no) : o.no) : '질문');
+    var card = h('div', { class: 'think-card' + (o.no ? ' has-no' : ''), 'data-think': o.id || null }, [
       noEl,
       h('p', { class: 'think-card__q' }, rich(o.q || '')),
       hintEl, choices, fb
     ]);
-    card._think = { id: o.id || null, when: typeof o.when === 'function' ? o.when : null, no: noEl };
+    card._think = { id: o.id || null, when: typeof o.when === 'function' ? o.when : null, no: o.no ? null : noEl };
+    /* R7-2(S5): 교사 [정답 공개] — 정답은 DOM 속성이 아니라 이 함수(클로저)에만 있다. on=false 면 되돌린다 */
+    var revealBox = null;
+    card._reveal = function (on) {
+      if (revealBox) { revealBox.remove(); revealBox = null; }
+      if (choices) {
+        var opts = choices.querySelectorAll('.think-card__opt');
+        for (var i = 0; i < opts.length; i++) { opts[i].classList.remove('is-right', 'is-wrong', 'is-revealed'); opts[i].setAttribute('aria-pressed', 'false'); }
+        fb.hidden = true; fb.innerHTML = ''; fb.className = 'think-card__fb';
+      }
+      if (!on) return;
+      var kids = [];
+      if (choices && o.answer && opts[o.answer - 1]) { opts[o.answer - 1].classList.add('is-right', 'is-revealed'); kids.push(SK.iconify(h('p', { class: 'think-card__res' }, ['✓ 정답 ', h('b', null, rich(o.choices[o.answer - 1]))]))); }
+      else if (o.teacherAnswer) kids.push(SK.iconify(h('p', { class: 'think-card__res' }, ['✓ 정답 ', h('b', null, rich(String(o.teacherAnswer)))])));
+      var why = o.answer ? o.why : o.teacherWhy;
+      if (why) kids.push(h('p', { class: 'think-card__why' }, [h('b', { text: '이유 ' })].concat(rich(why))));
+      if (!kids.length) return;
+      revealBox = h('div', { class: 'think-card__fb is-hit is-reveal' }, kids);
+      (choices || card.querySelector('.think-card__q')).insertAdjacentElement('afterend', revealBox);
+    };
     if (o.reveal) SK.reveal(card, o.reveal);
     if (o.lesson) card.appendChild(SK.lessonLink(o.lesson));   // R7: '설명 N장 · 제목 다시 보기'
     (o.where ? resolveWhere(o.where) : SK.el.thinkList).appendChild(card);
@@ -4127,6 +4539,7 @@
       wrap.appendChild(moreBtn);
     }
     host.appendChild(wrap);
+    if (lessonApi) setTimeout(function () { markMeterLinks(wrap); if (moreBox) markMeterLinks(moreBox); }, 0);   // R7-2: 라벨 → 식 팝업
     var api = {
       el: wrap, moreEl: moreBox, moreBtn: moreBtn,
       set: function (key, v) {
@@ -4273,12 +4686,15 @@
       b.addEventListener('click', function () { closePop(true); fn(); });
       m.appendChild(b);
     }
-    // R2(B2) · R7: 전체 화면 · 도움말 · 교사 모드 · 조작판 접기 · 수업 정보 / 구분선 / 기록 모두 지우기
-    item('전체 화면 켜기 / 끄기', function () { SK.toggleFullscreen(); }, null, 'expand');
-    item('도움말 열기', function () { SK.toggleHelp(true); }, null, 'help');
+    // R7-2(S3): 기록 n/5 · 정리 / 구분선 / 도움말 · 전체 화면 · 수업 정보 · 교사 모드 · 조작판 접기 / 구분선 / 기록 모두 지우기
+    //   기록·정리·도움말·전체 화면은 머리줄에서 옮겨 온 단추 노드 그대로(SK.el.btnRecords 등) — 숨김(hidden)도 그대로 따른다
+    var E = SK.el, lead = false;
+    [E.btnRecords, E.btnThink].forEach(function (b) { if (b) { m.appendChild(b); if (!b.hidden) lead = true; } });
+    if (lead) m.appendChild(h('hr'));
+    [E.helpBtn, E.fsBtn].forEach(function (b) { if (b) m.appendChild(b); });
+    item('수업 정보 · 교사용', function () { setTimeout(toggleInfo, 0); }, null, 'info');
     item(SK.isTeacher() ? '교사 모드 끄기' : '교사 모드 켜기', function () { SK.toggleTeacher(); });
     if (!simpleOn) item(SK.el.slide.classList.contains('is-collapsed') ? '조작판 다시 펴기' : '조작판 접기 (실험 화면 크게)', function () { SK.toggleCollapse(); });
-    item('수업 정보 · 교사용', function () { setTimeout(toggleInfo, 0); }, null, 'info');
     if (drawerEl && SK.isTeacher()) item('수업 안내(교사)', function () { SK.toggleGuide(true); });
     m.appendChild(h('hr'));
     item('기록 모두 지우기…', function () { SK.clearRecords(); }, 'is-danger');
@@ -4344,10 +4760,14 @@
       // R7: 설명 층이 열린 동안은 실험 키를 모두 잠그고 설명 키(장 넘김)만
       if (lessonOpenNow()) { lessonApi.onKey(e); return; }
       if (popCur && code === 'Tab') { popTrapTab(e); return; }
-      if (modal) {
+      // R7-2(S2): 예측·모드 띠(band)는 다른 팝업과 함께 열릴 수 있다 — 위에 팝업이 있으면 그 팝업 키가 먼저
+      var bandModal = !!(modal && (modal.type === 'predict' || modal.type === 'mode'));
+      if (modal && !(bandModal && popCur)) {
         if (modal.onKey(e)) { e.preventDefault(); return; }
-        if (code === 'KeyF' && !isTyping(e.target)) { e.preventDefault(); SK.toggleFullscreen(); }
-        return;
+        if (code === 'KeyF' && !isTyping(e.target)) { e.preventDefault(); SK.toggleFullscreen(); return; }
+        // 띠가 열린 동안 U·Y·J·M(⚙·실험 ▾·설명·심플)과 띠 밖 조작(슬라이더·단추)은 그대로
+        if (!bandModal) return;
+        if (!/^Key[UYJM]$/.test(code)) return;
       }
       // R7: 팝업이 열린 동안 — Esc 먼저, 나머지는 팝업 onKey, 글자 키는 막는다(J·U·Y·F·M 만 통과)
       if (popCur) {

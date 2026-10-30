@@ -1,9 +1,114 @@
-# SimKit — 공통 틀 사용 설명서 (개발자용, R2 고도화 2차 + R3 디테일 + R4 태블릿·글꼴·아이콘 + R5 세로 배치·예측 창·교사 발표 + R6 심플 모드 + R7 교과 설명·팝업 틀)
+# SimKit — 공통 틀 사용 설명서 (개발자용, R2 고도화 2차 + R3 디테일 + R4 태블릿·글꼴·아이콘 + R5 세로 배치·예측 창·교사 발표 + R6 심플 모드 + R7 교과 설명·팝업 틀 + R7-2 예측 띠·식 팝업·형성평가)
 
 > 작성: 에듀테크1(디자인 리드) · 2026-10-28
 > 근거: `docs/개선/R1_계획.md` §2(디자인 방향)·§3(A1~A18, H1~H2) · 이전 판: `docs/04_팀장결정서.md`
 > 다섯 시뮬레이터는 이 틀 **위에서만** 만든다. `shared/` 를 고칠 일이 생기면 디자인 리드에게 요청한다.
 > 바로 동작하는 예제: `sims/_template/index.html` (= `shared/TEMPLATE.html`) — R2 새 API 를 모두 씀.
+
+---
+
+## 0R7-2. R7 2차에서 바뀐 것 (2026-10-30, UI팀1) — 먼저 읽기 · UI팀2·3 은 여기부터
+
+> 근거: `docs/개선/R7_2차_계획.md` §1·§3-S(S1~S16). 바뀐 것: **예측 띠**(`kind:'band'`) · **머리줄 4개** · **[ƒ 식] 팝업 + 기호 ↔ 실험 강조** · **용어 사전 `terms`** · **정리 모달 = 형성평가 3문항 + 교사 [정답 공개]** · 설명 층(wrap 제외·성취기준/더 보기 접힘·글자 단계·넘침 경고·목차·탭·오해 카드·세로 그림 위치) · `?view=sim` 시트 자동 열기 삭제 · 허브 ⋯·분할 단추. 기능은 없애지 않았다. 하위 호환: lesson 에 새 필드가 없으면 예전처럼 보인다(식 팝업·탭·오해 [해 보기]·정리 문항은 데이터가 있을 때만). 검사 캡처 `_review/R7/2차/UI1/shared_*`.
+
+### 0R7-2-1. 예측 띠 `SK.pop({kind:'band'})` (S1·S2)
+- `SK.predict`·`SK.chooseMode` 의 바깥 상자가 dock(패널 자리) → **무대 안 위쪽 가로 띠**. left/right 16u, top `var(--band-top, 16u)`, 높이 ≤ 240u, 스크림 없음, 바깥 눌러도 안 닫힘. **세로·좁은 폭에서도 시트가 아니라 띠**(패널 슬라이더를 가리지 않는다). 패널은 예측 중에도 보이고 조작된다(`is-modal` 은 모서리 칩·토스트만 숨김).
+- 띠는 `popCur` 와 별도 한 칸(`SK.pop.band` = 열린 띠 id). ⚙·[실험 ▾]·⋯ 를 띠 위에 열어도 띠는 남는다(그 팝업 키·Esc 가 먼저).
+- 배치: `[질문 ≤2줄 ……… 손들기(교사)·▴ 접기·✕]` / `[안내 1줄]` / `[그림 180u | 보기 칩 가로 56u]` 또는 `[숫자] m` ……… `[예측하기][예측 없이 바로 실행]`.
+- **sim 이 할 일**: 무대 위쪽에 칩 줄이 있으면 띠가 그 아래로 오게 `--band-top` 을 준다. 예) 슬릿 `.sim-stage { --band-top: calc(72 * var(--u)); }` (sim CSS 에).
+- `SK.pop.fold(on?)` 접기/펴기 → 접히면 왼쪽 위 칩 '예측 대기 ▾'(44u)만. [그림 보기](peek, V 누르는 동안)는 띠에서 쓰지 않는다(`peekButton` 함수는 남김).
+- 키(띠 열린 동안): **Space = 예측 없이 바로 실행** · **→/PageDown = 예측 건너뛰고 다음 단계** · ← PageUp 무시 · **V = 접기/펴기** · 1~9 보기 · Enter 예측하기 · Esc 닫기 · **U·Y·J·M·F 통과** · 띠 밖(패널 슬라이더·단추·입력)에 포커스가 있으면 그 조작이 먼저. 숫자 입력칸 **자동 포커스 없음**.
+- 띠가 열린 동안 `.sim-task` 의 [예측하기]는 숨김(띠 안 하나만).
+
+### 0R7-2-2. 머리줄 4개 · ⋯ 메뉴 (S3)
+- `.sim-top__tools` = **[설명][실험 ▾][⚙ 설정][⋯]**. 1280 이하·교사 모드에서도 설명·실험·설정 글자 유지(세로 820 은 아이콘만).
+- `SK.el.btnRecords`·`btnThink`·`helpBtn`·`fsBtn` 노드는 **⋯ 메뉴 항목으로 이동**(이름·토글 함수·aria 그대로, `role=menuitem`). 순서: 기록 n/5 · 정리 · ─ · 도움말 · 전체 화면 · 수업 정보 · 교사 모드 · 조작판 접기 · (수업 안내) · ─ · 기록 모두 지우기.
+- ⋯ 단추 배지 `SK.el.moreBadge` = 기록 수(1개 이상일 때만). 기록·정리 모달의 포커스 복귀 단추 = ⋯.
+- 머리줄 칩 '카드 ③' → **'실험 ③'**. 심플 머리줄 = ⋯ 하나.
+
+### 0R7-2-3. [ƒ 식] 팝업 · 기호 → 실험 강조 (S4)
+- `.sim-band` 맨 왼쪽(띠 격자 밖, `.sim-band.has-formula` 왼쪽 여백 64u) **[ƒ 식]** `SK.el.formulaBtn`, 심플 막대 [설명] 옆 **[ƒ]** `SK.el.simple.formulaBtn`. lesson 에 `eq` 가 있는 장이 하나도 없으면 숨김.
+- `SK.formulaPop({ch?, sym?, target?, anchor?})` → `SK.pop({id:'formula', kind:'popover', overlap:true, maxH:640, cls:'pop--formula'})` (폭 520u, 높이 ≤ 640u — 팀장: 360u 는 1280 에서 240px 뿐이라 기호 칩이 숨었음, 무대 왼쪽 아래, 세로 = 시트). 내용: 장 칩 줄(식 있는 장, 기본 = 지금 카드 장의 가장 가까운 앞 식 장) · 장 제목 · `eq` · **기호 칩**(`<button class="sym-chip" data-sym>` ≥ 44u — 누르면 `SK.flashTarget(target)`) · `now()` 한 줄 · [설명 N장 ↩] · `more`(더 알아보기, 교사 펼침). 심플 = 식 + 기호 칩만.
+- `SK.flashTarget(target, ms=1500)` — target 해석:
+  | target | 동작 |
+  |---|---|
+  | `'v0'` (SK.controls 키) | 패널에 보이면 `SK.flash(k, ms)` + 1.5초 단원색 테두리 + 말풍선 `.flash-tip`(라벨). ⚙ 안이면 [⚙] 단추 깜빡임 + 토스트 '⚙ 설정 › 더 많은 설정에 있어요' |
+  | `'meter:vx'` | `.meter[data-key=vx]` 테두리 깜빡임(수치 더 보기 안이면 토스트) |
+  | `'bar:Ek'` · `'stage:ray1'` | `SK.isFlashing('bar:Ek')` 가 ms 동안 true(render 에서 그림) + 등록 콜백 `SK.flashTargets['bar:Ek'](ms)` |
+  | `'record:R'` | 토스트 '기록 표(⋯ › 기록)에서 봐요' |
+  | `{physics:'d', quantum:'dR'}` | 지금 갈래 값(`SK.currentBranch()` = chooseMode 값 또는 `cfg.presetModes[0].key` 의 값)으로 고른다 |
+  없는 키는 `console.warn` 한 번(갈래가 있는 sim 에서 다른 갈래의 계기면 경고 대신 토스트 '다른 실험 갈래에서 보이는 값이에요' — 팀장). 등록: `SK.addFlashTarget('bar:Ek', function (ms) { … })` 또는 `SK.flashTargets['bar:Ek'] = fn`.
+- 계기판 라벨: lesson `symbols[].target` 에 `'meter:<key>'` 가 있는 계기는 라벨에 점선 밑줄(`.meter.has-formula`) → 누르면 그 장 식 팝업(기호 칩 강조).
+- 설명 층 기호표의 기호 칸 = 단추 → 그림 속 같은 기호(`D.label(x,y,t,{sym:'v_0'})` 의 `data-sym`) 1.2초 강조. 실험 화면으로 가지 않는다.
+- `SK.nowValues()` = 실행 뒤 `cfg.capture(params).values`(실행 전 `{}`) — `now(p, values, {finished, records})` 셋째 인자로 누출 판단.
+
+### 0R7-2-4. lesson 데이터 형식 추가 (S6·S9~S13)
+```js
+SimKit.lesson({ slug, title, unit /* 없으면 SimKit.init 의 unit */, standards, simple,
+  terms: [ { term: '운동 에너지', sym: '$E_k$', unit: 'J', mean: '½$mv$² — 움직이는 물체가 가진 에너지', where: 'bar:Ek' } ],   // SK.term 풀이가 이것을 먼저 · SK.termSym('운동 에너지') → '$E_k$'
+  chapters: [
+    { id: 'split-v', type: 'formula', title: '…', body: [...], eq: [{ tex: '$v_x = v_0 \\cos θ$', caption: '…' }, { tex: '$R$ =', frac: ['$v_0^2 \\sin 2θ$', '$g$'] }],
+      symbols: [ { sym: '$v_0$', name: '처음 속력', unit: 'm/s', target: 'v0' },            // name·unit 은 terms 에 같은 sym 이 있으면 생략 가능
+                 { sym: '$d$', target: { physics: 'd', quantum: 'dR' } } ],
+      now: function (p, v, st) { return '$v_0$ = ' + p.v0 + ' m/s → $v_x$ = ' + (p.v0 * Math.cos(p.theta * Math.PI / 180)).toFixed(1) + ' m/s'; },   // 식 팝업 '지금 값' 한 줄
+      try: { label: '$v_0$ 20 으로 해 보기', preset: 0, set: { v0: 20 } } },               // 개념 장 아래 [해 보기 ▸] 한 줄
+    { id: 'misc', type: 'misconception', title: '흔한 오해', items: [
+      { id: 'heavy', claim: '"무거운 공이 더 빨리 떨어져요."', why: '…', chapter: 'two-motions',
+        try: { preset: 2, set: { m: 3 } }, result: '실험 결과: 3 kg 도 같은 시간에 떨어졌어요.' } ] },   // 카드 = 오해 · 내 생각[맞다][아니다] · [해 보기 ▸] · 실제로는(고른 뒤) · 실행이 끝나면 '깨졌어요 ✓ + result'
+    { id: 'check', type: 'check', title: '…',
+      tabs: [ { id: 'light', label: '빛으로', mode: { key: 'entry', value: 'physics' } }, { id: 'electron', label: '전자로', mode: { key: 'entry', value: 'quantum' } } ],   // 기본 탭 = 지금 갈래
+      questions: [ { q: '…', tab: 'light', preset: 0, chapter: 'dy' } ] },
+    { id: 'wrap', type: 'wrap', title: '실험 뒤 정리', summary: ['…'],        // 설명 순서에서는 빠진다(데이터는 정리 모달용)
+      quiz: [   // 정확히 3개 — kind concept · calc · misconception, answerIdx 0부터
+        { kind: 'concept', q: '…', choices: ['…', '…', '…'], answerIdx: 1, why: '…', chapter: 'two-motions', try: { preset: 0, set: { v0: 20 } } },
+        { kind: 'calc', q: '…', choices: [...], answerIdx: 2, why: '… ($g$ = 10 으로 계산)', chapter: 'range', try: { preset: 0, set: { gEarth: 10, h: 20, v0: 10, theta: 0 } } },
+        { kind: 'misconception', q: '"…" 맞을까?', choices: ['맞다', '아니다'], answerIdx: 1, why: '…', chapter: 'misc' } ],
+      more: [ { q: '…', answer: '…', why: '…', chapter: 'symmetry' } ] }   // '더 생각하기' 심화 — 정답은 교사 [정답 공개]에서만
+  ] });
+```
+- `SK.lesson` 검사(콘솔 경고만): quiz ≠ 3 · `answerIdx` 없음/범위 밖 · `try.set` 에 없는 키(quiz·items·장 try) · 오해 try 인데 `id` 없음 · `goals` > 3.
+- 넘침 경고: 가로 화면에서 장 글 칸이 넘치면 `SimLesson(R7-2): N장 "제목" 글이 N px 넘쳐요` (세로는 한 겹 스크롤 허용). **1280×720 자세히에서 경고 0** 이 검사 기준.
+- 장 `eq[].after`: 분수 뒤에 붙는 글(`{ tex:'$g$ =', frac:['$GM$','$r^2$'], after:'(지표)' }`). 도식은 `D.frac(x, y, '$GM$', '$r^2$', {size})`.
+- 저장 키 추가: `physsim.lesson.<slug>.broke`(깨진 오해 id 배열) · `physsim.lesson.fs`('large').
+
+### 0R7-2-5. 정리 모달 (S5)
+- ⋯ › 정리 / 단계 ④ 자동 / **단계 ④에서 →·PageDown 한 번 더** → `pop--think` 모달(한 열): ① 오늘 기록 칩(기록이 있을 때) ② **확인 문제 3개**(`SK.think` 재사용 — 고르면 즉시 정오·이유, [이 값으로 해 보기] = `SK.lessonTry(try)`) ③ `details` **'더 생각하기 (n)'** 안에 sim 의 기존 `SK.think(...)` 카드 전부 + `wrap.more`. 퀴즈가 없으면 ③ 이 펼친 채 '정리 질문'(예전과 같음).
+- 교사 모드에서만 머리줄 **[정답 공개]** 토글(정답 보기 `is-right` + ✓ + 이유). 정답은 DOM 속성이 아니라 카드의 `card._reveal(on)` 클로저에만 있다(학생 DOM 에 단추·정답 0).
+- 바닥 [설명 다시 보기][닫기]. 모달 키: **PageUp = 닫기**. 기록 모달: PageDown = 닫고 다음 단계(정리), PageUp = 닫기.
+- `SK.think(o)` 추가 옵션: `no`(번호 표시 — 글 '①' 또는 노드 배열), `teacherAnswer`·`teacherWhy`(보기 없는 예전 문항의 교사 공개용).
+
+### 0R7-2-6. 설명 층 (S6·S7·S12·S13)
+- 머리줄 `N / M · 단원 ▾` = **목차 팝오버**(장 제목·읽음 점, ↑↓·Enter·Esc). **[바로 실험] 늘 보임**(첫 진입 '바로 실험', 실험 중 '실험으로'). **Esc 는 첫 진입에서도 실험으로.** 마지막 장에서 →·PageDown·Space = 실험 시작.
+- 성취기준 = 접힘 칩 '성취기준 N ▸'(교사 펼침). `life`·`more` = 하나의 '더 보기'(생활 속에서 → 더 알아보기).
+- ⚙ 설정 › 화면 구성 › **설명 글자 [보통 | 크게]** (`html[data-lesson-fs=large]`: 본문 32 → 38u, 식 40 → 46u). 실험 화면은 그대로.
+- 세로 820: 그림을 제목·질문 바로 뒤(글 칸 안)로 옮기고 높이 35vh, 목차 단추는 'N / M' 만.
+- 확인 질문 카드 칩 '카드 ①' → **'실험 ①'**.
+
+### 0R7-2-7. 쿼리 · 허브 (S8·S14)
+- `?view=sim` 에서 [실험 ▾] 시트를 **저절로 열지 않는다**. 갈래는 `&mode=` (없으면 sim 기본 갈래).
+- 허브 머리줄 = [심플 | 자세히] + ⋯(교사 모드 · 키보드 안내). 슬릿·궤도 카드 = **[바로 실험][▾]** 분할 단추(빛/전자 · 대포/위성/케플러 → `?view=sim&mode=…`). 흐름 칩 '설명 N장 → 실험 5가지 → 정리 3문항'(약 45분은 title). **설명 장 수는 index.html `SIMS[].chapters`** — 각 sim 이 장 수를 바꾸면 이 숫자도 맞춘다(지금: 9 · 11 · 9 · 11 · 11 = 2차 계획 §1-10 결정 1).
+
+### 0R7-2-9. 팀장 마무리 (통합 검사 뒤 공통 틀에 더한 것, 2026-10-30) — UI팀 shared 요청 처리
+| 요청 | 처리 |
+|---|---|
+| 해 보기 직후 [▶ 실행]에 포커스가 있으면 Space 가 아무 일도 안 함(UI팀1·3) | `SK.play()` 가 예측 띠 열림 중 불리면 `modal.runNow()` = **예측 없이 바로 실행**(흔들기 아님). [▶ 실행] 클릭도 같다 |
+| 1280 식 팝업이 작아 기호 칩이 숨음(UI팀1·3) | `maxH` 360 → **640u** |
+| 기호표 칩 줄 공통(UI팀1) | `shell.css .lesson__sym` = **기호 칩 줄**(표 머리 없음, 단위는 작은 글자 `.lesson__symunit`), `.lesson__eqrow` 는 식 옆 설명(모자라면 아래로). `projectile-energy.css` 의 임시 규칙 삭제 |
+| 분수 칸의 `\sin`(UI팀1) | `eqBox` 가 `frac` 두 칸에도 `fnTex` 적용 |
+| 정답 공개·판정 글의 수식(UI팀1) | `SK.think` 판정·공개·'고른 답' 글이 `rich()` 로 조판 |
+| takeaway 해 보기 자리(UI팀1) | `SK.takeaway({line, more, lesson, try:{label, preset, set, chapter, predict}})` → 해설 카드·해설 팝 모두 '개념 다시 보기' 앞에 **[해 보기 ▸]**(`.note-try`). 포물선 `pe-follow` MutationObserver 삭제 |
+| 교사 모드 넘침 경고(UI팀1·3) | **교사 모드는 경고 제외**(성취기준·교사 메모·더 보기가 펼쳐지는 것이 정상, 스크롤 허용). 모든 모드에서 글 칸이 넘치면 아래에 **'↓ 이어서' 띠**(`.lesson__text.is-over::after`, 끝까지 내리면 사라짐) |
+| 오해 카드 4개 '깨졌어요' 뒤 넘침(UI팀3) | 깨진 카드 = 깨졌어요 ✓ + result 한 줄 · 오해 · [해 보기] 만. 내 생각 칩은 빼고 '실제로는' 은 단추로 펼침(교사는 펼침) |
+| `$` 없는 한글 기호·분수(UI팀3) | `.lesson__symbtn.is-txt`·`.sym-chip__s.is-txt`·`.frac__txt` 는 본문 글꼴 |
+| 단계 안내 '실험 카드를 고르고'(UI팀2) | '실험을 고르고 결과를 먼저 예측해요' · ⚙ '실험 바꿀 때 예측 띠 자동으로 띄우기' · 예측 띠 ✕ 라벨 |
+| 식 팝업 기본 장이 다른 갈래(팀장 발견) | `chapterForPreset` 이 `card`(0부터)도 읽고, check 장 탭·`mode` 가 지금 갈래와 같은 질문을 먼저 고른다 |
+| 슬릿 띠가 '확대 보기' 라벨에 걸침 | `--band-top` 72 → 84u · 충돌 `Δv = Δp/m`, 슬릿 `λ = h/p` 를 `frac` 로 |
+| 해 보기 뒤 J·[설명] 이 칩과 다른 장을 열음 | `SK.lessonOpen()` 은 머리줄 '설명 N장 ↩' 칩이 보이면 그 장을 연다(없으면 지금 카드의 장) |
+| 기호 칩 줄의 단위 | 1600px 미만에서는 숨김(식 팝업·용어 풀이에 있음) — 1280 에서 두 줄로 접혀 넘치던 원인 |
+| 글 칸 안 식 상자 | `.lesson__text .lesson__eqs` 는 padding 3·4, gap 2(식 팝업은 그대로) |
+
+### 0R7-2-8. 회귀 확인 목록 (UI팀1 확인함)
+예측 → 보기/숫자 → 실행 → 판정 · 손들기(교사) · `firePredict` · 띠 열린 채 Space 실행 · V 접기 · ⋯ › 기록·정리·도움말·전체 화면 · 기록 배지 · [ƒ] → 기호 → 슬라이더·계기 깜빡임 · ⚙ 안 값 안내 · 정리 3문항 정오 · 교사 [정답 공개] · 단계 ④ PageDown → 정리 · 설명 마지막 장 → 실험 시작 · 목차 · 탭 · 오해 [해 보기] → 실행 → '깨졌어요 ✓' · `?view=sim` 시트 없음 · 심플 [ƒ] · 1920·1280·1180·820 · 콘솔 오류 0 · 물리 계산 diff 0(shared 만 수정).
 
 ---
 

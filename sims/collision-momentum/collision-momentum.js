@@ -246,6 +246,7 @@
   var SK = root.SimKit;
   var DT = 1 / 600;                        // 고정 화면 시간 간격 (s)
   var SX = 240, X0 = 625, RAIL0 = 334, RAIL = RAIL0;      // 1 m = 240u, x=0 → 625u, 레일 y
+  var RAILB = RAIL0;                       // R7-2: 화면 크기로 정한 레일 y — 예측 띠가 열린 동안만 RAIL 을 그 아래로 내린다(bandShift)
   var TS = 22, CS = 1;                     // R6(B7): 심플이면 캔버스 글자 28u · 수레 높이 1.5배 (물리·좌표 계산은 그대로)
   var K = 1;                               // R5(R4 b): 세로 여유가 있을 때 장면 세로 축척(수레 높이·화살표·글자) — 16:9 는 1
   var LOW = { x: 16, y: 432, w: 1218, h: 218 };   // 아래 그래프 판 (R5: 트랙 설명 아래 · 세로 여유가 있으면 장면을 키우고 남는 만큼 h 가 늘어남)
@@ -278,8 +279,8 @@
   function onStageResize(view) {
     K = view.extra > 0 ? Math.min(1.4, view.hFull / view.h) : 1;
     view.offsetY = 0;
-    RAIL = RAIL0 + (K - 1) * 190;
-    LOW.y = RAIL + 98 * K;
+    RAIL = RAILB = RAIL0 + (K - 1) * 190;
+    LOW.y = RAILB + 98 * K;
     LOW.h = view.h + view.extra - 10 - LOW.y;
   }
 
@@ -307,7 +308,7 @@
       } },
       { text: function () {
         if (SK.records.length < 2) return '기록이 2개 있어야 비교해요 (지금 ' + SK.records.length + '개)';
-        return '표에서 ‘p 보존?’ ‘K 보존?’ 열을 봐요';
+        return '표에서 ‘$p$ 보존?’ ‘$E_k$ 보존?’ 열을 봐요';
       } },
       { text: '오른쪽 질문에 답하며 정리해요' }
     ],
@@ -415,7 +416,7 @@
 
   /* ---------- 5. 더 많은 설정 ---------- */
   SK.addVar('deep', { key: 'v2', label: 'B 처음 속도', symbol: 'v_2', unit: 'm/s', min: -3, max: 3, step: 0.5, value: 0, decimals: 1, precision: 2, ticks: [-3, 0, 3],
-    hint: '마주 보고 부딪치게 하려면 − 로 바꿔요(트럭 vs 승용차 카드).' });
+    hint: '마주 보고 부딪치게 하려면 − 로 바꿔요(실험 ③ 트럭 vs 승용차).' });
   SK.addVar('deep', {
     key: 'e', label: '반발 계수', symbol: 'e', unit: '', min: 0, max: 1, step: 0.1, value: 1, decimals: 1, precision: 2,
     ticks: [0, 0.5, 1], record: false,
@@ -443,16 +444,6 @@
     }
   });
 
-  /** R7: '아래에 더 있어요' 막대가 한 번 뜨면 그 높이만큼 패널이 줄어 다시 숨지 않는다(공통 checkMore 이력 현상 — shared 요청).
-      패널 내용이 바뀐 뒤 막대 높이를 더한 높이로 다시 재서, 실제로 넘치지 않으면 숨긴다(넘치면 공통 틀이 그대로 둠) */
-  function recheckPanelMore() {
-    setTimeout(function () {
-      var s = SK.el.panel, b = SK.el.panelMore;
-      if (!s || !b || b.hidden) return;
-      var pad = parseFloat(getComputedStyle(s).paddingBottom) || 0, bh = b.getBoundingClientRect().height;
-      if (s.scrollHeight - s.scrollTop - (s.clientHeight + bh) - pad <= 6) { b.hidden = true; s.classList.remove('has-more'); }
-    }, 0);
-  }
   /** 장면에 따라 보이는 변수 바꾸기 (패널에 보이는 값 기준) */
   function syncPanel() {
     var m = SK.get('mode');
@@ -478,7 +469,6 @@
     var lp = mq('[data-key="p"] .meter__label'), lk = mq('[data-key="k"] .meter__label');
     if (lp && lp.lastChild) lp.lastChild.textContent = m === 'wall' ? ' (전 → 후)' : ' 합 (전 → 후)';
     if (lk && lk.lastChild) lk.lastChild.textContent = m === 'wall' ? ' (전 → 후)' : ' 합 (전 → 후)';
-    recheckPanelMore();
     SK.requestRender();
   }
 
@@ -500,15 +490,15 @@
   var rule = buildRuleCard();
   SK.recordTable(null, {
     columns: [
-      { key: 'pOK', label: 'p 보존?', unit: '', from: 'value', priority: 1 },
-      { key: 'kOK', label: 'K 보존?', unit: '', from: 'value', priority: 1 },
-      { key: 'pAB', label: 'p 합 전→후', unit: 'kg·m/s', from: 'value', priority: 1, text: function (r) { return fmt(r.values.pb, 2) + ' → ' + fmt(r.values.pa, 2); } },
-      { key: 'kAB', label: 'K 합 전→후', unit: 'J', from: 'value', priority: 2, text: function (r) { return fmt(r.values.kb, 2) + ' → ' + fmt(r.values.ka, 2); } },
+      { key: 'pOK', label: '$p$ 보존?', unit: '', from: 'value', priority: 1 },
+      { key: 'kOK', label: '$E_k$ 보존?', unit: '', from: 'value', priority: 1 },
+      { key: 'pAB', label: '$p$ 합 전→후', unit: 'kg·m/s', from: 'value', priority: 1, text: function (r) { return fmt(r.values.pb, 2) + ' → ' + fmt(r.values.pa, 2); } },
+      { key: 'kAB', label: '$E_k$ 합 전→후', unit: 'J', from: 'value', priority: 2, text: function (r) { return fmt(r.values.kb, 2) + ' → ' + fmt(r.values.ka, 2); } },
       { key: 'kind', label: '충돌 종류', unit: '', from: 'param', priority: 2, text: function (r) { return r.params.mode === 'separate' ? '–' : SK.valueText('kind', r.params.kind); } },
       { key: 'tau', label: '범퍼', unit: '', from: 'param', priority: 2 },
       { key: 'v1f', label: 'v₁′', unit: 'm/s', decimals: 2, from: 'value', priority: 2 },
       { key: 'v2f', label: 'v₂′', unit: 'm/s', decimals: 2, from: 'value', priority: 2 },
-      { key: 'J', label: '충격량', unit: 'N·s', decimals: 2, from: 'value', priority: 2 },
+      { key: 'J', label: '충격량 $I$', unit: 'N·s', decimals: 2, from: 'value', priority: 2 },
       { key: 'fmax', label: '최대 힘', unit: 'N', decimals: 1, from: 'value', priority: 2 },
       { key: 'mode', label: '장면', unit: '', from: 'param', priority: 3 },
       { key: 'm1', label: 'm₁', unit: 'kg', from: 'param', priority: 3 },
@@ -685,6 +675,19 @@
     }
   }
   setTab('p');
+  /* R7-2(B6): 식 팝업 기호 → 실험 화면 강조 — 그래프 판의 탭을 그 그래프로 바꾸고 판 테두리를 깜빡인다
+       'bar:p' 운동량 막대 · 'stage:force' 힘-시간(충격량 I = 넓이) · 'bar:k' 운동 에너지 막대 */
+  function flashLower(id, ms) {
+    setTab(id);
+    [lowerEl, tabBtns[id]].forEach(function (el) {
+      if (!el || el.offsetParent === null) return;
+      el.classList.remove('is-flash-long'); void el.offsetWidth; el.classList.add('is-flash-long');
+      clearTimeout(el._cmFlash); el._cmFlash = setTimeout(function () { el.classList.remove('is-flash-long'); }, ms || 1500);
+    });
+  }
+  SK.addFlashTarget('bar:p', function (ms) { flashLower('p', ms); });
+  SK.addFlashTarget('stage:force', function (ms) { flashLower('f', ms); });
+  SK.addFlashTarget('bar:k', function (ms) { flashLower('k', ms); });
   var lowerBox = '';
   function placeLower(view) {
     var s = view.scale, key = [view.ox, view.oy, s, view.offsetY, LOW.y, LOW.h].join(',');
@@ -821,7 +824,7 @@
   }
   SK.help({
     how: [
-      '아래 실험 카드를 누르면 값이 바뀌고 예측 질문이 나와요. 답을 고르고 예측하기를 눌러요.',
+      '[실험 ▾]에서 실험을 고르면 값이 바뀌고 예측 질문이 나와요. 답을 고르고 예측하기를 눌러요.',
       '아래 ▶ 실행을 눌러요. 부딪치는 순간은 저절로 느려져서(슬로 모션) 힘 화살표 한 쌍이 보여요.',
       '끝나면 실험 화면 아래 그래프 탭(운동량 · 힘-시간 · 운동 에너지)을 차례로 눌러요. 아직 안 본 탭 옆에는 ● 점, 본 탭에는 ✓가 붙어요.',
       '위쪽 띠의 기록하기 버튼으로 저장해요. 그다음 충돌 종류나 질량 하나만 바꿔 다시 실행하고 또 기록해요.',
@@ -841,10 +844,10 @@
         plain: '힘이 얼마나 컸는지와 얼마 동안 작용했는지를 함께 따진 양이에요. 힘-시간 그래프 아래 넓이와 같아요.\n$F$ = $ma$를 시간에 대해 모으면 $FΔt$ = $mΔv$ — 그래서 충격량 = 운동량 변화예요.',
         example: '1 kg 수레(+2 m/s)가 벽에 달라붙어 멈추면 운동량 변화는 0 − 2 = −2 kg·m/s예요. 딱딱 범퍼(0.01 s)든 푹신 범퍼(0.2 s)든 충격량 크기는 2 N·s로 같고, 평균 힘은 200 N과 10 N이에요.',
         figure: FIG_J,
-        formula: 'J = F Δt = Δp = m v′ − m v',
-        symbols: [{ s: 'J', meaning: '충격량', unit: 'N·s (= kg·m/s)' }, { s: 'F', meaning: '힘 (시간에 따라 바뀌면 평균 힘)', unit: 'N' }, { s: 'Δt', meaning: '힘이 작용한 시간', unit: 's' }, { s: 'Δp', meaning: '운동량 변화 = 나중 운동량 − 처음 운동량', unit: 'kg·m/s' }, { s: 'v, v′', meaning: '부딪치기 전 속도, 부딪친 뒤 속도', unit: 'm/s' }],
+        formula: 'I = F Δt = Δp = m v′ − m v',
+        symbols: [{ s: 'I', meaning: '충격량', unit: 'N·s (= kg·m/s)' }, { s: 'F', meaning: '힘 (시간에 따라 바뀌면 평균 힘)', unit: 'N' }, { s: 'Δt', meaning: '힘이 작용한 시간', unit: 's' }, { s: 'Δp', meaning: '운동량 변화 = 나중 운동량 − 처음 운동량', unit: 'kg·m/s' }, { s: 'v, v′', meaning: '부딪치기 전 속도, 부딪친 뒤 속도', unit: 'm/s' }],
         why: '가속도는 $a$ = {{frac:$Δv$|$Δt$}}이므로 $F$ = $ma$ = {{frac:$mΔv$|$Δt$}}예요. 양쪽에 $Δt$를 곱하면 $FΔt$ = $mΔv$가 돼요.\n멈추는 데 필요한 운동량 변화는 처음 운동량으로 정해져 있어요. 시간을 20배로 늘리면 같은 넓이를 만들기 위해 힘이 1/20로 줄어요. 에어백·체육관 매트·야구 글러브가 모두 이 원리예요.',
-        live: function (p) { if (!st || !st.P.meet) return '부딪치지 않으면 충격량은 0이에요'; return '충격량 ' + fmt(st.P.J, 2) + ' N·s ÷ 시간 ' + p.tau + ' s = 평균 힘 ' + fmtF(st.P.Favg) + ' N (최대 힘 ' + fmtF(st.P.Fmax) + ' N)'; } },
+        live: function (p) { if (!st || !st.P.meet) return '부딪치지 않으면 충격량은 0이에요'; return '충격량 $I$ ' + fmt(st.P.J, 2) + ' N·s ÷ 시간 ' + p.tau + ' s = 평균 힘 ' + fmtF(st.P.Favg) + ' N (최대 힘 ' + fmtF(st.P.Fmax) + ' N)'; } },
       { title: '운동량 보존', summary: '둘이 주고받아도 합은 그대로',
         plain: '두 수레가 부딪칠 때 바깥에서 작용하는 힘(마찰 등)이 없으면, 운동량의 합은 부딪치기 전과 후가 같아요.\n한쪽이 잃은 만큼 다른 쪽이 얻기 때문이에요.',
         example: '1 kg(+2 m/s)가 멈춘 1 kg에 달라붙으면 1×2 + 1×0 = (1+1)×$v\'$이라서 $v\'$ = +1 m/s예요.',
@@ -865,12 +868,12 @@
         formula: 'F(A가 받는 힘) = − F(B가 받는 힘)',
         symbols: [{ s: 'F', meaning: '부딪치는 동안 주고받는 힘', unit: 'N' }, { s: '−', meaning: '방향이 반대라는 뜻', unit: '–' }],
         why: '힘은 두 물체가 ‘주고받는’ 것이라 한쪽만 힘을 받는 일은 없어요(뉴턴 운동 제3법칙).\n일반 규칙: 받은 충격량이 같으면 속도 변화 $Δv$ = {{frac:충격량|질량}}이라, 가벼운 쪽이 크게 바뀌어요. 그래서 ‘가벼운 쪽이 더 큰 힘을 받았다’고 착각하기 쉬워요.' },
-      { title: '운동 에너지와 충돌 종류', summary: '튕기면 K 보존, 붙으면 K 손실',
+      { title: '운동 에너지와 충돌 종류', summary: '튕기면 Eₖ 보존, 붙으면 Eₖ 손실',
         plain: '운동 에너지는 움직이는 물체가 가진 에너지예요. 운동량과 달리 방향이 없고 늘 0 이상이에요.\n튕기기(탄성 충돌)에서는 운동 에너지 합이 그대로예요. 달라붙기·중간(비탄성 충돌)에서는 일부가 열·소리·찌그러짐으로 바뀌어 줄어요. 운동량 합은 어느 충돌이든 그대로예요.',
         example: '1 kg(+2 m/s)가 멈춘 1 kg에 달라붙으면 처음 ½×1×2² = 2 J, 나중 ½×2×1² = 1 J — 1 J이 열과 소리로 바뀌어요.',
         figure: FIG_K,
-        formula: 'K = ½ m v²',
-        symbols: [{ s: 'K', meaning: '운동 에너지', unit: 'J' }, { s: 'm', meaning: '질량', unit: 'kg' }, { s: 'v', meaning: '속력 (제곱하므로 방향과 관계없음)', unit: 'm/s' }],
+        formula: 'Eₖ = ½ m v²',
+        symbols: [{ s: 'Eₖ', meaning: '운동 에너지', unit: 'J' }, { s: 'm', meaning: '질량', unit: 'kg' }, { s: 'v', meaning: '속력 (제곱하므로 방향과 관계없음)', unit: 'm/s' }],
         why: '에너지는 사라지지 않고 다른 형태로 바뀌어요. 범퍼가 찌그러지며 데워지고 소리가 나요.\n운동량은 방향이 있어서 +와 −가 서로 지워질 수 있지만, 운동 에너지는 늘 + 값이라 지워지지 않아요. 그래서 운동량 합은 그대로여도 운동 에너지 합은 줄 수 있어요.\n반대로 분리(반동)에서는 눌린 용수철에 있던 에너지가 운동 에너지로 바뀌어 합이 늘어나요.',
         live: function () { if (!st) return ''; var P = st.P; return '처음 ' + fmt(P.kb, 2) + ' J → 나중 ' + fmt(P.ka, 2) + ' J' + (P.kb - P.ka > 0.005 ? ' (열·소리로 ' + fmt(P.kb - P.ka, 2) + ' J)' : P.ka - P.kb > 0.005 ? ' (용수철 에너지에서 ' + fmt(P.ka - P.kb, 2) + ' J)' : ' (그대로)'); } },
       { title: '흔한 오해 바로잡기', summary: '자주 헷갈리는 6가지',
@@ -885,8 +888,8 @@
     ],
     terms: {
       '운동량': { def: '질량 × 속도(p = mv). 방향이 있어요. 단위 kg·m/s', short: '질량 × 속도', alias: ['p'] },
-      '충격량': { def: '힘 × 작용 시간(J = FΔt) = 운동량의 변화량. 힘-시간 그래프의 넓이. 단위 N·s', short: '힘 × 시간 = 운동량 변화', alias: ['J'] },
-      '운동 에너지': { def: '움직이는 물체의 에너지 K = ½mv². 방향이 없어요. 단위 J', short: '움직이는 물체의 에너지', alias: ['K'] },
+      '충격량': { def: '힘 × 작용 시간(I = FΔt) = 운동량의 변화량. 힘-시간 그래프의 넓이. 단위 N·s', short: '힘 × 시간 = 운동량 변화', alias: ['I', 'J'] },
+      '운동 에너지': { def: '움직이는 물체의 에너지 Eₖ = ½mv². 방향이 없어요. 단위 J', short: '움직이는 물체의 에너지', alias: ['Eₖ', 'K'] },
       '운동량 보존': { def: '바깥 힘이 없으면 부딪치기 전과 후의 운동량 합이 같다는 법칙', short: '운동량 합이 그대로' },
       '작용·반작용': { def: '두 물체가 서로 주고받는 힘은 크기가 같고 방향이 반대라는 법칙(뉴턴 운동 제3법칙)', short: '주고받는 힘은 크기 같고 방향 반대' },
       '탄성 충돌': { def: '튕기기. 운동량도, 운동 에너지도 그대로인 충돌', short: '튕기기', alias: ['튕기기'] },
@@ -909,14 +912,14 @@
       more: '포탄이 앞(+)으로 ' + fmt(P.m2 * P.v2f, 2) + ' kg·m/s를 얻은 만큼 대포가 뒤(−)로 같은 크기를 얻어요. 운동량 크기가 같으니 가벼운 포탄이 더 빨라요(포탄 ' + fmt(P.v2f, 1) + ' m/s, 대포 ' + fmt(Math.abs(P.v1f), 1) + ' m/s). 늘어난 운동 에너지는 눌린 용수철에서 왔어요.'
     };
     if (P.mode === 'wall') return {
-      line: '충격량 ' + fmt(P.J, 2) + ' N·s, 최대 힘 ' + fmtF(P.Fmax) + ' N이에요.', lesson: 'impulse',
-      more: '수레의 운동량 변화(충격량)는 범퍼를 바꿔도 ' + fmt(P.J, 2) + ' N·s로 같아요. 범퍼가 ' + TAU_NAME[P.tau] + '(' + P.tau + ' s)일 때 최대 힘은 ' + fmtF(P.Fmax) + ' N, 평균 힘은 ' + fmtF(P.Favg) + ' N이에요. 부딪쳐 있는 시간이 길수록 힘이 작아져요 — 에어백의 원리예요. 벽은 바깥에서 힘을 주므로 수레만의 운동량은 바뀌어요.'
+      line: '충격량 $I$ ' + fmt(P.J, 2) + ' N·s, 최대 힘 ' + fmtF(P.Fmax) + ' N이에요.', lesson: 'impulse',
+      more: '수레의 운동량 변화(충격량 $I$)는 범퍼를 바꿔도 ' + fmt(P.J, 2) + ' N·s로 같아요. 범퍼가 ' + TAU_NAME[P.tau] + '($Δt$ ' + P.tau + ' s)일 때 평균 힘 $F$ = $I$ ÷ $Δt$ = ' + fmtF(P.Favg) + ' N이고, 그래프 꼭대기의 최대 힘 ' + fmtF(P.Fmax) + ' N은 평균의 약 1.57배(π/2)예요 — 설명의 200 N·10 N은 평균 힘이에요. 부딪쳐 있는 시간이 길수록 힘이 작아져요 — 에어백의 원리예요. 벽은 바깥에서 힘을 주므로 수레만의 운동량은 바뀌어요.'
     };
     var lost = P.kb - P.ka;
     var more = '두 수레가 받은 힘은 매 순간 크기가 같고 방향이 반대예요({{작용·반작용}}). 그래서 A가 잃은 운동량을 B가 그대로 얻어 합이 ' + sgn(P.pb, 2) + ' → ' + sgn(P.pa, 2) + ' kg·m/s로 그대로예요.';
     if (lost > 0.005) more += ' 운동 에너지는 ' + fmt(P.kb, 2) + ' → ' + fmt(P.ka, 2) + ' J — ' + fmt(lost, 2) + ' J이 열과 소리로 바뀌었어요.';
     else more += ' 튕기기라서 운동 에너지 합(' + fmt(P.kb, 2) + ' J)도 그대로예요.';
-    if (P.m1 !== P.m2) more += ' 받은 충격량이 같으니 질량이 작은 쪽의 속도가 더 크게 바뀌어요.';
+    if (P.m1 !== P.m2) more += ' 받은 충격량 $I$ 가 같으니 질량이 작은 쪽의 속도가 더 크게 바뀌어요: A ' + sgn(P.v1, 1) + ' → ' + sgn(P.v1f, 1) + ' m/s($Δv$ ' + sgn(P.v1f - P.v1, 1) + '), B ' + sgn(P.v2, 1) + ' → ' + sgn(P.v2f, 1) + ' m/s($Δv$ ' + sgn(P.v2f - P.v2, 1) + '). 나중 속도 $v′$ 와 속도 변화 $Δv$ 는 달라요.';
     return { line: lost > 0.005 ? '운동량 합은 그대로, 운동 에너지는 줄었어요.' : '운동량 합도, 운동 에너지 합도 그대로예요.', more: more,
       lesson: P.m1 !== P.m2 && P.v2 < 0 ? 'action-reaction' : 'bounce-stick' };   // R7(B6): 해설 → 설명 5장(튕김/붙음)·6장(트럭 vs 승용차)
   });
@@ -955,15 +958,15 @@
     ],
     sections: [
       { title: '수업 흐름 (40분 예)', items: [
-        '예측: 처음 화면에 뜨는 카드 ①(같은 질량끼리 튕기면) → 손들기 → 실행. 이어서 ③ 트럭 vs 승용차로 작용·반작용 예측',
+        '예측: 처음 화면에 뜨는 실험 ①(같은 질량끼리 튕기면) → 손들기 → 실행. 이어서 ③ 트럭 vs 승용차로 작용·반작용 예측',
         '실행: 슬로 모션으로 힘 화살표 한 쌍을 확인 → [힘-시간] 탭에서 두 곡선이 위아래로 같은 모양인지 확인',
-        '비교: ① 실행 → 기록, ② 달라붙으면(충돌 종류만 바꿈) 실행 → 기록. 표의 p 보존?/K 보존? 열 → [규칙 확인하기]',
+        '비교: ① 실행 → 기록, ② 달라붙으면(충돌 종류만 바꿈) 실행 → 기록. 표의 p 보존?/Eₖ 보존? 열 → [규칙 확인하기]',
         '적용: ⑤ 에어백 — 딱딱 기록 → 푹신 기록 → [힘-시간] 탭에서 넓이는 같고 높이만 다름을 확인',
         '정리: 오른쪽 질문 6개(계산 1개, 모범 답·해설 포함). 토론 전에는 교사 서랍에서 ‘답 확인 잠금’을 켤 수 있어요'
       ] },
       { title: '모형 안내', items: [
         '마찰 없음(에어트랙). 충돌 힘은 사인 모양으로 단순화한 모형: F(t) = F최대·sin(πt/τ).',
-        '충격량 J = 2·F최대·τ/π = 힘-시간 그래프 넓이, 평균 힘 = J/τ.',
+        '충격량 I = 2·F최대·τ/π = 힘-시간 그래프 넓이, 평균 힘 = I/τ (코드 변수는 J).',
         '벽 장면의 벽은 질량이 아주 큰 물체(지구에 붙음)로 보아, 수레 운동량만 바뀐다(벽이 같은 크기의 충격량을 반대로 받음).',
         '분리 장면에서 늘어난 운동 에너지는 눌린 용수철에 저장돼 있던 에너지다.',
         '자동 슬로 모션은 화면 재생만 느리게 하며 물리 결과는 같다.',
@@ -978,14 +981,14 @@
     if (!SK.started && SK.stepIndex === 0 && !SK.prediction && !(SK.activePreset && SK.activePreset() >= 0)) {
       SK.applyPreset(0);
       // R3: 처음 화면에는 카드 알림(검은 알약)을 띄우지 않는다 — 칩 줄 '카드 ①' 과 겹침
-      var z = SK.el.notices; if (z) Array.prototype.slice.call(z.querySelectorAll('.notice')).forEach(function (n) { if (/^카드 /.test(n.textContent)) n.remove(); });
+      var z = SK.el.notices; if (z) Array.prototype.slice.call(z.querySelectorAll('.notice')).forEach(function (n) { if (/^(카드|실험) /.test(n.textContent)) n.remove(); });
     }
   }, 120);
   /* R3: 카드를 고른 직후 알림은 1.5초만 (기본 2.5초는 예측 창 위에 오래 남음) */
   if (SK.el.notices && typeof MutationObserver !== 'undefined') {
     new MutationObserver(function () {
       var n = SK.el.notices.querySelector('.notice');
-      if (n && !n._cmShort && /^카드 /.test(n.textContent)) { n._cmShort = true; setTimeout(function () { if (n.parentNode) n.remove(); }, 1500); }
+      if (n && !n._cmShort && /^(카드|실험) /.test(n.textContent)) { n._cmShort = true; setTimeout(function () { if (n.parentNode) n.remove(); }, 1500); }
     }).observe(SK.el.notices, { childList: true });
   }
 
@@ -1029,11 +1032,26 @@
     var simple = !!(SK.isSimple && SK.isSimple());
     TS = simple ? 28 : 22; CS = simple ? 1.5 : 1;
     placeLower(view);
+    RAIL = RAILB + bandShift(view);   // R7-2: 예측 띠(무대 위쪽)가 수레 위 속도 글자를 가리지 않게 — 띠가 열린 동안만 장면을 아래로(그래프 판은 이때 숨어 있음)
     drawTrack(ctx, P);
     if (p.showCM && P.mode !== 'wall') drawCM(ctx, P);
     drawCarts(ctx, P);
     if (!SK.predicting()) { if (simple) drawLowerSimple(ctx, P); else drawLower(ctx, p, P); }   // R2: 예측 창이 떠 있는 동안 결과 층(그래프 판) 숨김
     updateHTML(p, P);
+  }
+
+  /** R7-2: 예측 띠 아래 끝(논리 단위)보다 수레 위 글자(레일 위 ≈150u, 벽 장면 ≈200u)가 위에 있으면 그만큼 내린다.
+      예측 중이 아니거나 띠를 접었으면 0 · 트랙 설명(+100u)이 무대 아래로 나가지 않게 상한 */
+  function bandShift(view) {
+    if (!SK.predicting || !SK.predicting()) return 0;
+    var b = SK.el.slide && SK.el.slide.querySelector('.pop--band:not([hidden])');
+    if (!b || b.dataset.folded === '1' || !view.canvas) return 0;
+    var cr = view.canvas.getBoundingClientRect(), br = b.getBoundingClientRect();
+    if (!br.height) return 0;
+    var bottom = (br.bottom - cr.top - view.oy) / view.scale - (view.offsetY || 0);
+    var reach = (st && st.P.mode === 'wall' ? 205 : 150) * K * (CS > 1 ? 1.35 : 1);
+    var room = (view.h + (view.extra || 0)) - (RAILB + 100 * K);
+    return Math.max(0, Math.min(room, bottom + 14 - (RAILB - reach)));
   }
 
   function drawTrack(ctx, P) {
@@ -1302,7 +1320,7 @@
     });
     if (wall) {
       var dp = hit ? pA - pA0 : null;
-      text(ctx, dp === null ? '벽에 부딪치면 수레의 운동량이 바뀌어요 — 바뀐 양 $Δp$가 충격량이에요' : '수레 운동량 변화 $Δp$ = 나중 − 처음 = ' + sgn(dp, 2) + ' kg·m/s = 수레가 받은 충격량',
+      text(ctx, dp === null ? '벽에 부딪치면 수레의 운동량이 바뀌어요 — 바뀐 양 $Δp$가 충격량 $I$예요' : '수레 운동량 변화 $Δp$ = 나중 − 처음 = ' + sgn(dp, 2) + ' kg·m/s = 수레가 받은 충격량 $I$',
         b.x, b.y + b.h - 26, { size: 22, w: 500, color: '--color-ink' });
     }
   }
@@ -1397,7 +1415,7 @@
     if (P.meet && P.J > 0 && st.phase !== 'pre') {
       var k = Math.PI / P.tau, tc = st.phase === 'hit' ? st.tc : P.tau;
       var Jnow = P.J * (1 - Math.cos(k * tc)) / 2;
-      info = '넓이 = 충격량 ' + fmt(Jnow, 2) + ' N·s · 최대 힘 ' + fmtF(P.Fmax) + ' N · 평균 ' + fmtF(P.Favg) + ' N';
+      info = '넓이 = 충격량 $I$ ' + fmt(Jnow, 2) + ' N·s · 최대 힘 ' + fmtF(P.Fmax) + ' N · 평균 ' + fmtF(P.Favg) + ' N';
     }
     var recInfo = lines.filter(function (L) { return !L.ghost; }).slice(-2).map(function (L) { return SK.recLabel(L.rec) + ': 최대 ' + fmtF(L.F) + ' N'; }).join('  ·  ');
     text(ctx, info, b.x + 4, b.y + 54, { size: 22, w: 500, color: '--color-copper-text' });

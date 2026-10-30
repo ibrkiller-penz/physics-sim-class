@@ -952,6 +952,8 @@
     fillEq(l1, l2, p, g, u);
     // R3: 식(첫 b)은 윗줄 왼쪽 · 값 칩은 아랫줄 · 이론 Δy 는 윗줄 오른쪽
     if (l1.firstChild) ui.eqF.appendChild(l1.firstChild);
+    // R7-2: 빛 — 값 칩 3개는 아랫줄 전체 폭(이론 Δy | 잠금·값 한 줄 + 칩 한 줄) — 1280·820 에서 칩이 두 줄로 접혀 잘리던 것
+    ui.eqF.parentNode.classList.toggle('dsq-eq--wide', p.send === 'wave');
   }
   function fillEq(l1, l2, p, g, u) {
     function add(el, kids) { kids.forEach(function (k) { el.appendChild(typeof k === 'string' ? document.createTextNode(k) : k); }); }
@@ -978,7 +980,7 @@
       l2.innerHTML = '';
       var lk = SK.h('span', { class: 'dsq-muted dsq-lockline', title: '이론값 Δy 는 한 번 기록하면 보여요 (먼저 직접 재 보세요)' });
       var ic = SK.icon('lock'); if (ic) lk.appendChild(ic);
-      lk.appendChild(SK.h('span', null, SK.mathNodes('기록하면 이론값이 보여요')));
+      lk.appendChild(SK.h('span', null, SK.mathNodes('기록 뒤 보여요')));   // R7-2(B3): 짧게 — 이론값은 기록 뒤 식 팝업 '지금 값'에도
       l2.appendChild(lk);
     } else if (!theoryOpen) {
       var b = SK.h('button', { class: 'btn btn--sm btn--secondary dsq-reveal', type: 'button' }, '답 확인하기');
@@ -1311,17 +1313,25 @@
   }
   SK.onRecords(function () { refreshChecklist(); ui.eqKey = null; SK.requestRender(); });
 
-  /* ---- 패널 보이기·끄기 ---- */
-  /** R7: '아래에 더 있어요' 막대가 한 번 뜨면 그 높이만큼 패널이 줄어 다시 숨지 않는다(공통 checkMore 이력 현상 — shared 요청).
-      패널 내용이 바뀐 뒤 막대 높이를 더한 높이로 다시 재서, 실제로 넘치지 않으면 숨긴다(넘치면 공통 틀이 그대로 둠) */
-  function recheckPanelMore() {
-    setTimeout(function () {
-      var s = SK.el.panel, b = SK.el.panelMore;
-      if (!s || !b || b.hidden) return;
-      var pad = parseFloat(getComputedStyle(s).paddingBottom) || 0, bh = b.getBoundingClientRect().height;
-      if (s.scrollHeight - s.scrollTop - (s.clientHeight + bh) - pad <= 6) { b.hidden = true; s.classList.remove('has-more'); }
-    }, 0);
+  /* ---- R7-2(B6): 식 팝업 기호 → 실험 화면 강조. 이 실험의 하단 띠는 공통 계기(.meter)가 아니라 dsq 칸이라
+          'stage:dy'(재기 3단계·내가 잰 간격·이론 줄) · 'stage:lam'(λ 줄) · 'stage:count'(쌓인 점)를 직접 등록 ---- */
+  function flashEls(list, ms) {
+    var any = false;
+    list.forEach(function (el) {
+      if (!el || el.offsetParent === null || !el.getClientRects().length) return;
+      any = true;
+      el.classList.remove('is-flash-long'); void el.offsetWidth; el.classList.add('is-flash-long');
+      clearTimeout(el._dsqFlash); el._dsqFlash = setTimeout(function () { el.classList.remove('is-flash-long'); }, ms || 1500);
+    });
+    if (!any) SK.notice('그 값은 아래 띠에 나와요', 'info', 2400);
   }
+  function simpleMeter(k) { return SK.el.slide.querySelector('.simple-meter[data-key="' + k + '"]'); }
+  function eqBoxEl() { return SK.el.graph.querySelector('.dsq-eq'); }
+  SK.addFlashTarget('stage:dy', function (ms) { flashEls([ui.stepsBox.hidden ? ui.m3 && ui.m3.closest('.dsq-meter') : ui.stepsBox, eqBoxEl(), simpleMeter('dy')], ms); });
+  SK.addFlashTarget('stage:lam', function (ms) { flashEls([eqBoxEl()], ms); });
+  SK.addFlashTarget('stage:count', function (ms) { flashEls([ui.m1 && ui.m1.closest('.dsq-meter'), simpleMeter('count')], ms); });
+
+  /* ---- 패널 보이기·끄기 ---- */
   function show(key, on) { var c = SK.controls[key]; if (c) c.el.style.display = on ? '' : 'none'; }
   function updatePanel() {
     var send = SK.get('send'), el = send === 'electron', wave = send === 'wave', marble = send === 'marble', q = entrance === 'quantum';
@@ -1361,7 +1371,6 @@
     var stops = [];
     for (var nm = 400; nm <= 700; nm += 25) stops.push(rgbStr(lamRGB(nm)) + ' ' + ((nm - 400) / 3).toFixed(1) + '%');
     SK.controls.lam.el.style.setProperty('--dsq-spectrum', 'linear-gradient(to right, ' + stops.join(', ') + ')');
-    recheckPanelMore();
   }
   function setRateLevel(i) {
     if (SK.get('send') === 'wave') { SK.notice('빛(레이저)에서는 빠르기를 쓰지 않아요', 'info'); return; }
@@ -1504,7 +1513,7 @@
       { name: '빨강과 파랑', tag: '대표 문항', changes: 'λ 650 → 450', fixed: 'd 0.25 mm · L 2.0 m',
         values: withBase({ send: 'wave', lam: 450 }),
         predict: { question: '빨강(650 nm) 대신 파랑(450 nm) 빛을 비추면 무늬 간격은?', choices: ['넓어진다', '좁아진다', '그대로다'],
-          info: '카드 ①에서 빨강을 재고 기록해 두면 두 무늬를 나란히 비교할 수 있어요.',
+          info: '실험 ①에서 빨강을 재고 기록해 두면 두 무늬를 나란히 비교할 수 있어요.',
           answer: 2, why: '$Δy$ = {{frac:$λL$|$d$}} 에서 $λ$ 가 약 0.7배라 간격도 5.2 → 약 3.6 mm 로 좁아져요.' },
         onApply: function () { presetHint = '▶ 실행 후 파란 무늬 간격을 재요'; } },
       { name: '슬릿 간격 2배', tag: '탐구 재현', changes: 'd 0.25 → 0.50', fixed: 'λ 650 nm · L 2.0 m',
@@ -1543,7 +1552,7 @@
       { name: '측정기를 켜면?', tag: '기묘함', changes: '측정기 끔 → 켬', fixed: '전자 · 1000개/s · 슬릿 둘',
         values: withBase({ send: 'electron', rate: 1000, det: true }),
         predict: { question: '어느 슬릿을 지났는지 알아내는 {{측정기}}를 켜고 전자를 보내면?', choices: ['줄무늬가 그대로 남는다', '줄무늬가 사라진다', '아무것도 안 생긴다'],
-          info: '카드 ①(측정기 끔)을 먼저 기록해 두면 두 무늬를 비교할 수 있어요.',
+          info: '실험 ①(측정기 끔)을 먼저 기록해 두면 두 무늬를 비교할 수 있어요.',
           answer: 2, why: '어느 슬릿을 지났는지 정보가 남으면 두 길이 겹칠 수 없어 간섭이 사라져요. 사람이 봐서가 아니라 정보가 남아서예요.' },
         onApply: function () { presetHint = '▶ 실행 후 측정기 끔과 비교해요'; } },
       { name: '슬릿 하나만?', tag: '오개념', changes: '위쪽만 열기', fixed: '전자 · 1000개/s',
@@ -1618,7 +1627,7 @@
   };
   var HELP = {
     physics: {
-      how: ['아래 실험 카드를 누르면 값이 바뀌고 예측 질문이 나와요. 답을 골라 예측하기를 눌러요.',
+      how: ['[실험 ▾]에서 실험을 고르면 값이 바뀌고 예측 질문이 나와요. 답을 골라 예측하기를 눌러요.',
         '아래 ▶ 실행을 누르면 빛이 켜지고 스크린에 밝고 어두운 줄이 생겨요.',
         '오른쪽 {{확대 보기}}에서 밝은 줄 가운데를 한 번, 다른 밝은 줄을 한 번 눌러요. 가까이 누르면 줄 가운데로 저절로 맞춰져요.',
         '두 점 사이 칸 수를 세어 {{칸 수 n}}을 맞추면 한 칸 간격 $Δy$ 가 나와요. 여러 칸을 재고 나누면 더 정확해요.',
@@ -1626,7 +1635,7 @@
         '비교 단계 표에서 $λ$ 와 $Δy$ 의 관계를 찾아요. 기록한 뒤에는 아래 식 칸의 답 확인하기로 이론값을 볼 수 있어요.']
     },
     quantum: {
-      how: ['아래 실험 카드를 누르면 값이 바뀌고 예측 질문이 나와요. 답을 골라 예측하기를 눌러요.',
+      how: ['[실험 ▾]에서 실험을 고르면 값이 바뀌고 예측 질문이 나와요. 답을 골라 예측하기를 눌러요.',
         '아래 ▶ 실행을 누르면 하나씩 날아가 스크린에 점으로 찍혀요. 처음 몇 개를 지켜봐요.',
         '오른쪽 패널의 보내는 빠르기(느리게·보통·빨리 감기)나 1만 개 한꺼번에 보내기로 점을 많이 쌓아요.',
         '무늬가 보이면 기록하기 버튼으로 저장해요.',
@@ -1763,7 +1772,7 @@
     ],
     sections: [
       { title: '수업 흐름', items: [
-        '① 예측: 모드를 고르면 첫 실험 카드 값이 바로 적용되고 예측 창이 떠요. 예측 창이 떠 있는 동안 스크린 무늬는 ? 로 가려져요.',
+        '① 예측: 모드를 고르면 첫 실험 값이 바로 적용되고 예측 띠가 떠요. 예측 띠가 떠 있는 동안 스크린 무늬는 ? 로 가려져요.',
         '② 실행: 빛을 켜고 확대 보기에서 밝은 줄 두 곳을 눌러 재요. ±1.5 mm 안이면 줄 가운데로 맞춰지고, 사이 칸 수를 세어 n 을 제안해요. 하나씩 보내기는 3,000개가 쌓이면 끝나요.',
         '③ 비교: 기록 3개 이상(빛: λ 만 바꿈), 큰 판의 체크리스트로 비례 관계 확인. 이론값은 기록 뒤 식 칸의 답 확인하기로 공개.',
         '④ 정리: 모드마다 질문 4개(선택형 2 + 서술형 2, 서술형은 답 확인하기). 교사 서랍에서 답 확인 잠금 가능.'

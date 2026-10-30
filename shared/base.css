@@ -1178,6 +1178,9 @@ html:not(.cursor-hidden) .predict__skip:hover { color: var(--color-primary); }
 .note-num b { font: var(--font-weight-bold) calc(36 * var(--u))/1.1 var(--font-num); white-space: nowrap; }
 .note-num.is-actual b { color: var(--color-primary); }
 .note-line { font: var(--font-weight-medium) var(--fs-meta)/1.5 var(--font-sans); word-break: keep-all; }
+/* R7-2(팀장): 해설 카드 후속 [해 보기 ▸] 한 줄 — takeaway({try}) */
+.note-try { margin: calc(8 * var(--u)) 0 calc(4 * var(--u)); }
+.note-try__btn { min-height: max(44px, calc(48 * var(--u))); }
 .note-why { border-top: 1px dashed var(--color-line-strong); }
 .note-why > summary {
   list-style: none; cursor: pointer; display: flex; align-items: center; gap: var(--space-2);
@@ -1432,6 +1435,7 @@ html.reveal-locked:not(.is-teacher) .reveal > summary::before { width: auto; hei
   margin: 0 0.12em; font-size: 0.85em; line-height: 1.1; white-space: nowrap;
 }
 .frac__n { padding: 0 0.2em 0.06em; }
+.frac__txt { font-family: var(--font-sans); }   /* R7-2(팀장): 분수 안 한글 낱말('상 거리')은 본문 글꼴 */
 .frac__d { padding: 0.06em 0.2em 0; border-top: max(1px, calc(2 * var(--u))) solid currentColor; justify-self: stretch; text-align: center; }
 
 /* ---------- R5 기록 표 크게 보기 (.rec-full — 무대 자식, 실험 화면 + 하단 띠 자리) ------------------- */
@@ -1675,3 +1679,159 @@ html:not(.cursor-hidden) .lesson-link:hover { background: var(--sim-tint); }
 .eq-frac > span:first-child { border-bottom: max(1px, calc(2 * var(--u))) solid currentColor; padding: 0 0.15em; }
 .eq-sub { font-size: 0.7em; vertical-align: -0.25em; }
 .lesson-fig svg { display: block; width: 100%; height: auto; font-family: var(--font-sans); font-variant-numeric: tabular-nums; }
+
+
+/* =====================================================================
+   R7 2차 (docs/개선/R7_2차_계획.md §1-3·§1-5·§1-6) — 예측 띠 · 식 팝업 · 기호 깜빡임 · 정리 모달 형성평가 · ⋯ 메뉴 도구
+   ===================================================================== */
+/* 예측 띠 .pop--band: 무대 안 위쪽 가로 띠(left/top/width 는 sim.js bandLayout) — 오른쪽 패널을 가리지 않는다 */
+.band-probe { position: absolute; left: 0; top: var(--band-top, calc(16 * var(--u))); width: 0; height: 0; visibility: hidden; pointer-events: none; }
+.pop--band {
+  z-index: 22; overflow: hidden;
+  border: 1px solid var(--color-line-strong); border-left: calc(8 * var(--u)) solid var(--sim);
+  border-radius: var(--radius-lg); background: var(--color-paper-raised); box-shadow: var(--shadow-lg);
+}
+.pop--band .pop__body { padding: 0; }
+.pop--band .predict, .pop--band .mode-card {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--space-5); row-gap: var(--space-2); align-items: start;
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-5); position: relative; max-height: none;
+}
+.pop--band .predict > *, .pop--band .mode-card > * { grid-column: 1; min-width: 0; }
+/* 한 줄 흐름: [질문 ……… 손들기·접기·✕] / [안내 한 줄] / [그림 | 보기 칩 가로 · 숫자 입력] ……… [예측하기 / 예측 없이 바로 실행] */
+.pop--band .predict { grid-template-areas: "q tools" "info foot" "mid foot" "num foot"; row-gap: var(--space-2); }
+.pop--band .predict__top { display: none; }
+.pop--band .predict__tools { grid-area: tools; display: flex; gap: var(--space-2); justify-content: flex-end; align-items: center; }
+.pop--band .predict__tools > .btn.teacher-only { min-height: max(40px, calc(52 * var(--u))); padding: 0 var(--space-3); font-size: var(--fs-caption); }
+.pop--band .predict__close { position: static; width: max(40px, calc(52 * var(--u))); min-width: 40px; min-height: 40px; height: max(40px, calc(52 * var(--u))); }
+.pop--band .predict__q { grid-area: q; align-self: center; font-size: calc(30 * var(--u)); line-height: 1.3; padding-right: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-wrap: pretty; }
+.pop--band .predict__info { grid-area: info; font-size: var(--fs-caption); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.pop--band .predict__mid { grid-area: mid; display: flex; gap: var(--space-3); align-items: center; }
+.pop--band .predict.has-figure .predict__mid { grid-template-columns: none; }
+.pop--band .predict__figure { flex: none; width: calc(180 * var(--u)); max-width: none; max-height: calc(120 * var(--u)); padding: calc(4 * var(--u)); overflow: hidden; display: grid; place-items: center; }
+.pop--band .predict__figure svg { width: 100%; height: auto; max-height: calc(110 * var(--u)); }
+.pop--band .predict__choices, .pop--band .predict.is-short .predict__choices { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(calc(220 * var(--u)), 1fr)); gap: var(--space-2); }
+.pop--band .predict__choices > :nth-child(odd):last-child { grid-column: auto; }
+.pop--band .predict__opt, .pop--band .predict__choices .btn { min-height: max(40px, calc(56 * var(--u))); padding: calc(4 * var(--u)) var(--space-3); font-size: calc(26 * var(--u)); gap: var(--space-2); line-height: 1.25; }
+.pop--band .predict__num { grid-area: num; flex-wrap: nowrap; gap: var(--space-3); }
+.pop--band .predict__numlabel { font-size: calc(26 * var(--u)); }
+.pop--band .predict__num input { height: max(40px, calc(56 * var(--u))); width: calc(180 * var(--u)); }
+.pop--band .predict__range { white-space: nowrap; }
+.pop--band .predict__foot {
+  grid-area: foot; align-self: end;
+  display: flex; flex-direction: column; align-items: stretch; justify-content: flex-end; gap: calc(6 * var(--u));
+  position: static; margin: 0; padding: 0; border: 0; background: none;
+}
+.pop--band .predict__hint { display: none; }
+.pop--band .predict__ok { order: -1; margin-left: 0; }
+.pop--band .predict__ok, .pop--band .predict__skip.btn { min-height: max(36px, calc(52 * var(--u))); min-width: calc(240 * var(--u)); padding: 0 var(--space-4); justify-content: center; font-size: var(--fs-meta); white-space: nowrap; }
+.pop--band .predict.is-shake { animation: none; }
+.pop--band .predict.is-shake .predict__ok { animation: sk-shake 360ms var(--dur-ease); }
+@keyframes sk-shake { 20%, 60% { transform: translateX(calc(-6 * var(--u))); } 40%, 80% { transform: translateX(calc(6 * var(--u))); } }
+/* 모드 고르기도 같은 띠: 보기 가로 */
+.pop--band .mode-card__close { grid-column: 2; grid-row: 1; position: static; }
+.pop--band .mode-card .band-fold { grid-column: 2; grid-row: 2; }
+.pop--band .mode-card__q { grid-row: 1; font-size: calc(30 * var(--u)); }
+.pop--band .mode-card__sub { grid-row: 2; font-size: var(--fs-caption); }
+.pop--band .mode-opts { grid-row: 3; grid-template-columns: repeat(auto-fit, minmax(calc(240 * var(--u)), 1fr)) !important; }
+.pop--band .mode-opt { min-height: max(48px, calc(72 * var(--u))); padding: var(--space-2) var(--space-3); }
+/* [▴ 접기] / 접힌 칩 '예측 대기 ▾' */
+.band-fold { min-height: max(40px, calc(52 * var(--u))); padding: 0 var(--space-3); font-size: var(--fs-caption); border-width: calc(2 * var(--u)); gap: var(--space-1); }
+.band-fold > .ico { width: calc(24 * var(--u)); height: calc(24 * var(--u)); }
+.band-fold .btn__key { display: none; }
+html.show-keys .band-fold .btn__key { display: inline-block; }
+.band-unfold { display: none !important; }
+.pop--band[data-folded="1"] { border: 0; background: none; box-shadow: none; overflow: visible; }
+.pop--band[data-folded="1"] .pop__body { overflow: visible; }
+.pop--band[data-folded="1"] .predict, .pop--band[data-folded="1"] .mode-card { display: block; padding: 0; background: none; border: 0; box-shadow: none; }
+.pop--band[data-folded="1"] .predict > :not(.band-unfold), .pop--band[data-folded="1"] .mode-card > :not(.band-unfold) { display: none !important; }
+.pop--band[data-folded="1"] .band-unfold { display: inline-flex !important; min-height: max(44px, calc(56 * var(--u))); padding: 0 var(--space-4); gap: var(--space-2); font-size: var(--fs-meta); box-shadow: var(--shadow-lg); }
+
+/* 식 팝업 .pop--formula (무대 왼쪽 아래, 폭 520u, 높이 ≤ 360u — 세로 = 시트) */
+.pop--formula { width: calc(520 * var(--u)); min-width: 300px; }
+.pop--formula .pop__body { padding: var(--space-3) var(--space-4) var(--space-4); }
+.formula { display: grid; gap: var(--space-3); }
+.formula__chs { display: flex; flex-wrap: nowrap; gap: var(--space-2); overflow-x: auto; scrollbar-width: thin; padding-bottom: 2px; }
+.formula__title { font: var(--font-weight-medium) var(--fs-meta)/1.3 var(--font-sans); word-break: keep-all; }
+.formula__title b { color: var(--sim-text); font-weight: var(--font-weight-medium); }
+.formula__chs[hidden] { display: none; }
+.formula__ch {
+  display: inline-flex; align-items: center; gap: var(--space-1); min-height: max(36px, calc(44 * var(--u))); padding: 0 var(--space-3);
+  border-radius: var(--radius-pill); border: calc(2 * var(--u)) solid var(--color-line); background: var(--color-paper);
+  font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-num); color: var(--color-ink-chip); white-space: nowrap; flex: none;
+}
+.formula__ch b { font-weight: var(--font-weight-medium); color: var(--sim-text); }
+.formula__ch[aria-selected="true"] { border-color: var(--sim); background: var(--sim-tint); color: var(--sim-text); }
+.formula__inner { display: grid; gap: var(--space-3); }
+.pop--formula .lesson__eqs { padding: var(--space-2) var(--space-3); gap: var(--space-2); }
+.pop--formula .eq { font-size: max(19px, calc(34 * var(--u))); line-height: 1.4; }
+.formula__syms { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.sym-chip {
+  display: inline-flex; align-items: center; gap: var(--space-2); min-width: max(44px, calc(64 * var(--u))); min-height: max(44px, calc(64 * var(--u)));
+  padding: 0 var(--space-3); border-radius: var(--radius-md); border: calc(2 * var(--u)) solid var(--color-line-strong); background: var(--color-paper-raised);
+  font: var(--font-weight-regular) var(--fs-caption)/1.2 var(--font-sans); color: var(--color-ink); text-align: left;
+}
+.sym-chip__s { font-family: var(--font-math); font-size: max(18px, calc(30 * var(--u))); color: var(--sim-text); }
+.sym-chip__n { color: var(--color-ink-chip); word-break: keep-all; }
+.sym-chip.is-plain { border-style: dashed; }
+.sym-chip.is-on { border-color: var(--sim); background: var(--sim-tint); box-shadow: 0 0 0 calc(2 * var(--u)) var(--sim); }
+html:not(.cursor-hidden) .sym-chip:hover { border-color: var(--sim); }
+.formula__now { padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--color-paper-sunk); font: var(--font-weight-regular) var(--fs-caption)/1.5 var(--font-sans); word-break: keep-all; }
+.formula__now b { color: var(--sim-text); font-weight: var(--font-weight-medium); }
+.formula__more > summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-sans); color: var(--color-primary); }
+.formula__more .lesson__p { font-size: var(--fs-caption); }
+.formula__foot { display: flex; }
+.formula__foot:empty { display: none; }
+
+/* 기호 → 실험 화면 강조(SK.flashTarget): 1.5초 단원색 테두리 + 말풍선 */
+.is-flash-long { outline: calc(4 * var(--u)) solid var(--sim); outline-offset: calc(2 * var(--u)); border-radius: var(--radius-md); animation: sk-flash-long 1500ms linear both; }
+@keyframes sk-flash-long { 0%, 40%, 80%, 100% { outline-color: var(--sim); } 20%, 60% { outline-color: transparent; } }
+.flash-tip {
+  position: fixed; z-index: 95; pointer-events: none; max-width: 70vw;
+  padding: calc(6 * var(--u)) var(--space-3); border-radius: var(--radius-pill);
+  background: var(--sim); color: var(--color-paper);
+  font: var(--font-weight-medium) max(14px, calc(24 * var(--u)))/1.25 var(--font-sans); white-space: nowrap;
+  box-shadow: var(--shadow-lg); animation: fade-in var(--dur-fast) var(--dur-ease) both;
+}
+.flash-tip .sym { color: inherit; }
+.meter.has-formula .meter__label { cursor: pointer; text-decoration: underline dotted; text-decoration-color: var(--sim); text-underline-offset: calc(5 * var(--u)); }
+@media (prefers-reduced-motion: reduce) { .is-flash-long { animation: none; } }
+
+/* 정리 모달: 기록 요약 → 형성평가 3문항(한 열) → 더 생각하기 ▸ */
+.think-recs { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; padding-bottom: var(--space-3); margin-bottom: var(--space-3); border-bottom: 1px solid var(--color-line); }
+.think-recs[hidden], .think-quiz[hidden], .think-more[hidden], .think-more__extra[hidden], .think-lesson[hidden] { display: none !important; }
+.think-recs__t, .think-quiz__t { font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-sans); color: var(--color-ink-muted); }
+.think-recs__chip { height: auto; min-height: calc(40 * var(--u)); font-size: var(--fs-caption); }
+.think-recs__chip b { color: var(--sim-text); font-weight: var(--font-weight-medium); }
+.think-quiz { display: grid; gap: var(--space-4); }
+.pop--think .think-card { width: 100%; }
+.pop--think .think-card__q { font-size: calc(30 * var(--u)); }
+.pop--think .think-card__choices { grid-template-columns: repeat(auto-fit, minmax(calc(320 * var(--u)), 1fr)); }
+.pop--think .think-card__opt, .pop--think .think-card__choices .btn { min-height: max(44px, calc(64 * var(--u))); font-size: calc(26 * var(--u)); }
+.think-card.has-no .think-card__no { font-size: var(--fs-caption); display: inline-flex; align-items: center; gap: var(--space-1); }
+.think-card__try { justify-self: start; min-height: max(44px, calc(52 * var(--u))); padding: 0 var(--space-4); font-size: var(--fs-caption); border-width: calc(2 * var(--u)); gap: var(--space-2); }
+.think-card__try > .ico { width: calc(22 * var(--u)); height: calc(22 * var(--u)); }
+.think-card__fb.is-reveal { border: 1px dashed var(--color-ok); }
+.think-more { margin-top: var(--space-4); border-top: 1px dashed var(--color-line-strong); padding-top: var(--space-2); }
+.think-more > summary { list-style: none; cursor: pointer; min-height: max(44px, calc(56 * var(--u))); display: flex; align-items: center; gap: var(--space-2); font: var(--font-weight-medium) var(--fs-meta)/1.2 var(--font-sans); color: var(--color-primary); }
+.think-more > summary::-webkit-details-marker { display: none; }
+.think-more > summary::before { content: "▸"; }
+.think-more[open] > summary::before { content: "▾"; }
+.think-more__extra { display: grid; gap: var(--space-4); margin-top: var(--space-4); }
+.pop--think .side-body { grid-template-columns: minmax(0, 1fr) !important; }
+.think-reveal[aria-pressed="true"] { background: var(--color-ok-tint); border-color: var(--color-ok); color: var(--color-ok-text); }
+.pop__head .think-reveal { min-height: max(40px, calc(52 * var(--u))); padding: 0 var(--space-3); font-size: var(--fs-caption); }
+
+/* ⋯ 메뉴로 옮긴 도구 단추(기록·정리·도움말·전체 화면) — 메뉴 항목 모양 */
+.pop-menu .menu-tool {
+  width: 100%; border: 0; background: none; box-shadow: none; justify-content: flex-start;
+  min-height: max(44px, calc(56 * var(--u))); padding: 0 var(--space-4); gap: var(--space-3);
+  font: var(--font-weight-semibold) var(--fs-meta)/1.2 var(--font-sans); color: var(--color-ink);
+}
+.pop-menu .menu-tool[hidden] { display: none; }
+.pop-menu .menu-tool > .ico { width: calc(28 * var(--u)); height: calc(28 * var(--u)); min-width: 16px; min-height: 16px; color: var(--color-ink-muted); margin: 0; }
+.pop-menu .menu-tool .tool-btn__badge { margin-left: auto; position: static; }
+.tool-btn__badge[hidden] { display: none !important; }
+.tool-btn__badge--more {
+  position: absolute; right: calc(-8 * var(--u)); top: calc(-8 * var(--u)); min-width: max(18px, calc(26 * var(--u))); text-align: center;
+  padding: 2px calc(6 * var(--u)); font-size: max(11px, calc(18 * var(--u))); line-height: 1.2; background: var(--sim); color: var(--color-paper);
+}

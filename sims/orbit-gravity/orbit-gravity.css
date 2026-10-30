@@ -262,3 +262,9 @@ html.is-simple .sheet__body .panel-head { display: none; }
   /* R7(C3): 세로 — 패널 두 칸(수치 | 상황)이 스크롤 없이(발사 속력 + 순서 칩). 무대가 그만큼 짧아짐 */
   [data-sim="orbit-gravity"] .sim { --panel-h7: calc(540 * var(--u)); }
 }
+
+/* R7-2(C3): 하단 띠 잘림 — 결과 칸('쏘기 전'·'궤도 유지')은 글자를 줄이고 높이는 띠 안(auto), 속력 띠 제목 줄 22u(글자 20u)로 줄여 눈금 숫자 아래 여백 8u 확보 */
+.sim-band .meters.has-core .meter.is-core[data-key="res"] { height: auto; min-height: 0; justify-content: center; padding-top: calc(2 * var(--u)); padding-bottom: calc(2 * var(--u)); }
+.sim-band .meters.has-core .meter.is-core[data-key="res"] .meter__value { font-size: calc(30 * var(--u)); line-height: 1.2; white-space: nowrap; }
+.sim-band .og-band { padding-top: calc(1 * var(--u)); }
+.sim-band .og-band__head { height: calc(22 * var(--u)); font-size: calc(20 * var(--u)); }

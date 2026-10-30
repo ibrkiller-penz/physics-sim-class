@@ -17,7 +17,10 @@
      D.dim(x1,y1,x2,y2,label,{off})                  치수선(양끝 눈금 + 가운데 글)
      D.angle(cx,cy,r,a0,a1,label)                    각도 호(도, 수학 방향 — 위가 +)
      D.ray(pts,{style:1|2|3})                        렌즈 세 광선(실험 화면 ray1~3 과 같은 색·선 모양)
-     D.label(x,y,text,{bg, anchor, size, color, weight, italic})   bg:true = 바탕색 테두리(글자가 선 위에서도 읽힘)
+     D.label(x,y,text,{bg, anchor, size, color, weight, italic, sym})   R7-2: bg 기본 true(바탕색 테두리 — 글자가 선 위에서도 읽힘, 끄려면 bg:false)
+                                                     sym:'v_0' → data-sym (설명 기호표의 기호 단추를 누르면 그림 속 같은 기호가 1.2초 강조)
+     D.frac(x,y,num,den,{size, color, anchor, sym})  R7-2: 도식 라벨용 분수(가로 막대) — '÷'·'/' 대신
+     R7-2: D.arrow kind 'a'|'f'(가속도·힘) = 구리색 토큰 var(--color-q-force) 고정 · 화살 라벨은 화살 끝에서 28(머리와 10 더 띄움)
      D.line(x1,y1,x2,y2,{color, w, dash}) · D.path(d,{…, fill}) · D.curve(pts,{…}) · D.dots(pts,{r, color})
      D.ball(x,y,r,{color, label}) · D.box(x,y,w,h,{label, color}) · D.lens(x,y,h) · D.slit(x,y,h,{gap, sep}) · D.screen(x,y,h) · D.planet(x,y,r,{label})
      D.group(kids,{transform, opacity}) · D.C (색 이름표)
@@ -28,8 +31,11 @@
   var C = {
     sim: 'var(--sim)', muted: 'var(--color-ink-muted)', warn: 'var(--color-warn)', tint: 'var(--sim-tint)',
     ink: 'var(--color-ink)', paper: 'var(--color-paper-raised)', line: 'var(--color-line-strong)',
-    ray1: 'var(--color-rec-1)', ray2: 'var(--color-rec-2)', ray3: 'var(--color-rec-3)'
+    ray1: 'var(--color-rec-1)', ray2: 'var(--color-rec-2)', ray3: 'var(--color-rec-3)',
+    force: 'var(--color-q-force)'   // R7-2: 힘·가속도 화살표 = 구리색(실험 화면 계기 '힘' 색과 같음)
   };
+  /** 기호 비교용: '$v_{0}$' → 'v_0' (lesson.js 와 같은 규칙) */
+  function normSym(s) { return String(s || '').replace(/[$\s{}\\]/g, ''); }
   function col(c, d) { return C[c] || c || C[d || 'sim']; }
   function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function n(v) { return Math.round(v * 10) / 10; }
@@ -62,13 +68,13 @@
     });
   }
 
-  var MARK = { sim: 'dg-m-sim', warn: 'dg-m-warn', muted: 'dg-m-muted', ink: 'dg-m-ink' };
+  var MARK = { sim: 'dg-m-sim', warn: 'dg-m-warn', muted: 'dg-m-muted', ink: 'dg-m-ink', force: 'dg-m-force' };
   function defs() {
     function m(id, color, size) {
       return '<marker id="' + id + '" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="' + size + '" markerHeight="' + size + '" orient="auto-start-reverse" markerUnits="strokeWidth">' +
         '<path d="M0 0.8L10 5L0 9.2z" style="fill:' + color + '"/></marker>';
     }
-    return '<defs>' + m(MARK.sim, C.sim, 4.2) + m(MARK.warn, C.warn, 3.4) + m(MARK.muted, C.muted, 5.5) + m(MARK.ink, C.ink, 4.2) + '</defs>';
+    return '<defs>' + m(MARK.sim, C.sim, 4.2) + m(MARK.warn, C.warn, 3.4) + m(MARK.muted, C.muted, 5.5) + m(MARK.ink, C.ink, 4.2) + m(MARK.force, C.force, 3.4) + '</defs>';
   }
 
   var D = {};
@@ -102,15 +108,27 @@
     var size = Math.max(16, o.size || 22);
     var st = 'font-size:' + size + 'px;font-weight:' + (o.weight === 500 ? 500 : 400) + ';fill:' + col(o.color, 'ink') +
       (o.italic ? ';font-style:italic;font-family:var(--font-math)' : '') +
-      (o.bg ? ';stroke:' + C.paper + ';stroke-width:7;stroke-linejoin:round;paint-order:stroke' : '');
-    return '<text x="' + n(x) + '" y="' + n(y) + '" text-anchor="' + (o.anchor || 'start') + '" dominant-baseline="' + (o.baseline || 'middle') + '" style="' + st + '">' + tspans(text) + '</text>';
+      (o.bg !== false ? ';stroke:' + C.paper + ';stroke-width:7;stroke-linejoin:round;paint-order:stroke' : '');
+    return '<text x="' + n(x) + '" y="' + n(y) + '" text-anchor="' + (o.anchor || 'start') + '" dominant-baseline="' + (o.baseline || 'middle') + '"' + (o.sym ? ' class="dg-sym" data-sym="' + esc(normSym(o.sym)) + '"' : '') + ' style="' + st + '">' + tspans(text) + '</text>';
+  };
+  /** 분수 라벨: 가운데 (x, y) = 막대 높이. num·den 은 '$v^2$' 같은 표기 */
+  D.frac = function (x, y, num, den, o) {
+    o = o || {};
+    var size = Math.max(16, o.size || 22), w = Math.max(String(num).replace(/\$/g, '').length, String(den).replace(/\$/g, '').length) * size * 0.62 + 10;
+    var cx = o.anchor === 'start' ? x + w / 2 : o.anchor === 'end' ? x - w / 2 : x;
+    var lo = { anchor: 'middle', size: size, color: o.color, bg: o.bg };
+    return '<g' + (o.sym ? ' class="dg-sym" data-sym="' + esc(normSym(o.sym)) + '"' : '') + '>' +
+      D.label(cx, y - size * 0.62, num, lo) +
+      '<line x1="' + n(cx - w / 2) + '" y1="' + n(y) + '" x2="' + n(cx + w / 2) + '" y2="' + n(y) + '" style="stroke:' + col(o.color, 'ink') + ';stroke-width:2;stroke-linecap:round"/>' +
+      D.label(cx, y + size * 0.66, den, lo) + '</g>';
   };
   D.arrow = function (x1, y1, x2, y2, o) {
     o = o || {};
     var kind = o.kind || 'v', out = '';
-    var color = o.color ? col(o.color) : kind === 'a' || kind === 'f' ? C.warn : kind === 'comp' ? C.muted : kind === 'sum' ? C.ink : C.sim;
-    var mk = o.color ? (o.color === 'warn' ? MARK.warn : o.color === 'muted' ? MARK.muted : o.color === 'ink' ? MARK.ink : MARK.sim) :
-      kind === 'a' || kind === 'f' ? MARK.warn : kind === 'comp' ? MARK.muted : kind === 'sum' ? MARK.ink : MARK.sim;
+    var isF = kind === 'a' || kind === 'f';   // R7-2: 힘·가속도는 색을 바꾸지 않는다(구리색 고정)
+    var color = isF ? C.force : o.color ? col(o.color) : kind === 'comp' ? C.muted : kind === 'sum' ? C.ink : C.sim;
+    var mk = isF ? MARK.force : o.color ? (o.color === 'warn' ? MARK.warn : o.color === 'muted' ? MARK.muted : o.color === 'ink' ? MARK.ink : MARK.sim) :
+      kind === 'comp' ? MARK.muted : kind === 'sum' ? MARK.ink : MARK.sim;
     var w = kind === 'a' || kind === 'f' ? 4 : kind === 'comp' ? 1.8 : kind === 'sum' ? 5 : 2.8;
     var len = Math.hypot(x2 - x1, y2 - y1);
     if (len < 1) return '';
@@ -121,8 +139,8 @@
       out += '<line x1="' + n(x1) + '" y1="' + n(y1) + '" x2="' + n(x1 + (x2 - x1) * k) + '" y2="' + n(y1 + (y2 - y1) * k) + '" style="stroke:' + C.paper + ';stroke-width:1.6;stroke-linecap:butt"/>';
     }
     if (o.label) {
-      var lx = o.lx !== undefined ? o.lx : x2 + (x2 - x1) / len * 18, ly = o.ly !== undefined ? o.ly : y2 + (y2 - y1) / len * 18;
-      out += D.label(lx, ly, o.label, { bg: true, anchor: o.anchor || (x2 >= x1 ? 'start' : 'end'), color: kind === 'comp' ? 'muted' : o.labelColor || 'ink', size: o.size });
+      var lx = o.lx !== undefined ? o.lx : x2 + (x2 - x1) / len * 28, ly = o.ly !== undefined ? o.ly : y2 + (y2 - y1) / len * 28;   // R7-2: 화살 머리에서 10 더 띄움
+      out += D.label(lx, ly, o.label, { bg: true, anchor: o.anchor || (Math.abs(x2 - x1) < 4 ? 'middle' : x2 >= x1 ? 'start' : 'end'), color: kind === 'comp' ? 'muted' : o.labelColor || 'ink', size: o.size, sym: o.sym });
     }
     return out;
   };
@@ -166,7 +184,7 @@
   D.ball = function (x, y, r, o) {
     o = o || {};
     return '<circle cx="' + n(x) + '" cy="' + n(y) + '" r="' + (r || 12) + '" style="fill:' + col(o.color, 'sim') + (o.hollow ? ';fill:' + C.paper + ';stroke:' + col(o.color, 'sim') + ';stroke-width:2.5' : '') + '"/>' +
-      (o.label ? D.label(x + (r || 12) + 8, y, o.label, { bg: true }) : '');
+      (o.label ? D.label(x + (r || 12) + 8, y, o.label, { bg: true, sym: o.sym }) : '');
   };
   D.box = function (x, y, w, h, o) {
     o = o || {};

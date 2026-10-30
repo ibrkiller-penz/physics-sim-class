@@ -85,3 +85,5 @@ html:not(.is-simple) .sim-panel [data-key="planet"] > .ctl__label {
 /* R6 심플 모드: 화살표 범례 글자 28u (섬광 줄은 sim.js 가 뺌) */
 html.is-simple .pe-legend { font-size: calc(28 * var(--u)); max-width: min(calc(440 * var(--u)), 100%); }
 html.is-simple .pe-legend__row svg { width: calc(52 * var(--u)); height: calc(20 * var(--u)); }
+
+/* R7-2(팀장): 기호 칩 줄·식 옆 설명·해설 후속 [해 보기] 는 공통(shell.css · base.css .note-try)으로 옮김 */

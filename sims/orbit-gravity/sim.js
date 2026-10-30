@@ -928,6 +928,12 @@
     bandView = SK.canvas(area, { fit: false, bg: '--color-paper-raised' });
     bandView.onResize = function () { drawBand(); };
   })();
+  // R7-2(C3): 식 팝업의 $v_{esc}$ 기호 → 속력 띠 7.9·11.2 눈금을 ms 동안 굵게(띠는 그때그때 그리므로 깜빡이는 동안 다시 그림)
+  SK.addFlashTarget('stage:vband', function (ms) {
+    if (curMode !== 'cannon') SK.notice('속력 띠의 7.9 · 11.2 눈금은 뉴턴의 대포 실험에 있어요', 'info', 2600);
+    var until = Date.now() + ms;
+    (function tick() { drawBand(); if (Date.now() < until + 60) setTimeout(tick, 120); })();
+  });
   /** R6(C1): 심플에서는 속력 띠를 측정 줄의 넓은 칸(vband)으로 옮긴다 — 같은 캔버스(노드 이동), 자세히로 돌아오면 제자리 */
   function placeBand() {
     if (!bandBox) return;
@@ -963,11 +969,13 @@
     var k = simple ? Math.max(1, Math.min(1.3, H / 88)) : 1;
     var x0 = simple ? 4 : 12, x1 = W - (simple ? 4 : 12), NUM = simple ? Math.round(28 * k) : 22, ROW = simple ? 32 * k : 26, GAP = simple ? 4 : 1;   // R7(C3): 자세히 숫자 줄 26 — 22 글자가 칸(캔버스) 아래로 잘리지 않게
     var by = simple ? 2 : 0;
-    var bh = Math.max(20, Math.min(simple ? 56 * k : 40, H - by - GAP - ROW));
+    var PADB = simple ? 0 : 8;                                    // R7-2(C3): 자세히 숫자 줄 아래 여백 8u — 1280·1180 에서 7.9·11.2 가 칸 아래로 잘리지 않게
+    var bh = Math.max(18, Math.min(simple ? 56 * k : 40, H - by - GAP - ROW - PADB));
     var ry = by + bh + GAP;                                       // 숫자 줄 위 끝
     function X(v) { return x0 + (x1 - x0) * Math.max(0, Math.min(1, v / o.max)); }
     ctx.save();
-    var ZS = simple ? Math.round(28 * k) : 24, ZL = { size: ZS, weight: 500 };
+    var ZS = simple ? Math.round(28 * k) : Math.max(18, Math.min(24, Math.round(bh - 6))), ZL = { size: ZS, weight: 500 };
+    var flashV = !!(o.flashKey && SK.isFlashing && SK.isFlashing(o.flashKey));   // R7-2(C3): 식 팝업 v_esc 기호 → 7.9·11.2 눈금 깜빡임
     var nx = o.now !== null && o.now !== undefined ? X(o.now) : null;
     (o.zones || []).forEach(function (z) {
       var a = X(z.from), b = X(z.to);
@@ -992,7 +1000,7 @@
     var numBoxes = [];
     mk.forEach(function (m) {
       var mx = X(m.v);
-      ctx.beginPath(); ctx.moveTo(mx, by); ctx.lineTo(mx, by + bh + GAP); ctx.strokeStyle = col('--color-ink'); ctx.lineWidth = 2.5; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(mx, by); ctx.lineTo(mx, by + bh + GAP); ctx.strokeStyle = col(flashV ? '--color-sim-orbit' : '--color-ink'); ctx.lineWidth = flashV ? 6 : 2.5; ctx.stroke();
       var al = m.align || 'center', tx = mx;
       if (al === 'left') tx = mx + 4; else if (al === 'right') tx = mx - 4;
       var t = m.text;
@@ -1000,7 +1008,7 @@
       var left = al === 'left' ? tx : al === 'right' ? tx - tw : tx - tw / 2;
       if (left < x0) { left = x0; tx = x0; al = 'left'; } else if (left + tw > x1) { left = x1 - tw; tx = x1; al = 'right'; }
       numBoxes.push([left, left + tw]);
-      text(ctx, t, tx, ry + ROW / 2, { size: NUM, weight: 500, align: al, base: 'middle', color: '--color-ink' });   // 숫자 줄 세로 가운데
+      text(ctx, t, tx, ry + ROW / 2, { size: NUM, weight: 500, align: al, base: 'middle', color: flashV ? '--color-sim-orbit-text' : '--color-ink' });   // 숫자 줄 세로 가운데
     });
     (o.dots || []).forEach(function (d) {
       text(ctx, d.mark, X(d.v), by + bh / 2 + 1, { size: simple ? Math.round(28 * k) : 22, weight: 500, align: 'center', color: d.color, halo: true });
@@ -1063,7 +1071,7 @@
       ],
       marks: hid ? [] : [{ v: vc, text: SK.fmt(vc, 1) }, { v: ve, text: SK.fmt(ve, 1) }],
       dots: hid ? [] : recDots(function (r) { return (r.values.bk || r.params.body) === b.key; }, function (r) { return r.params.v0; }),
-      now: SK.params.v0,
+      now: SK.params.v0, flashKey: 'stage:vband',
       unit: 'km/s', legend: hid ? null : ['▼', ' 지금 · ● 기록']
     });
   }
@@ -1704,7 +1712,7 @@
     inlineTerms: true,
     how: [
       '아래 [실험 ▾](Y)에서 실험을 골라요 — 맨 위 단추로 뉴턴의 대포·원궤도 위성·케플러 자료를 바꿀 수 있어요.',
-      '실험 카드를 누르면 값이 바로 바뀌고 예측 질문이 나와요. 답을 고르고 예측하기를 눌러요.',
+      '실험을 고르면 값이 바로 바뀌고 예측 질문이 나와요. 답을 고르고 예측하기를 눌러요.',
       '아래 ▶ 실행을 눌러 포탄을 쏘거나(뉴턴의 대포) 위성을 한 바퀴 돌려요(원궤도 위성).',
       '끝나면 위 띠의 기록하기 버튼으로 결과를 저장해요.',
       '패널 수치 칸 아래 순서 칩에서 다음 ▶을 눌러 값 하나만 바꾸고, 다시 실행하고 기록해요.',
@@ -1823,13 +1831,13 @@
   SK.takeaway(function (p) {
     if (curMode === 'kepler') {
       var st = kStats();
-      return { line: 'T²/a³ 평균 ' + SK.fmt(st.mean, 2) + ' — 여섯 행성이 거의 같아요', more: '케플러 제3법칙 T² ∝ a³이에요. 같은 태양의 중력이 모든 행성을 끌어당기기 때문에 비례 상수가 같아요(AU·년 단위로 약 1).', lesson: 'kepler' };
+      return { line: 'T²/a³ 평균 ' + SK.fmt(st.mean, 2) + ' — 여섯 행성이 거의 같아요', more: '케플러 제3법칙 T² ∝ a³이에요. 같은 태양의 중력이 모든 행성을 끌어당기기 때문에 비례 상수가 같아요(AU·년 단위로 약 1).', lesson: 'kepler-2' };
     }
     if (curMode === 'sat') {
       var s = satCalc(p.alt), line = '고도 ' + comma(p.alt) + ' km: 속력 ' + SK.fmt(s.v, 2) + ' km/s, 주기 ' + periodText(s.T);
       if (Math.abs(p.alt - 400) < 1) return { line: line, more: 'ISS도 계속 떨어지고 있지만, 옆으로 ' + SK.fmt(s.v, 1) + ' km/s로 달려서 땅이 같이 휘어 멀어져요. 중력은 지표의 ' + pctText(s.g) + '% — 무중력이 아니라 함께 떨어지는 상태예요. 위성 질량을 바꿔도 속력·주기는 그대로예요.', lesson: 'weightless' };
-      if (Math.abs(p.alt - 35786) < 1) return { line: line, more: '주기가 지구 자전(약 하루)과 같아서 늘 같은 곳 위에 떠 있어요(정지궤도). 높을수록 중력이 약해 느리게 돌고, 돌 길도 길어져 주기가 길어요.', lesson: 'orbit-speed' };
-      return { line: line, more: 'r = 지구 반지름 6,371 km + 고도 = ' + comma(6371 + p.alt) + ' km. 높을수록 중력이 약해 느리게 돌고, 돌 길도 길어져 주기가 길어요.', lesson: 'orbit-speed' };
+      if (Math.abs(p.alt - 35786) < 1) return { line: line, more: '주기가 지구 자전(약 하루)과 같아서 늘 같은 곳 위에 떠 있어요(정지궤도). 높을수록 중력이 약해 느리게 돌고, 돌 길도 길어져 주기가 길어요.', lesson: 'orbit-heights' };
+      return { line: line, more: 'r = 지구 반지름 6,371 km + 고도 = ' + comma(6371 + p.alt) + ' km. 높을수록 중력이 약해 느리게 돌고, 돌 길도 길어져 주기가 길어요.', lesson: 'orbit-heights' };
     }
     if (!cn || !cn.res) return null;
     var b = cn.b, v0 = SK.fmt(p.v0, 1) + ' km/s', vc = SK.fmt(b.vCirc, 1) + ' km/s', ve = SK.fmt(b.vEsc, 1) + ' km/s';
@@ -1858,13 +1866,13 @@
     why: 'GMm/r² = mv²/r에서 위성 질량 m이 지워져 v = √(GM/r)이에요. 무거우면 중력도 크지만 그만큼 움직임을 바꾸기도 어려워(관성) 상쇄돼요.' });
   SK.think({ id: 's-float', lesson: 'weightless', when: inMode('sat'), q: '국제우주정거장 안의 우주인이 둥둥 떠 있는 까닭은?', choices: ['우주에는 중력이 없어서', '우주정거장과 우주인이 함께 떨어지고 있어서', '공기가 없어서'], answer: 2,
     why: '그 높이에서도 중력은 지표의 89%예요. 우주정거장과 우주인이 똑같이 떨어지니 바닥이 우주인을 받치지 않아 떠 보여요. 줄이 끊긴 엘리베이터 안에서 함께 떨어질 때와 같아요.' });
-  SK.think({ id: 's-geo', lesson: 'orbit-speed', when: inMode('sat'), q: '정지궤도 위성은 왜 모두 같은 높이(약 35,786 km)에 있을까?',
+  SK.think({ id: 's-geo', lesson: 'orbit-heights', when: inMode('sat'), q: '정지궤도 위성은 왜 모두 같은 높이(약 35,786 km)에 있을까?',
     hint: '늘 같은 곳 위에 있으려면 주기가 얼마여야 할까요? 주기가 정해지면 r은?',
     reveal: '<b>모범 답</b> 늘 같은 곳 위에 있으려면 지구 자전과 같은 주기(약 23.9시간)로 돌아야 해요. T² ∝ r³이라 주기가 정해지면 거리 r도 하나로 정해져요 → 지구 중심에서 약 42,200 km(지구 반지름의 6.6배), 고도 약 35,800 km.<br><b>해설</b> 위성 질량은 주기에 영향을 주지 않으니, 큰 위성이든 작은 위성이든 높이가 같아요.' });
-  SK.think({ id: 'k-mean', lesson: 'kepler', when: inMode('kepler'), q: '모든 행성에서 T²/a³이 1로 같다는 것은 무엇을 뜻할까?',
+  SK.think({ id: 'k-mean', lesson: 'kepler-2', when: inMode('kepler'), q: '모든 행성에서 T²/a³이 1로 같다는 것은 무엇을 뜻할까?',
     hint: 'T² = (4π²/GM) a³에서 M은 누구의 질량일까요?',
     reveal: '<b>모범 답</b> 모든 행성이 같은 태양 하나의 중력으로 돈다는 뜻이에요. 비례 상수 4π²/GM은 태양 질량 M으로만 정해져서, 태양을 도는 천체라면 행성이든 소행성이든 같은 값(AU·년 단위로 1)이에요.' });
-  SK.think({ id: 'k-four', lesson: 'kepler', when: inMode('kepler'), q: '태양에서 4 AU 떨어져 도는 소행성의 공전 주기는?', choices: ['4년', '8년', '16년', '64년'], answer: 2,
+  SK.think({ id: 'k-four', lesson: 'kepler-1', when: inMode('kepler'), q: '태양에서 4 AU 떨어져 도는 소행성의 공전 주기는?', choices: ['4년', '8년', '16년', '64년'], answer: 2,
     why: 'T² = a³ = 4³ = 64 → T = √64 = 8년. 거리가 4배여도 주기는 4배가 아니라 8배예요.' });
 
   /* ------------------------------------------------------------------
@@ -1937,7 +1945,7 @@
         '⑥ ISS 높이(400 km)에서도 중력은 지표의 89%다'
       ] },
       { title: '수업 단계', items: [
-        '예측: 실험을 고르면 첫 카드의 예측 질문이 저절로 떠요 (교사 모드에서 끌 수 있어요)',
+        '예측: 실험을 고르면 그 실험의 예측 질문이 저절로 떠요 (교사 모드에서 끌 수 있어요)',
         '실행: 대포는 패널 순서 칩으로 4 → 11.2 km/s 차례로 / 위성은 고도·질량을 하나씩 바꿔 기록',
         '비교: 기록 표에서 고도가 높을수록 속력은 작고 주기는 길다, 케플러는 T²–a³ 직선',
         '정리: "높이 올라가면 중력이 0?"(심화 거리–중력 그래프), "정지궤도는 왜 같은 높이?"'

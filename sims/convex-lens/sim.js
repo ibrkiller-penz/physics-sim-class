@@ -344,7 +344,7 @@
   (function () {
     var bl = SK.controls.blocker.el, sc = SK.controls.screen.el, row = h('div', { class: 'lens-sitrow' });
     bl.parentNode.insertBefore(row, bl); row.appendChild(bl); row.appendChild(sc);
-    var full = ['가림판 없음', '렌즈 위 절반 가림', '가운데만 뚫림'], short = ['없음', '위 절반', '가운데'];
+    var full = ['가림판 없음', '렌즈 위 절반 가림', '가운데만 뚫림'], short = ['없음', '위', '가운데'];   // R7-2(C5): '위 절반' 칩 잘림 → '위' (전체 이름은 말풍선·aria)
     var os = bl.querySelectorAll('.seg__opt');
     for (var i = 0; i < os.length && i < 3; i++) { os[i].textContent = short[i]; os[i].title = full[i]; os[i].setAttribute('aria-label', full[i]); }
     var st = sc.querySelector('.check__text'); if (st) { st.textContent = '스크린'; sc.querySelector('.check').title = '스크린 놓기 / 치우기 (I)'; }
@@ -363,7 +363,7 @@
   SK.addToggle('tools', { key: 'marks', label: 'F · 2F 위치 표시', value: true });
   SK.addToggle('tools', { key: 'ruler', label: '거리 눈금 (물체·상 거리)', value: true });
   SK.addToggle('tools', { key: 'fan', label: '렌즈 전체를 지나는 빛 다발', value: false });
-  SK.addToggle('tools', { key: 'hideF', label: '초점거리 숨기기 (찾기 탐구)', value: false, onChange: function () { syncUI(); renderTable(); refreshFindF(); }, hint: '카드 ① 초점거리 찾기가 이 값을 켜요 · 숨긴 f 는 정리 단계에서 답 확인하기로 공개돼요' });   // R7(C5)
+  SK.addToggle('tools', { key: 'hideF', label: '초점거리 숨기기 (찾기 탐구)', value: false, onChange: function () { syncUI(); renderTable(); refreshFindF(); }, hint: '실험 ① 초점거리 찾기가 이 값을 켜요 · 숨긴 f 는 정리 단계에서 답 확인하기로 공개돼요' });   // R7(C5)
 
   /* R7(C6): 그림 기호 범례는 실험 화면 위가 아니라 ⚙ 설정 '화면에 표시하기' 끝 '기호 보기' 줄로(+ 설명 3장 링크) */
   var legendEl = h('span', { class: 'lens-legend__txt', 'aria-label': '그림 읽는 법' });
@@ -496,6 +496,13 @@
       onApply: function (p) { presetApplied(p); openWinForCard(); }
     }
   ]);
+  // R7-2(C5): 식 팝업의 광선 기호 → 실험 화면 광선 ①②③ 을 1.5초 굵게(drawRays 가 SK.isFlashing('stage:rayN') 로 그림). 꺼져 있으면 켜는 키 안내
+  [1, 2, 3].forEach(function (n) {
+    SK.addFlashTarget('stage:ray' + n, function () {
+      if (!SK.get('ray' + n) || SK.get('type') === 'far') SK.notice('광선 ' + ['①', '②', '③'][n - 1] + ' 이 꺼져 있어요 — ' + ['Q', 'W', 'E'][n - 1] + ' 키로 켜요', 'info', 2600);
+      SK.requestRender();
+    });
+  });
   // 처음 학생에게 권하는 카드 ① 에 '추천' 표시
   // R3: 떠 있는 배지 대신 공통 규칙(.preset-card.is-reco → 값 줄 앞 '추천 ·', 고르면 '✓ 고름'이 우선)
   (function () { var c = SK.el.presets.querySelector('.preset-card'); if (c) c.classList.add('is-reco'); })();
@@ -552,17 +559,17 @@
     ].map(function (r) { return h('tr', null, r.map(function (t) { return h('td', { text: t }); })); }))
   ]);
   var MYTHS = h('ul', { class: 'lens-myths' }, [
-    ['렌즈를 반 가리면 상도 반쪽이 된다?', '아니에요. 물체의 한 점에서 나온 빛은 렌즈 모든 부분을 지나 같은 점에 모여요. 남은 절반으로도 상 전체가 생기고, 어두워질 뿐이에요. (카드 ⑤)'],
+    ['렌즈를 반 가리면 상도 반쪽이 된다?', '아니에요. 물체의 한 점에서 나온 빛은 렌즈 모든 부분을 지나 같은 점에 모여요. 남은 절반으로도 상 전체가 생기고, 어두워질 뿐이에요. (실험 ⑤)'],
     ['스크린이 없으면 상도 없다?', '아니에요. 실상은 빛이 실제로 모이는 자리에 생겨요. 스크린은 그 빛을 받아 눈에 보이게 할 뿐이에요. (스크린 놓기를 꺼 봐요)'],
     ['상은 물체 그림이 통째로 날아온 것이다?', '아니에요. 물체의 점 하나하나에서 나온 빛이 각각 한 점에 모이고, 그 점들이 모여 상이 돼요.'],
-    ['허상은 가짜라서 볼 수 없다?', '볼 수 있어요. 돋보기 속 큰 글자가 허상이에요. 다만 빛이 실제로 모인 곳이 아니라서 스크린에는 맺히지 않아요. (카드 ④)'],
+    ['허상은 가짜라서 볼 수 없다?', '볼 수 있어요. 돋보기 속 큰 글자가 허상이에요. 다만 빛이 실제로 모인 곳이 아니라서 스크린에는 맺히지 않아요. (실험 ④)'],
     ['물체를 초점에 두면 상이 가장 크다?', '상이 생기지 않아요. 렌즈를 지난 빛이 나란히 나가서 어디에서도 모이지 않아요. 상이 가장 커지는 건 초점 바로 바깥이에요.']
   ].map(function (m) { return h('li', null, [SK.iconify(h('b', { text: '✗ ' + m[0] })), h('span', { text: '→ ' + m[1] })]); }));   // R4: ✗ → 아이콘
 
   SK.help({
     inlineTerms: true,
     how: [
-      '아래 실험 카드를 누르면 값이 바뀌고 예측 질문이 나와요. 처음이면 ① 초점거리 찾기부터 해요.',
+      '아래 [실험 ▾]에서 실험을 고르면 값이 바뀌고 예측 질문이 나와요. 처음이면 ① 초점거리 찾기부터 해요.',
       '보기를 고르고 예측하기 버튼을 누른 뒤, 아래 ▶ 실행으로 빛이 가는 모습을 봐요.',
       '실험 화면 아래 「물체」·「스크린」 손잡이를 끌어 옮겨요. 상이 선명하면 스크린 위에 「선명!」이 떠요.',
       '오른쪽 위 정면 창에서 스크린에 비친 상의 모습(거꾸로인지, 얼마나 큰지)을 봐요.',
@@ -658,7 +665,7 @@
   SK.think({
     id: 'projector', lesson: 'by-position',
     q: '프로젝터 화면(화면에 비친 큰 그림, 즉 실상)을 더 크게 하려면 슬라이드(보여 줄 그림)와 스크린을 어떻게 옮길까?',
-    hint: '실험 카드 ③ 프로젝터 크게로 확인해 봐요.',
+    hint: '실험 ③ 프로젝터 크게로 확인해 봐요.',
     choices: ['슬라이드는 렌즈 쪽, 스크린은 더 멀리', '슬라이드는 멀리, 스크린은 더 가까이', '슬라이드만 렌즈 쪽, 스크린은 그대로'], answer: 1,
     why: '슬라이드(물체)가 초점 쪽으로 다가가면 상은 렌즈에서 멀어지고 커져요. 상이 생기는 자리가 멀어졌으니 스크린도 그만큼 멀리 옮겨야 선명해요. 스크린을 그대로 두면 흐린 상이 비쳐요.'
   });
@@ -693,7 +700,7 @@
      ------------------------------------------------------------------ */
   SK.guide({
     rows: [
-      { target: '초점거리 f (5~20 cm, 1 cm, 기본 10 · 바로 반영 · 카드 ①은 숨김)', standard: '[12물리03-02] 탐구 활동 「상의 위치와 초점거리 찾기」, 학교 렌즈 f≈10 cm', discover: 'f가 짧을수록 빛이 많이 꺾여 상이 렌즈 가까이 생긴다', misconception: '—' },
+      { target: '초점거리 f (5~20 cm, 1 cm, 기본 10 · 바로 반영 · 실험 ①은 숨김)', standard: '[12물리03-02] 탐구 활동 「상의 위치와 초점거리 찾기」, 학교 렌즈 f≈10 cm', discover: 'f가 짧을수록 빛이 많이 꺾여 상이 렌즈 가까이 생긴다', misconception: '—' },
       { target: '물체 거리 (3~50 cm, 1 cm, 기본 30 · 바로 반영 · 끌기)', standard: '탐구 활동의 핵심 조작 변인', discover: '2F 밖: 작은 거꾸로 실상 / 2F: 같은 크기 / F~2F 사이: 큰 거꾸로 실상 / F 안쪽: 바로 선 허상. 물체가 다가오면 상은 멀어지고 커진다', misconception: '상은 그림이 통째로 옮겨진 것' },
       { target: '물체 높이 (더 많은 설정, 2~6 cm)', standard: '변인 통제', discover: '배율은 물체 높이와 관계없다', misconception: '—' },
       { target: '스크린 위치 (더 많은 설정, 5~100 cm · 끌기)', standard: '탐구 활동(스크린을 옮겨 선명한 곳 찾기)', discover: '선명한 위치는 한 곳뿐이다', misconception: '스크린이 없으면 상이 없다' },
@@ -705,9 +712,9 @@
     ],
     sections: [
       { title: '수업 흐름', items: [
-        '① 예측: 처음 학생은 카드 ①(초점거리 찾기)부터, 오개념 확인 카드 ⑤(반 가리기)는 마지막에 권해요. 손들기 수를 받아 두세요. 예측 창은 수업 안내에서 끌 수 있어요.',
+        '① 예측: 처음 학생은 실험 ①(초점거리 찾기)부터, 오개념 확인 실험 ⑤(반 가리기)는 마지막에 권해요. 손들기 수를 받아 두세요. 예측 창은 수업 안내에서 끌 수 있어요.',
         '② 실행: 물체·스크린 손잡이를 끌고, 광선을 하나씩 켜며 설명해요.',
-        '③ 비교: 카드 ①로 먼 풍경 상을 스크린에 맺어 f 를 어림 → 물체 종류를 화살표로 바꿔 물체 거리 40·30·20·15·12 cm 에서 기록 → 기록 표 아래 「같은 거리 찾기」 → 「규칙 카드 열기」.',
+        '③ 비교: 실험 ①로 먼 풍경 상을 스크린에 맺어 f 를 어림 → 물체 종류를 화살표로 바꿔 물체 거리 40·30·20·15·12 cm 에서 기록 → 기록 표 아래 「같은 거리 찾기」 → 「규칙 카드 열기」.',
         '④ 정리: 오른쪽 질문 판 4문항(스크린을 치우면 · 프로젝터 · 반도체 · 초점에 두면) + 초점거리를 숨겼으면 「숨긴 f 는 몇 cm?」(답 확인하기로 공개). 토론 전에는 「답 확인 잠금」을 켜 두세요.'
       ] },
       { title: '이렇게 그렸어요', items: [
@@ -1081,6 +1088,7 @@
       }
       if (r.main && SK.isSimple()) st = { color: st.color, dash: st.dash, width: Math.max(5, st.width) };   // R6(C6): 심플 광선 굵기 5u
       if (r.main && hoverRay === r.n) st = { color: st.color, dash: st.dash, width: st.width + 2.5 };
+      if (r.main && SK.isFlashing('stage:ray' + (r.n + 1))) st = { color: st.color, dash: st.dash, width: st.width + 4 };   // R7-2(C5): 식 팝업 광선 기호 → 1.5초 굵게
       var len = polyLen(pts);
       if (len > longest) longest = len;
       drawPartial(ctx, pts, st, reveal);
