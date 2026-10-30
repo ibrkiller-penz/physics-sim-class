@@ -94,7 +94,7 @@
             sat(cx, sy),
             D.arrow(cx + 19, sy, cx + 95, sy, { kind: 'v', label: '$v$', lx: cx + 107, ly: sy, anchor: 'start', sym: 'v' }),
             D.arrow(cx + 4, sy + 10, cx + 4, sy + 56, { kind: 'f', label: '$F$', lx: cx + 18, ly: sy + 30, anchor: 'start', sym: 'F' })
-          ], { title: '지구를 도는 위성 (모식도, 축척 아님)', how: '실선 화살표 $v$ = 옆으로 가는 속도 · 굵은 구리색 화살표 $F$ = 중력(지구 중심 쪽) · $R$ 천체 반지름, $r$ 중심에서 위성까지' });
+          ], { title: '지구를 도는 위성 (모식도, 축척 아님)', how: '실선 화살표 $v$ = 옆으로 가는 속도 · 굵은 화살표 $F$ = 중력(지구 중심 쪽) · $R$ 천체 반지름, $r$ 중심에서 위성까지' });
         },
         teacherNote: '1분. "우주에는 중력이 없다" 같은 예상을 받아 두었다가 10장(오해)에 써요.' },
 
@@ -170,14 +170,14 @@
           kids.push(D.line(ex, cy + 72, ex, 400, { color: 'muted', w: 1.5, dash: '4 5' }),
             D.dim(ex, 300, xs[0], 300, '$r$', { off: -16 }), D.dim(ex, 350, xs[1], 350, '2$r$', { off: -16 }), D.dim(ex, 400, xs[2], 400, '3$r$', { off: -16 }));
           kids.push(D.label(790, 430, '거리 2배 → 힘 4분의 1', { anchor: 'end', size: 20, color: 'muted' }));
-          return D.svg(kids, { title: '거리에 따른 중력의 세기 (모식도)', how: '구리색 화살표 길이 = 중력의 크기 — 1 : 4분의 1 : 9분의 1 (거리 $r$, 2$r$, 3$r$)' });
+          return D.svg(kids, { title: '거리에 따른 중력의 세기 (모식도)', how: '굵은 화살표 $F$(중력) 길이 = 중력의 크기 — 1 : 4분의 1 : 9분의 1 (거리 $r$, 2$r$, 3$r$)' });
         },
         teacherNote: '수식 암기가 아니라 "멀수록 약해지지만 0은 아니다"가 핵심이에요. 해 보기의 고도 6,400 km 는 $r$ ≈ 2$R$ 이라 계기 약 25 %.' },
 
       /* 4장 */
       { id: 'orbit-speed', type: 'formula', title: '원궤도 속력',
         body: [
-          '위성에서는 **중력이 구심력**이에요. 중력과 구심력을 같게 놓으면 양쪽의 위성 질량 $m$ 이 약분돼요.',
+          '위성에서는 **중력이 구심력**({{구심력}}: 원의 중심 쪽으로 당기는 힘)이에요. 중력과 구심력을 같게 놓으면 양쪽의 위성 질량 $m$ 이 약분돼요.',
           '그래서 $v$ 는 $m$ 과 무관하고 $M$ 과 $r$ 로 정해져요.'
         ],
         eq: [{ tex: '$v$ = √', frac: ['$GM$', '$r$'], caption: '$m$ 이 없어요 · 주기 $T$ = {{frac:2π$r$|$v$}}' }],
@@ -217,7 +217,7 @@
             D.label(BX + 24, 262, '$M$ 중심 천체 질량', { size: 19, sym: 'M' }),
             D.label(BX + 24, 290, '$r$ 중심에서의 거리', { size: 19, sym: 'r' }),
             D.label(BX + 24, 318, '$m$ 위성 질량 (약분)', { size: 19, sym: 'm' })
-          ], { title: '중력 = 구심력 (모식도)', how: '구리색 화살표 = 중력(구심력) · 실선 화살표 $v$ = 궤도 속력 · 양쪽의 위성 질량 $m$ 이 약분돼요' });
+          ], { title: '중력 = 구심력 (모식도)', how: '굵은 화살표 $F$ = 중력(구심력) · 실선 화살표 $v$ = 궤도 속력 · 양쪽의 위성 질량 $m$ 이 약분돼요' });
         },
         teacherNote: '위성 모드의 질량 칩 100 → 1,000 → 10,000 kg 으로 바꿔도 7.7 km/s·약 92분 그대로임을 기록 표로 보여 줘요.' },
 
@@ -348,7 +348,11 @@
           ];
           P.forEach(function (q, i) {
             kids.push(D.dots([[mx(q[1]), my(q[2])]], { r: 6 }));
-            if (i < 4) kids.push(D.label(mx(q[1]) + 6, my(q[2]) + q[3] * (18 + i * 6), q[0], { size: 17, anchor: 'start' }));
+            // R7 학생점검(E6): 안쪽 네 행성은 점이 모여 있어 라벨을 위/아래로 나누고 지시선으로 잇는다(수성·금성·화성은 아래 한 줄, 지구는 위)
+            if (i < 4) {
+              var lx = [100, 162, 168, 232][i], ly = i === 2 ? 336 : 438, px = mx(q[1]), py = my(q[2]);
+              kids.push(D.line(px, py + (i === 2 ? -8 : 8), lx, ly + (i === 2 ? 14 : -16), { color: 'muted', w: 1.3 }), D.label(lx, ly, q[0], { anchor: 'middle' }));
+            }
             else kids.push(D.label(mx(q[1]) - 12, my(q[2]) - 6, q[0], { anchor: 'end' }));
           });
           return D.svg(kids, { title: '행성 자료: $T$ – $a$', how: '점 = 행성 자료 · 점선 = 기울기 1 직선 · 여섯 점이 위로 휘는 곡선 위에 있어요 — 거리가 4배면 주기는 8배' });
@@ -423,12 +427,12 @@
           { key: 'mode', value: 'kepler', label: '케플러 자료' }
         ],
         questions: [
-          { q: '20 km 산꼭대기에서 7.9 km/s 로 쏘면? (이어서 4 → 6 → 7.9 → 10 → 11.2)', preset: 0, mode: 'cannon', set: { mode: 'cannon', v0: 7.9 }, chapter: 'cannon' },
-          { q: '같은 400 km 높이에서 무거운 위성은 더 빨리 돌까? (질량 $m$ 100 → 10,000 kg)', simple: false, preset: 1, mode: 'sat', set: { mass: 100 }, chapter: 'orbit-speed' },
+          { q: '산꼭대기에서 7.9 km/s 로 쏘면? (4 → 11.2 까지 차례로)', preset: 0, mode: 'cannon', set: { mode: 'cannon', v0: 7.9 }, chapter: 'cannon' },
+          { q: '무거운 위성은 더 빨리 돌까? ($m$ 100 → 10,000 kg)', simple: false, preset: 1, mode: 'sat', set: { mass: 100 }, chapter: 'orbit-speed' },
           { q: '35,786 km 위성은 ISS 보다 빨리 돌까, 천천히 돌까? (고도 $h$)', simple: false, preset: 2, chapter: 'orbit-heights' },
           { q: '태양에서 멀수록 행성의 1년은? ($T^2$ – $a^3$)', simple: false, preset: 3, mode: 'kepler', chapter: 'kepler-2' },
           { q: '3 km/s 로 쏘면 어느 천체에서 탈출할까?', preset: 4, set: { body: 'moon' }, chapter: 'escape' },
-          { q: '더 해 보기: $v_0$ 를 √2 배(7.9 → 11.2 km/s) 하면?', simple: false, preset: 0, set: { v0: 11.2 }, predict: false, chapter: 'escape' }
+          { q: '$v_0$ 를 √2 배(7.9 → 11.2 km/s) 하면?', simple: false, preset: 0, set: { v0: 11.2 }, predict: false, chapter: 'escape' }
         ],
         teacherNote: '발문: ISS 안의 사람은 왜 뜨는가?(→ 6장) · 3 km/s 로 쏘면 달·화성·지구에서 각각? · 7.9 km/s 와 11.2 km/s 의 비는?(약 1.41 = √2)' },
 

@@ -170,3 +170,21 @@ html:not(.is-simple) .sim-panel [data-key="tau"] .seg__opt { padding-top: calc(2
 /* R7-3(B4): 실행 전 그래프 판 = 56u 한 줄 — 탭·'그래프' 머리는 실행 뒤(판이 펼쳐진 뒤)에만 */
 .cm-lower.cm-lower--pre .cm-tabs, .cm-lower.cm-lower--pre .cm-tabs__label { display: none; }
 .cm-lower.cm-lower--pre > .empty { padding-block: 0; min-height: 0; }
+
+/* ── R7 학생점검(A8): 저시력 — 슬라이더 눈금('0.5 1 3' · '← −3 0 +3 →')·띠 값('2.00→2.00')·단위·판정 글자 하한 18px ── */
+.sim-panel .var__ticks, .sim-panel .var__ticks span, .cm-vel .var__ticks .cm-zero { font-size: max(18px, var(--fs-caption)); }
+.sim-band.cm-band .meters.has-core .meter.is-core .meter__value { font-size: max(18px, calc(30 * var(--u))); }
+.sim-band.cm-band .meters.has-core .meter.is-core .meter__value.cm-pair { font-size: max(18px, calc(28 * var(--u))); }
+.sim-band.cm-band .meter__unit { font-size: max(18px, var(--fs-caption)); }
+.cm-band .meter__value .arrow { font-size: max(18px, .7em); }
+.sim-band.cm-band .meters.has-core .meter[data-key="verdict"] .meter__value { font-size: max(18px, calc(22 * var(--u))); line-height: 1.15; }
+/* R7 학생점검(D1): 카드 ② 부제 둘째 줄 '설명 9장 질문 6은 v₂를 −2로 바꿔요' — 이 카드만 두 줄(잘림·흐림 없이) */
+.preset-list .preset-card:nth-child(2) .preset-card__changes { white-space: pre-line; overflow: visible; -webkit-mask-image: none; mask-image: none; align-items: flex-start; }
+.preset-list .preset-card:nth-child(2) .preset-card__ch { line-height: 1.3; }
+html.is-simple .simple-rail .var__ticks, html.is-simple .simple-rail .var__ticks span { font-size: max(18px, var(--fs-caption)); }   /* R7(A8): 심플 눈금도 18px */
+
+/* R7 학생점검(디자인A·B): 속도 눈금 '← −3'·'+3 →' 가 슬라이더 양끝 밖으로 나가 [−][+] 단추와 닿던 것 — 끝 눈금은 슬라이더 안쪽으로 맞춤 */
+.cm-vel .var__ticks span.is-start { margin-left: 0; }
+.cm-vel .var__ticks span.is-end { margin-left: 0; }
+/* '달라붙기' 가 1180 에서 '달라붙/기' 로 꺾이던 것 — 충돌 종류 칩은 낱말을 자르지 않고 여백을 줄인다 */
+html:not(.is-simple) .sim-panel [data-key="kind"] .seg__opt { padding-left: calc(4 * var(--u)); padding-right: calc(4 * var(--u)); white-space: nowrap; word-break: keep-all; font-size: max(16px, var(--fs-meta)); }

@@ -354,6 +354,7 @@
       {
         id: 'energy', type: 'formula', title: '에너지는 어디로 가나',
         body: [
+          '실험 ②는 $v_0$ = 10 m/s 예요(실험 ①은 20 m/s).',
           '$E_k$ 는 빠를수록, $E_p$ 는 높을수록 커요.',
           '중력만 일을 하면 $E_k$ 와 $E_p$ 가 서로 바뀌고 합 $E$ 는 일정해요.',
           '최고점에서도 $E_k$ 는 0이 아니에요($v_x$ 가 남음).'
@@ -400,7 +401,7 @@
             k.push(D.label(c.x, 408, c.name, { anchor: 'middle', size: 20, bg: false }));
           });
           k.push(D.line(80, base, 780, base, { color: 'ink', w: 2 }));
-          return D.svg(k, { title: '세 장면의 에너지 (실험 ②)', how: '진한 칸 = $E_k$ · 빗금 칸 = $E_p$ ($m$ = 1 kg) · 꼭대기가 같은 점선 위 — 합 $E$ 가 같아요' });
+          return D.svg(k, { title: '실험 ② — $v_0$ 10 m/s · 30° · 20 m 절벽 · $m$ 1 kg', how: '진한 칸 = $E_k$ · 빗금 칸 = $E_p$ · 꼭대기가 같은 점선 위 — 합 $E$ 가 같아요\n처음 $E_k$ = ½·1·10² = 50 J' });
         }
       },
 
@@ -418,7 +419,7 @@
         ],
         symbols: [
           { sym: '$g$', name: '어디에서 던질까?', target: 'planet' },
-          { sym: '$g$', name: '지구의 $g$ 값(⚙)', target: 'gEarth' }
+          { sym: '$g$', name: '지구의 $g$ 값 (⚙ 설정에서 바꿔요)', target: 'gEarth' }
         ],
         now: function (p, v, st) {
           var s = '$g$ = ' + gTxt(p) + ' m/s² (' + (PH ? PH.PLANETS[p.planet].name : p.planet) + ')';
@@ -451,7 +452,7 @@
           k.push(D.curve(para(545, 150, 220, 45, 24), { color: 'muted', w: 2, dash: '6 6' }));        // 공기 없음
           k.push(D.path('M545 150 C590 95, 640 100, 672 150', { color: 'sim', w: 2.5 }));          // 공기 있음: 더 낮고 짧게
           k.push(D.label(650, 182, '$E$ 일부 → 열', { anchor: 'middle', size: 18, bg: false }));
-          return D.svg(k, { title: '같은 공, 같은 $v_0$·45°로 지구와 달에서', how: '진한 선 = 달 · 회갈색 선 = 지구 · 상자: 점선 = 공기 없음, 실선 = 공기 있음' });
+          return D.svg(k, { title: '같은 공, $v_0$ 10 m/s · 45° (공기 없음)', how: '큰 그림: 진한 선 = 달, 회갈색 = 지구\n오른쪽 상자: 점선 = 공기 없음, 실선 = 공기 있음' });
         }
       },
 
@@ -486,7 +487,7 @@
           { q: '20 m 절벽에서 옆으로 던진 공과 떨어뜨린 공, 누가 먼저 땅에 닿을까?', simple: false, preset: 0, chapter: 'two-motions' },
           { q: '날아가는 동안 $E_k$ + $E_p$ 의 합 $E$ 는?', preset: 1, set: { energy: true }, chapter: 'energy' },
           { q: '같은 속력 20 m/s 로 30°와 60°면 누가 더 멀리? (30°를 기록한 뒤 $θ$ 만 60°로)', simple: false, preset: 2, set: { theta: 30 }, chapter: 'symmetry' },
-          { q: '$h$ = 10 m 에서 던지면 45°와 40° 중 어느 쪽이 더 멀리 갈까? (둘 다 기록해 비교)', simple: false, preset: 2, set: { h: 10, theta: 45 }, predict: false, chapter: 'symmetry' },
+          { q: '$h$ = 10 m 에서 45°로 던진 뒤 $θ$ 만 40°로 바꾸면 어느 쪽이 멀리 갈까?', cardName: '높이 10 m · 45°→40°', simple: false, preset: 2, set: { h: 10, theta: 45 }, predict: false, chapter: 'symmetry' },
           { q: '최고점에서 속도와 가속도는?', preset: 4, set: { showV: true, showA: true, topStop: true }, chapter: 'split-v' }
         ],
         teacherNote: ['발문: 각도를 바꿔도 착지 속력이 같을까? 같은 $v_0$·$h$ 면 √($v_0^2$ + 2$gh$) 로 같다.', '④ 답: $h$ = 10 m, 20 m/s → 40° 49.8 m > 45° 49.1 m. 달은 7장 [해 보기](실험 ④).']

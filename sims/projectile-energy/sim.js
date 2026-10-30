@@ -264,9 +264,12 @@
   meters.el.classList.add('pe-meters');
   // R4: 기호는 공통 수식 표기(symbol 'v_y' → v<sub>y</sub>). R3: '음수면 아래' 는 라벨 줄 끝에 (값 줄은 숫자·단위만)
   var vyLab = meters.el.querySelector('[data-key="vy"] .meter__label');
-  if (vyLab) vyLab.appendChild(h('span', { class: 'pe-meter-note', text: '(위+ 아래−)', title: '위로 가면 +, 아래로 가면 −' }));   // R6: caption 24u 에서 1920 끝 ')' 잘림 → 띄어쓰기·가운뎃점 줄임
+  // R7 학생점검(B7): 라벨은 '수직 속도 vy' 만 — '(위+ 아래−)' 는 title(마우스를 올리면) 과 읽기 프로그램용 글로
+  var vyM = meters.el.querySelector('[data-key="vy"]');
+  if (vyM) vyM.title = '수직 속도: 위로 가면 +, 아래로 가면 −';   // 라벨 title 은 '식 보기'(공통)가 쓴다 — 칸 전체에
+  if (vyLab) { vyLab.appendChild(h('span', { class: 'sr-only', text: ' (위로 가면 +, 아래로 가면 −)' })); }
 
-  var energyBox = h('div', { class: 'pe-energy', 'aria-label': '에너지 막대' });
+  var energyBox = h('div', { class: 'pe-energy', 'aria-label': '에너지 막대 — 역학적 에너지 E = 운동 에너지 Ek + 위치 에너지 Ep', title: '역학적 에너지 E = 운동 에너지 Ek + 위치 에너지 Ep' });
   SK.el.graph.appendChild(energyBox);
   var ev = SK.canvas(energyBox, { fit: false, bg: '--color-paper-raised' });
   ev.onResize = function () { if (run) drawEnergy(SK.params); };
@@ -338,7 +341,8 @@
   var PRESETS = [
     {
       name: '수평으로 던지기',
-      changes: 'h 20 m · 0°', change: 'v₀ 10 m/s · 각도 0° · 높이 20 m · 떨어뜨린 공 함께',
+      changes: '20 m 절벽에서 옆으로 10 m/s',   // R7 학생점검(B4): 부제는 기호 대신 말
+      formulaCh: 'two-motions',   // R7 학생점검(A3): [ƒ 식]·[설명]이 여는 장 change: 'v₀ 10 m/s · 각도 0° · 높이 20 m · 떨어뜨린 공 함께',
       values: vals({ planet: 'earth', air: 'off', h: 20, v0: 10, theta: 0, m: 1, cmp: true, flash: true, shadow: true }),
       predict: {
         place: 'bottom',   // R5: 20 m 절벽(발사점)이 위쪽이라 창은 아래에
@@ -353,8 +357,9 @@
       }
     },
     {
-      name: '나는 동안 에너지',
-      changes: 'h 20 m · 30°', change: 'v₀ 10 m/s · 각도 30° · 높이 20 m · 질량 1 kg',
+      name: '날아가는 동안 에너지',
+      changes: '20 m 절벽 · 10 m/s · 30°',
+      formulaCh: 'energy', change: 'v₀ 10 m/s · 각도 30° · 높이 20 m · 질량 1 kg',
       values: vals({ planet: 'earth', air: 'off', h: 20, v0: 10, theta: 30, m: 1, flash: true, energy: true }),
       predict: {
         place: 'bottom',   // R5: 20 m 절벽(발사점)이 위쪽이라 창은 아래에
@@ -371,7 +376,8 @@
     },
     {
       name: '30°와 60°',
-      changes: '각도 30° → 60°', change: 'v₀ 20 m/s · 땅에서 · 각도 30° (다음엔 60°로 바꿔 기록)',
+      changes: '땅에서 20 m/s · 30° 뒤 60°',
+      formulaCh: 'symmetry',   // 4장(사거리) 계열 — 30°·60° 비교는 설명 '30°와 60°, 그리고 45°' 장 change: 'v₀ 20 m/s · 땅에서 · 각도 30° (다음엔 60°로 바꿔 기록)',
       values: vals({ planet: 'earth', air: 'off', h: 0, v0: 20, theta: 30, m: 1, flash: true }),
       predict: {
         place: 'top',
@@ -386,7 +392,8 @@
     },
     {
       name: '달에서 던지기',
-      changes: 'g: 지구 → 달', change: '달 (g = 1.62 m/s²) · v₀ 10 m/s · 각도 45° · 땅에서',
+      changes: '달에서 10 m/s · 45°',
+      formulaCh: 'g-air', change: '달 (g = 1.62 m/s²) · v₀ 10 m/s · 각도 45° · 땅에서',
       values: vals({ planet: 'moon', air: 'off', h: 0, v0: 10, theta: 45, m: 1, flash: true }),
       predict: {
         place: 'top',
@@ -404,7 +411,8 @@
     },
     {
       name: '최고점에서 속도는?',
-      changes: '최고점 화면정지',   // R5: '최고점에서 멈춤' 은 '최고점에서 공이 멈춘다' 오개념 — 화면만 멈춤 (카드 폭 1024 에서도 한 줄)
+      changes: '꼭대기에서 화면 멈춤',
+      formulaCh: 'split-v',   // 최고점 속도 = 수평 성분 — 설명 '속도를 둘로 나누기'(실험 ⑤ 해 보기가 있는 장)   // R5: '최고점에서 멈춤' 은 '최고점에서 공이 멈춘다' 오개념 — 화면만 멈춤 (카드 폭 1024 에서도 한 줄)
       change: '최고점에서 화면이 잠깐 멈춰요 — 공은 계속 움직여요 (v₀ 20 m/s · 45° · 화살표 보기)',
       values: vals({ planet: 'earth', air: 'off', h: 0, v0: 20, theta: 45, m: 1, topStop: true, showV: true, showA: true }),
       predict: {
@@ -417,7 +425,7 @@
   ];
   SK.setPresets(PRESETS.map(function (pr, i) {
     return {
-      name: pr.name, changes: pr.changes, change: pr.change, values: pr.values, predict: pr.predict,
+      name: pr.name, changes: pr.changes, change: pr.change, values: pr.values, predict: pr.predict, formulaCh: pr.formulaCh,
       onApply: function () {
         curPreset = i; fixedBox = null;
         if (!SK.get('autoScale')) SK.set('autoScale', true);
@@ -947,9 +955,13 @@
   }
   function numTxt(v) { return (Math.round(v * 10) / 10).toString(); }
 
+  // R7 학생점검(A8): 캔버스 글자 하한 max(18px, Nu) — 1u 가 화면에서 몇 px 인지(view.scale)로 단위 하한을 구한다
+  var MINU = 0;
+  function fz(n) { return Math.max(n, MINU); }
   function onRender(view, p) {
     if (!run) return;
     var ctx = view.ctx, W = view.w, H = view.h;
+    MINU = 18 / (view.scale || 1);
     var B = currentBox();
     // R4: 세로 여유 EX(16:9 = 0). 바닥을 아래에 붙였으므로(offsetY = extra) 그리기 맨 위는 y = −EX
     var EX = view.offsetY || 0, YMIN = -EX;
@@ -957,7 +969,7 @@
     // TOPY = 16:9 와 같은 값(축척 S 를 정함 → 모눈 1칸 그대로). TOPD = 칩 아래 실제 그리기 위쪽 = TOPY − EX
     var TOPY = Math.max(L.TOP, Math.min(Math.ceil((SK.stageInset().top + 24) / 20) * 20, 260));
     var TOPD = TOPY - EX;
-    var SIMPLE = SK.isSimple && SK.isSimple(), TS = SIMPLE ? 28 : 22;   // R6(A2): 심플 = 축·눈금·기록 글자 28u (좌표 계산은 그대로)
+    var SIMPLE = SK.isSimple && SK.isSimple(), TS = fz(SIMPLE ? 28 : 22);   // R6(A2): 심플 = 축·눈금·기록 글자 28u (좌표 계산은 그대로)
     var pred = SK.predicting();   // 예측 창이 떠 있는 동안: 결과 층(궤적·섬광·기록·지구 비교선) 숨김, 방향 화살표·앞 30% 점선만
     var S = Math.min((L.RIGHT - L.X0) / B.x, (L.GY - TOPY) / B.y);
     map.S = S;
@@ -1022,17 +1034,15 @@
     var kx = tickEvery(SIMPLE ? 110 : 70);
     // R7-3(A3): 공(또는 떨어뜨린 공)이 x = 0 땅 위에 있으면 눈금 '0' 을 공 오른쪽 가장자리 + 8 로 비킨다
     //          실행 전에는 공 둘레 점선 고리(반지름 BALL_R + 12, 아래 '당기기 안내')까지 공으로 본다
-    var zeroY = SIMPLE ? L.GY + 10 : L.GY + 12, zeroR = !SK.started && !drag ? BALL_R + 12 : BALL_R;
-    function onZero(cx, cy, r) { return Math.abs(cx - L.X0) < r + 14 && cy + r > zeroY - 2; }
-    var zeroBusy = onZero(sx(st.x), sy(st.y), zeroR) || (p.cmp && onZero(L.X0, sy(st.yc), BALL_R));
+    // R7 학생점검(B8): '0' 은 옆으로 비키지 않고 늘 한 줄 아래 같은 자리 — 실행 전(공·점선 고리)·실행 뒤(떨어뜨린 공) 모두 같은 곳
+    var zeroY = SIMPLE ? L.GY + 10 : L.GY + 12;
+    var zeroY0 = Math.min(zeroY + TS * 1.1, H - TS * 1.1);
     for (var ix = 0; sx(ix * cell) <= W - 110; ix++) {
       if (ix % kx) continue;
       var xx = sx(ix * cell), xl = numTxt(ix * cell), xw = ctx.measureText(xl).width;
       if (xx + xw / 2 > xTitleL - 16 && (SIMPLE || L.GY + 12 + TS > xTitleY)) break;   // 축 이름과 겹치는 눈금 숫자는 빼기(제목 위에 숫자를 겹쳐 두지 않음)
       ctx.fillRect(xx - 1, L.GY, 2, 8);
-      if (ix === 0 && zeroBusy) {
-        ctx.textAlign = 'left'; ctx.fillText(xl, xx + zeroR + 8, zeroY); ctx.textAlign = 'center';
-      } else ctx.fillText(xl, xx, zeroY);
+      ctx.fillText(xl, xx, ix === 0 ? zeroY0 : zeroY);
     }
     // 축 이름: 그래프 바깥 가장자리 (x: 오른쪽 아래 끝, y: 왼쪽 위 끝)
     // R3: 지면 띠 안 글자 위계는 하나 (muted). R4: 축 이름 500 · 기호는 수식 표기. y축 제목은 눈금 숫자 왼쪽 바깥
@@ -1109,12 +1119,12 @@
     if (!SK.started && !drag && !pred) {
       // R4: '▶' 글자 → 공통 play 아이콘 (글 · 아이콘 · 글을 가운데 맞춤)
       var ecx = (L.X0 + L.RIGHT) / 2 + 60, ecy = Math.max(300, TOPY + 60);
-      var eo = { size: 30, weight: 500, color: '--color-ink' }, eA = '아래 ', eB = ' 실행을 눌러 던져 보세요', eI = 28;
+      var eo = { size: fz(30), weight: 500, color: '--color-ink' }, eA = '아래 ', eB = ' 실행을 눌러 던져 보세요', eI = fz(28);
       var ewA = SK.measure(ctx, eA, eo).w, ewB = SK.measure(ctx, eB, eo).w, ex0 = ecx - (ewA + eI + ewB) / 2;
       SK.text(ctx, eA, ex0, ecy, eo);
       SK.drawIcon(ctx, 'play', ex0 + ewA + eI / 2, ecy, eI, { color: '--color-ink' });
       SK.text(ctx, eB, ex0 + ewA + eI, ecy, eo);
-      SK.text(ctx, '공을 뒤로 끌어당겨 속력과 각도를 정할 수도 있어요', ecx, Math.max(344, TOPY + 104), { size: 24, weight: 400, color: '--color-ink-muted', align: 'center' });
+      SK.text(ctx, '공을 뒤로 끌어당겨 속력과 각도를 정할 수도 있어요', ecx, Math.max(344, TOPY + 104), { size: fz(24), weight: 400, color: '--color-ink-muted', align: 'center' });
     }
     // 그림자 (바닥: 수평 운동, 왼쪽 벽: 수직 운동)
     if (p.shadow) {
@@ -1147,7 +1157,7 @@
       SK.arrow(ctx, bx, by, bx, ty, { color: '--color-q-velocity', width: 3, dash: [8, 6] });
       SK.arrow(ctx, bx, by, tx, ty, { color: '--color-q-velocity', width: 5 });
       // R3: 이름표는 화살 끝에서 12u 바깥 (자취·화살과 겹치지 않게)
-      var vl = Math.hypot(tx - bx, ty - by) || 1, ux = (tx - bx) / vl, uy = (ty - by) / vl, LH = VLAB_H / 2;
+      var vl = Math.hypot(tx - bx, ty - by) || 1, ux = (tx - bx) / vl, uy = (ty - by) / vl, LH = (fz(22) * 1.2 + 6) / 2;
       if (Math.abs(st.vx) > 1) labs.push({ x: tx + 12, y: by, text: '수평 속도', anchor: 'left', color: '--color-q-velocity', size: 22 });
       if (Math.abs(st.vy) > 1) labs.push({ x: bx - 8, y: ty + (st.vy > 0 ? -(12 + LH) : 12 + LH), ax: bx, ay: ty, text: '수직 속도', anchor: 'right', color: '--color-q-velocity', size: 22 });
       labs.push({ x: tx + 12 * ux, y: ty + 12 * uy + uy * LH, ax: tx, ay: ty, text: '속도 $v$', anchor: ux < -0.3 ? 'right' : 'left', color: '--color-q-velocity', size: 22 });
@@ -1231,7 +1241,8 @@
     var bg = SK.color('--color-paper-label') || 'rgba(251,248,239,0.85)';
     items.forEach(function (it) {
       ctx.save();
-      var to = { size: it.size || 22, weight: 500 };   // R4: 에스코어 500 + 기호는 수식($v$)
+      var to = { size: fz(it.size || 22), weight: 500 };   // R4: 에스코어 500 + 기호는 수식($v$) · R7 학생점검(A8) 하한
+      hgt = to.size * 1.2 + 6;
       var w = SK.measure(ctx, it.text, to).w + padX * 2;
       var x0 = it.anchor === 'right' ? it.x - w : it.anchor === 'center' ? it.x - w / 2 : it.x;
       var y0 = it.y - hgt / 2, dy = 0, tries = 0;
@@ -1260,10 +1271,10 @@
 
   /** 실험 화면 위 작은 말풍선 (최고점·섬광 점·당기기) */
   function label(ctx, lines, x, y, W, C, side) {
-    var to = { size: 22, weight: 500, baseline: 'top' };   // R4: SK.text (수식 $t$ $x$ $y$)
-    var w = 0;
+    var to = { size: fz(22), weight: 500, baseline: 'top' };   // R4: SK.text (수식 $t$ $x$ $y$) · R7 학생점검(A8) 하한
+    var w = 0, LHT = Math.round(to.size * 1.36);
     lines.forEach(function (t) { w = Math.max(w, SK.measure(ctx, t, to).w); });
-    var pw = w + 28, ph = lines.length * 30 + 16, yMin = 8 - ((SK.view && SK.view.offsetY) || 0);   // R4: 넓어진 하늘 위 끝
+    var pw = w + 28, ph = lines.length * LHT + 16, yMin = 8 - ((SK.view && SK.view.offsetY) || 0);   // R4: 넓어진 하늘 위 끝
     var lx = Math.max(8, Math.min(x - pw / 2, W - pw - 8)), ly = Math.max(yMin, y - ph);
     if (side) {   // 공 왼쪽에 두고, 자리가 없으면 오른쪽
       lx = x - BALL_R - 40 - pw;
@@ -1272,7 +1283,7 @@
     ctx.fillStyle = C.scrim; ctx.strokeStyle = C.line; ctx.lineWidth = 1.5;
     roundRect(ctx, lx, ly, pw, ph, 10); ctx.fill(); ctx.stroke();
     ctx.fillStyle = C.ink;
-    lines.forEach(function (t, i) { SK.text(ctx, t, lx + 14, ly + 10 + i * 30, to); });
+    lines.forEach(function (t, i) { SK.text(ctx, t, lx + 14, ly + 10 + i * LHT, to); });
   }
   function roundRect(ctx, x, y, w, hh, r) {
     ctx.beginPath();
@@ -1293,16 +1304,35 @@
     var K = Math.max(0, E.K), U = Math.max(0, E.U), heat = Math.max(0, E.heat);
     // R4: 제목·합 500, 안내 400 (SK.text, baseline top) · R7-2(A2): 이름 = 운동 에너지 $E_k$ / 위치 에너지 $E_p$ / 역학적 에너지 $E$ (설명 6장·terms 와 같은 말)
     var fE = SK.isFlashing('bar:E'), fK = SK.isFlashing('bar:Ek'), fU = SK.isFlashing('bar:Ep');
-    var tw = SK.text(ctx, '역학적 에너지 $E$', 12, 4, { size: 22, weight: 500, color: fE ? '--sim' : '--color-ink', baseline: 'top' });
+    // R7 학생점검(B5·A8): 막대 글자 max(18px, 26u) — ev 는 fit:false 라 scale = 1u 의 px
+    var FS = Math.max(26, 18 / (ev.scale || 1));
+    var TT = { size: FS, weight: 500, baseline: 'top' };
     if (!p.energy) {
-      SK.text(ctx, '⚙ 설정 › 화면에 표시하기에서 켜요', 12, 34, { size: 22, weight: 400, color: '--color-ink-muted', baseline: 'top' });
+      SK.text(ctx, '역학적 에너지 $E$', 12, 4, { size: FS, weight: 500, color: fE ? '--sim' : '--color-ink', baseline: 'top' });
+      SK.text(ctx, '⚙ 설정 › 화면에 표시하기에서 켜요', 12, 4 + FS * 1.3, { size: FS, weight: 400, color: '--color-ink-muted', baseline: 'top' });
       return;
     }
-    var sw = SK.text(ctx, '$E$ = ' + fmt(K + U, d) + ' J' + (run.analytic ? '' : ' (처음 ' + fmt(run.E0, d) + ')'), W - 12, 4, { size: 22, weight: 500, color: '--color-ink', baseline: 'top', align: 'right' });
-    // R7(A3): 막대 값이 어떤 질량 기준인지 — 제목 옆 작은 글자 (자리가 모자라면 생략)
+    var eTxt = '$E$ = ' + fmt(K + U, d) + ' J' + (run.analytic ? '' : ' (처음 ' + fmt(run.E0, d) + ')');
+    // R7(A3) → R7 학생점검(B5): 질량 기준(m 1 kg)은 늘 보인다 — 범례 줄 끝(■Ek ■Ep · m 1 kg)에, 자리가 모자라면 첫 줄 오른쪽에
     var mLab = '$m$ ' + mText(p) + ' kg';   // 지금 실행에 쓰인 값(SK.params — 막대 값과 같은 기준, 공기 저항이면 공의 질량)
-    if (12 + tw + 14 + 110 < W - 12 - sw - 12) SK.text(ctx, mLab, 12 + tw + 14, 6, { size: 20, weight: 400, color: '--color-ink-muted', baseline: 'top' });
-    var x0 = 12, x1 = W - 12, bw = x1 - x0, top = 31, bh = Math.max(12, Math.min(24, H - top - 29));
+    var MO = { size: FS, weight: 400 }, mW = SK.measure(ctx, '· ' + mLab, MO).w;
+    var x0 = 8, x1 = W - 8, bw = x1 - x0, top = Math.round(4 + FS * 1.2 + 4), bh = Math.max(8, Math.min(28, H - top - FS * 1.15 - 8));   // R7 학생점검(팀장): 띠 100u — 막대는 남는 높이(8~28)
+    var sq = Math.round(FS * 0.55), GI = 14;
+    var full = [['운동 에너지 $E_k$ ', K], ['위치 에너지 $E_p$ ', U]], short = [['$E_k$ ', K], ['$E_p$ ', U]];
+    if (!run.analytic) { full.push(['열 ', heat]); short.push(['열 ', heat]); }
+    function need(list) { var w = 0; list.forEach(function (it) { w += sq + 5 + SK.measure(ctx, it[0] + fmt(it[1], d) + ' J', TT).w + GI; }); return w; }
+    var names = need(full) + mW <= bw ? full : short;
+    var mInLegend = need(names) + mW <= bw;
+    if (mInLegend) {
+      SK.text(ctx, '역학적 에너지 $E$', 12, 4, { size: FS, weight: 500, color: fE ? '--sim' : '--color-ink', baseline: 'top' });
+      SK.text(ctx, eTxt, W - 12, 4, { size: FS, weight: 500, color: '--color-ink', baseline: 'top', align: 'right' });
+    } else {
+      // 좁은 띠(약 390u): 첫 줄 = '역학적 에너지 E = 246.0 J' · 오른쪽 'm 1 kg' — R7 학생점검(디자인C): 이름이 사라지면 E 가 무엇인지 모른다 → 자리가 모자라면 이름을 빼고 'E = …' 만
+      var mW1 = SK.measure(ctx, mLab, MO).w, line1 = eTxt;
+      ['역학적 에너지 ' + eTxt, '에너지 ' + eTxt].some(function (t) { if (SK.measure(ctx, t, TT).w + mW1 + 12 <= bw) { line1 = t; return true; } return false; });
+      SK.text(ctx, line1, x0, 4, { size: FS, weight: 500, color: fE ? '--sim' : '--color-ink', baseline: 'top' });
+      SK.text(ctx, mLab, x1, 4, { size: FS, weight: 400, color: '--color-ink-muted', baseline: 'top', align: 'right' });
+    }
     var max = run.E0 > 0 ? run.E0 : 1;
     ctx.fillStyle = SK.color('--color-paper-sunk'); ctx.fillRect(x0, top, bw, bh);
     var wk = K / max * bw, wu = U / max * bw, wh = Math.min(heat / max * bw, bw - wk - wu);
@@ -1326,23 +1356,21 @@
       ctx.restore();
     }
     // 아래 글자: ■ 운동 에너지 $E_k$ 50.0 J  ■ 위치 에너지 $E_p$ 150.0 J  (■ 열) — 폭이 모자라면 기호만
-    var ty = top + bh + 4, tx = x0, to = { size: 22, weight: 500, baseline: 'top' };
-    var full = [['운동 에너지 $E_k$ ', K], ['위치 에너지 $E_p$ ', U]], short = [['$E_k$ ', K], ['$E_p$ ', U]];
-    if (!run.analytic) { full.push(['열 ', heat]); short.push(['열 ', heat]); }
-    function need(list) { var w = 0; list.forEach(function (it) { w += 42 + SK.measure(ctx, it[0] + fmt(it[1], d) + ' J', to).w; }); return w; }
-    var names = need(full) <= bw ? full : short;
+    var ty = top + bh + 4, tx = x0;
     function item(col, txtCol, text, hatch, hi) {
       ctx.fillStyle = SK.color(col);
-      if (hatch) { ctx.strokeStyle = SK.color(col); ctx.lineWidth = 2; ctx.strokeRect(tx + 1, ty + 4, 12, 12); }
-      else ctx.fillRect(tx, ty + 3, 14, 14);
-      var tw2 = SK.text(ctx, text, tx + 20, ty, { size: 22, weight: 500, color: txtCol, baseline: 'top' });
-      if (hi) { ctx.strokeStyle = SK.color('--sim') || ink; ctx.lineWidth = 2; ctx.strokeRect(tx - 4, ty - 1, tw2 + 28, 26); }
-      tx += 20 + tw2 + 22;
+      var sy0 = ty + Math.round((FS * 1.15 - sq) / 2);
+      if (hatch) { ctx.strokeStyle = SK.color(col); ctx.lineWidth = 2; ctx.strokeRect(tx + 1, sy0 + 1, sq - 2, sq - 2); }
+      else ctx.fillRect(tx, sy0, sq, sq);
+      var tw2 = SK.text(ctx, text, tx + sq + 5, ty, { size: FS, weight: 500, color: txtCol, baseline: 'top' });
+      if (hi) { ctx.strokeStyle = SK.color('--sim') || ink; ctx.lineWidth = 2; ctx.strokeRect(tx - 4, ty - 1, tw2 + sq + 13, FS * 1.2); }
+      tx += sq + 5 + tw2 + GI;
     }
-    if (ty + 22 <= H + 2) {
+    if (ty + FS <= H + 2) {
       item('--color-q-energy-k', '--color-q-energy-k', names[0][0] + fmt(K, d) + ' J', false, fK);
       item('--color-q-energy-p', '--color-q-energy-p-text', names[1][0] + fmt(U, d) + ' J', false, fU);
       if (!run.analytic) item('--color-q-energy-heat', '--color-q-energy-heat', names[2][0] + fmt(heat, d) + ' J', true);
+      if (mInLegend) SK.text(ctx, '· ' + mLab, tx - 4, ty, { size: FS, weight: 400, color: '--color-ink-muted', baseline: 'top' });
     }
   }
   // R7-2(A2): 식 팝업의 $E_k$·$E_p$·$E$ 기호 → 에너지 막대 칸 강조. 깜빡이는 동안 다시 그린다
@@ -1357,8 +1385,9 @@
   // 처음 들어왔을 때: 사거리 숫자 예측을 먼저 (예측 단계)
   // 실험 카드·모드를 고르지 않은 첫 화면은 공통 autoPredict 가 띄울 것이 없으므로, 사거리 숫자 예측을 한 번 띄운다.
   // 다시 열기는 띠의 공통 '예측하기'(마지막 예측 = RANGE_PREDICT, 문장은 그때 값)로. 교사가 자동 예측을 끄면 띄우지 않음
-  // R7(A1b): 설명을 거쳐 들어온 첫 진입(?view 없음·?view=explain — 설명 층이 열려 있음)에서는 띄우지 않는다.
-  //          ?view=sim 직진입·설명 건너뛰기(skip)일 때만. 그 밖에는 실험 카드·[예측하기]로
+  // R7(A1b) → R7 학생점검(A2): 설명을 거쳐 들어온 첫 진입(설명 층이 열려 있음)에서는 여기서 띄우지 않는다 —
+  //          설명이 닫힐 때 공통 onLessonClosed(SK._lessonClosed)가 그 장의 try 카드(없으면 카드 ①)를 적용하고 예측 띠를 연다.
+  //          이 사거리 숫자 예측은 ?view=sim 직진입·설명 건너뛰기(skip)일 때만
   setTimeout(function () {
     if (window.SimLesson && SimLesson.isOpen()) return;
     if (/[?&]view=explain\b/.test(location.search)) return;

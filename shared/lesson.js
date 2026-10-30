@@ -179,7 +179,7 @@
   function standardsBox() {
     var list = data.standards || [];
     if (!list.length) return null;
-    var d = h('details', { class: 'lesson__std' }, [
+    var d = h('details', { class: 'lesson__std teacher-only' }, [
       h('summary', { class: 'lesson__stdsum' }, [ico('info'), h('span', { text: '성취기준 ' + list.length })]),
       h('div', { class: 'lesson__stdlist', 'aria-label': '성취기준' }, (unitName() ? [h('p', { class: 'lesson__stdunit', text: '단원 · ' + unitName() })] : []).concat(list.map(function (s) {
         var code = typeof s === 'string' ? s : s.code, txt = typeof s === 'string' ? '' : s.text;
@@ -260,9 +260,15 @@
     var cardNo = typeof q.card === 'number' ? q.card : typeof q.preset === 'number' ? q.preset : -1;
     var cardName = q.cardName || (typeof q.card !== 'number' && typeof q.preset === 'number' && SK.presetInfo && SK.presetInfo(q.preset) ? SK.presetInfo(q.preset).name : '');
     var card = cardNo >= 0 && cardName ? { name: cardName } : null;
+    // R7 학생점검(B1/D1): 질문이 카드 기본값과 다르게 set 하면 꼬리표에 바뀐 값을 보인다(cardName 이 있으면 그 이름이 우선)
+    if (card && !q.cardName && q.set && SK.presetInfo) {
+      var pinf = SK.presetInfo(cardNo), pv = pinf && pinf.values, diff = [];
+      if (pv) Object.keys(q.set).forEach(function (k) { if (typeof q.set[k] === 'number' && pv[k] !== undefined && pv[k] !== q.set[k]) diff.push(SK.plainMath(k) + ' ' + q.set[k]); });
+      if (diff.length) card = { name: cardName + ' 바꿔서 · ' + diff.join(' · ') };
+    }
     var b = SK.btn(['해 보기', ico('chev-right', 'ico--trail')], 'btn--primary lesson__try', function () { tryQ(q); }, { 'aria-label': '해 보기: ' + SK.plainMath(String(q.q || '')) });
     return h('div', { class: 'lesson__qcard' }, [
-      h('p', { class: 'lesson__qno' }, ['질문 ' + n, card ? h('span', { class: 'chip chip--outline' }, ['실험 ', SK.circ(cardNo + 1), ' ' + card.name]) : null]),
+      h('p', { class: 'lesson__qno' }, ['질문 ' + n, card ? h('span', { class: 'chip chip--outline' }, ['실험 ', SK.circ(cardNo + 1), ' ' + card.name]) : (q.cardName ? h('span', { class: 'chip chip--outline' }, q.cardName) : null)]),
       h('p', { class: 'lesson__qtext' }, inline(q.q)),
       b
     ]);
@@ -322,9 +328,10 @@
     els.where.innerHTML = '';
     // R7-3(S6): 'N / M · 장 제목' — 단원명은 목차 첫 줄·성취기준 접힘 안으로
     els.where.appendChild(h('b', { class: 'num', text: (cur + 1) + ' / ' + v.length }));
-    els.where.appendChild(h('span', { class: 'lesson__unit lesson__chname', text: SK.plainMath(String(c.title || '')) }));
+    els.where.title = SK.plainMath(String(c.title || ''));   // R7 학생점검(A15): 칩은 'N / M ▾' 만, 장 제목은 title·목차에
     els.where.appendChild(ico('chev-down', 'ico--trail'));
     syncPace(c);
+    syncFromChip();
     els.where.setAttribute('aria-label', '목차 — 지금 ' + (cur + 1) + ' / ' + v.length + '장 ' + SK.plainMath(c.title || ''));
     // R7-2(S13): [바로 실험] 늘 보임 — 첫 진입 '바로 실험', 실험 중 '실험으로'
     els.toSim.hidden = false;
@@ -404,6 +411,8 @@
     els.prev.disabled = cur === 0;
     els.next.hidden = last; els.start.hidden = !last;
     els.skip.hidden = !last || SK.isTeacher();
+    els.skip.classList.toggle('is-above', last);   // R7 학생점검(A14): 마지막 장에서는 [실험 시작] 위 한 줄
+    root.querySelector('.lesson__foot') && root.querySelector('.lesson__foot').classList.toggle('lesson__foot--last', last);
     els.skipIn.checked = load('skip') === '1';
     els.count.textContent = (cur + 1) + ' / ' + v.length;
     var seen = seenList();
@@ -436,7 +445,7 @@
     var sc = pt ? b : t, other = pt ? t : b;
     other.classList.remove('is-over');
     sc.classList.remove('is-over');   // 띠 자신이 길이에 끼지 않게 뗀 뒤 잰다
-    sc.classList.toggle('is-over', sc.scrollHeight - sc.clientHeight - sc.scrollTop > 4);
+    sc.classList.toggle('is-over', sc.scrollHeight - sc.clientHeight - sc.scrollTop > 44);   // R7 학생점검(A7): 띠 높이보다 작은 넘침은 띠를 띄우지 않는다
   }
   /** R7-3(S5): 교사 진행 띠 현재 칸 — 설명 층에서는 '설명'(1장이면 '도입') */
   function syncPace() {
@@ -468,7 +477,7 @@
   }
 
   /* ── 열기·닫기 ── */
-  function openAt(id, first) {
+  function openAt(id, first, from) {
     build();
     var i = typeof id === 'number' ? id : indexOf(id);
     if (i < 0) { var last = load('last'); i = last ? indexOf(last) : -1; }
@@ -479,8 +488,24 @@
     document.documentElement.classList.add('is-lesson');
     root.hidden = false;
     if (SK.el && SK.el.slide) SK.el.slide.inert = true;   // 뒤의 실험 화면은 눌리지도, Tab 으로 가지도 않게
+    fromSim = from || null;
     render();
     setTimeout(function () { try { els.text.focus({ preventScroll: true }); } catch (e) { /* 무시 */ } }, 0);
+  }
+  var fromSim = null;
+  /** R7 학생점검(A4): 실험에서 이어 온 장이면 머리에 '실험 ①과 이어진 N장이에요 · [처음부터]' 칩 */
+  function syncFromChip() {
+    if (!els.fromChip) {
+      els.fromChip = h('p', { class: 'lesson__from', hidden: true });
+      els.fromTxt = h('span');
+      els.fromBtn = h('button', { class: 'btn btn--outline lesson__fromb', type: 'button', text: '처음부터' });
+      els.fromBtn.addEventListener('click', function () { fromSim = null; go(0); });
+      els.fromChip.appendChild(els.fromTxt); els.fromChip.appendChild(els.fromBtn);
+      els.where.parentNode.insertBefore(els.fromChip, els.where.nextSibling);
+    }
+    var show = !!(fromSim && typeof fromSim.preset === 'number' && fromSim.preset >= 0 && cur > 0);
+    els.fromChip.hidden = !show;
+    if (show) { els.fromTxt.textContent = ''; els.fromTxt.appendChild(document.createTextNode('실험 ')); els.fromTxt.appendChild(SK.circ(fromSim.preset + 1)); els.fromTxt.appendChild(document.createTextNode('과 이어진 ' + (cur + 1) + '장이에요 · ')); }
   }
   function close(o) {
     o = o || {};
@@ -587,7 +612,8 @@
   /** 지금 카드의 장이 식 장이 아니면 가장 가까운 앞 식 장(없으면 뒤 식 장) */
   function formulaOf(pi) {
     var fs = formulas(); if (!fs.length) return null;
-    var id = api.chapterForPreset(typeof pi === 'number' ? pi : -1);
+    // R7 학생점검(A3): 현재 실험이 없으면(pi<0) '마지막 본 장'이 아니라 기본 식 장(formulaDefault → 첫 식 장)
+    var id = typeof pi === 'number' && pi >= 0 ? api.chapterForPreset(pi) : (data.formulaDefault || null);
     var v = allChapters(), at = -1;
     for (var a = 0; a < v.length; a++) if (id && v[a].id === id) at = a;
     if (at < 0) return fs[0].id;
@@ -644,7 +670,7 @@
   /* ── SimKit 에 등록 ── */
   var api = {
     isOpen: function () { return open; },
-    open: function (id) { openAt(id, false); },
+    open: function (id, o) { openAt(id, false, o && o.from === 'sim' ? o : null); },
     close: close,
     onKey: onKey,
     refresh: function () { if (open) render(); },
@@ -653,21 +679,31 @@
     label: function (id) { var c = chapterById(id); return c ? '설명 ' + (indexOf(id) + 1) + '장 · ' + SK.plainMath(c.title || '') + ' 다시 보기' : ''; },
     /** 지금 카드(preset)의 장 = 확인 질문 중 preset 이 같은 질문의 chapter → 없으면 마지막 본 장 */
     chapterForPreset: function (pi) {
-      var all = data.chapters || [], other = null;
-      for (var i = 0; i < all.length; i++) {
+      // R7 학생점검(A3/A4): ① SK.presetFormulaCh ② 그 preset 을 try 로 가진 설명 장 ③ 9장 질문 매핑 — 'check' 장·마지막 본 장은 돌려주지 않는다(없으면 null)
+      if (!(typeof pi === 'number' && pi >= 0)) return null;
+      var okCh = function (id) { var cc = id && chapterById(id); return !!(cc && cc.type !== 'check' && indexOf(id) >= 0); };
+      var fc = SK.presetFormulaCh ? SK.presetFormulaCh(pi) : null;
+      if (okCh(fc)) return fc;
+      var all = data.chapters || [], i, j;
+      var tryHas = function (t) { return t && (t.preset === pi || t.card === pi); };
+      for (i = 0; i < all.length; i++) {
+        var ch = all[i]; if (ch.type === 'check' || ch.type === 'wrap' || indexOf(ch.id) < 0) continue;
+        if (tryHas(ch.try)) return ch.id;
+        var its = ch.items || [];
+        for (j = 0; j < its.length; j++) if (tryHas(its[j].try)) return ch.id;
+      }
+      var other = null;
+      for (i = 0; i < all.length; i++) {
         var qs = all[i].questions || [], tb = all[i].tabs ? curTab(all[i]) : null;
-        for (var j = 0; j < qs.length; j++) {
-          var q = qs[j], no = typeof q.card === 'number' ? q.card : q.preset;   // 질문은 card(0부터) 또는 preset
-          if (!(no === pi && pi >= 0 && q.chapter && indexOf(q.chapter) >= 0)) continue;
-          // R7-2(팀장): 탭(빛/전자)·mode 가 있으면 지금 갈래의 질문을 먼저
+        for (j = 0; j < qs.length; j++) {
+          var q = qs[j], no = typeof q.card === 'number' ? q.card : q.preset;
+          if (!(no === pi && q.chapter && okCh(q.chapter))) continue;
           var same = (!tb || !q.tab || q.tab === tb) && (!q.mode || Object.keys(SK.params || {}).some(function (k) { return SK.params[k] === q.mode; }));
           if (same) return q.chapter;
           if (!other) other = q.chapter;
         }
       }
-      if (other) return other;
-      var last = load('last');
-      return last && indexOf(last) >= 0 ? last : null;
+      return other;
     },
     formulas: formulas, formulaOf: formulaOf, chapterForSym: chapterForSym, formulaBody: formulaBody, symFlashIn: symFlashIn,
     /** 정리 모달 형성평가 = wrap 장 quiz (R7-2 형식 {kind, q, choices, answerIdx, why, chapter, try}) · 심화 = wrap.more 배열 */

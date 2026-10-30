@@ -28,7 +28,7 @@
     var top = y - h - 12;
     return rect(x, top, w, h, who === 'B' ? FB : FA, { rx: 8, stroke: INK, sw: 2.5 }) +
       '<circle cx="' + (x + w * 0.25) + '" cy="' + (y - 6) + '" r="6" style="fill:' + INK + '"/><circle cx="' + (x + w * 0.75) + '" cy="' + (y - 6) + '" r="6" style="fill:' + INK + '"/>' +
-      (name ? '<text x="' + (x + w / 2) + '" y="' + (top + h / 2) + '" text-anchor="middle" dominant-baseline="middle" style="font-size:22px;font-weight:500;fill:' + INK + '">' + name + '</text>' : '');
+      (name ? '<text x="' + (x + w / 2) + '" y="' + (top + h / 2) + '" text-anchor="middle" dominant-baseline="middle" style="font-size:26px;font-weight:500;fill:' + INK + '">' + name + '</text>' : '');
   }
   function track(D, x1, x2, y) { return D.line(x1, y, x2, y, { color: 'muted', w: 3 }); }
   /** 빗금 무늬(− 막대) — 장마다 id 를 달리 준다 */
@@ -89,13 +89,14 @@
         goals: ['$p$ = $mv$ 와 부호(방향) 쓰기', '충돌 전후 운동량의 합이 같음을 확인하기', '운동 에너지는 튕기느냐에 따라 달라짐을 알기'],
         svg: function (D) {
           return D.svg([
-            D.label(30, 80, '부딪치기 전', { weight: 500 }),
+            /* R7 학생점검(디자인C): 그림 글자가 본문보다 작아 보임(1180 에서 약 14px) → 26·24 */
+            D.label(30, 80, '부딪치기 전', { weight: 500, size: 26 }),
             track(D, 120, 760, 160), cart(D, 180, 160, 100, 50, CA, 'A'), cart(D, 480, 160, 100, 50, CB, 'B'),
-            vArrow(D, 230, 310, 82, '+2 m/s'), D.label(530, 82, '0 (정지)', { anchor: 'middle', size: 20 }),
-            D.label(400, 235, '그대로인 것은?', { anchor: 'middle', weight: 500, size: 24, color: 'sim', bg: true }),
-            D.label(30, 270, '부딪친 뒤', { weight: 500 }),
+            vArrow(D, 230, 310, 82, '+2 m/s', { size: 24 }), D.label(530, 82, '0 (정지)', { anchor: 'middle', size: 24 }),
+            D.label(400, 235, '그대로인 것은?', { anchor: 'middle', weight: 500, size: 26, color: 'sim', bg: true }),
+            D.label(30, 270, '부딪친 뒤', { weight: 500, size: 26 }),
             track(D, 120, 760, 360), cart(D, 330, 360, 100, 50, CA, 'A'), cart(D, 520, 360, 100, 50, CB, 'B'),
-            D.label(380, 282, '0 (정지)', { anchor: 'middle', size: 20 }), vArrow(D, 570, 650, 282, '+2 m/s')
+            D.label(380, 282, '0 (정지)', { anchor: 'middle', size: 24 }), vArrow(D, 570, 650, 282, '+2 m/s', { size: 24 })
           ], { title: '마찰 없는 트랙 위 두 수레', how: '청록 화살표 = 속도 · 위 = 부딪치기 전, 아래 = 부딪친 뒤 · 같은 질량 1 kg, 오른쪽이 +' });
         },
         teacherNote: '1분. 학생이 "속도가 바뀌었다"는 점을 먼저 말하게 한 뒤 "그대로인 것"으로 넘겨요. 탐구: 일차원 충돌에서 운동량 보존 확인하기.' },
@@ -140,6 +141,7 @@
       /* 3장 */
       { id: 'impulse', type: 'formula', title: '충격량과 힘',
         body: [
+          '$Δt$ 는 힘이 작용한 짧은 시간, $I$ 는 충격량(= 힘 × 시간)이에요. 그래서 $I$ = $FΔt$ = $Δp$ 예요.',
           '손을 뒤로 빼며 공을 받으면 덜 아파요. 멈추는 $Δp$ 는 같고 시간 $Δt$ 가 길어서예요.',
           '$Δt$ 가 길수록 평균 힘이 작아요(에어백).'
         ],
@@ -154,6 +156,7 @@
           return '멈출 때 $Δp$ = 0 − ' + f(p.m1, 1) + ' × (' + sg(p.v1) + ') → |$Δp$| = ' + f(Math.abs(p.m1 * p.v1), 1) + ' N·s · $Δt$ = ' + p.tau + ' s';
         },
         try: { label: '실험 ⑤ 딱딱한 범퍼 → 푹신한 범퍼', preset: 4, set: { tau: 0.01 } },
+        more: { title: '더 알아보기 — 그래프 곡선의 꼭대기', body: ['힘이 반 사인 곡선 모양이면 꼭대기(최대 힘)는 평균 힘 × π/2 예요.'] },
         svg: function (D) {
           /* R7-3(B5): 곡선 = 반 사인(실험의 힘 펄스와 같은 모양) — 꼭대기(최대 힘) = 평균 × π/2.
              3차 베지어 M ox,360 C ox+0.3b,360−1.333h ox+0.7b,360−1.333h ox+b,360 의 꼭대기 = h.
@@ -172,7 +175,7 @@
             D.axis(440, 360, 320, 270, { xl: '시간 $t$', yl: '힘 $F$' }), pulse(450, 280, 34.3), avg(450, 730, 21.8),
             D.label(590, 296, '최대 15.7 N · 평균 10 N', { anchor: 'middle', size: 18 }), D.label(590, 386, '$Δt$ 0.2 s', { anchor: 'middle', size: 18, color: 'muted' }),
             D.label(400, 428, '색칠한 넓이가 같아요 = 충격량 $I$ 2 N·s', { anchor: 'middle', weight: 500, color: 'sim', sym: 'I' })
-          ], { title: '힘-시간 그래프 (넓이 = 충격량 $I$)', how: '점선 = 평균 힘 · 1 kg 수레가 2 m/s 로 벽에서 멈출 때, 넓이가 같으면 시간이 길수록 힘이 작아요(꼭대기 = 평균 × π/2)' });
+          ], { title: '힘-시간 그래프 (넓이 = 충격량 $I$)', how: '점선 = 평균 힘 · 1 kg 수레가 2 m/s 로 벽에서 멈출 때, 넓이가 같으면 시간이 길수록 힘이 작아요' });
         },
         more: { title: '더 알아보기 — 평균 힘과 최대 힘 (실험 ⑤)',
           body: ['1 kg 수레가 2 m/s 로 벽에서 멈추면 |$Δp$| = 2 N·s 예요. 평균 힘은 딱딱(0.01 s) 200 N, 푹신(0.2 s) 10 N 이에요.',
@@ -265,7 +268,7 @@
         eq: [{ tex: '$E_k$ = ½$mv^2$', caption: '운동 에너지 (J) — 방향이 없어요' }],
         symbols: [
           { sym: '$E_k$', name: '운동 에너지 합 (전 → 후)', unit: 'J', target: 'meter:k' },
-          { sym: '$e$', name: '반발 계수(심화): 튕기기 1 · 달라붙기 0', unit: '–', target: 'kind' }
+          { sym: '$e$', name: '반발 계수(심화) = 부딪친 뒤 멀어지는 빠르기 ÷ 다가오던 빠르기 (튕기기 1 · 달라붙기 0)', unit: '', target: 'kind' }
         ],
         svg: function (D) {
           var base = 360, k = 110;
@@ -339,8 +342,8 @@
           { q: '이번엔 달라붙으면?', preset: 1, chapter: 'bounce-stick' },
           { q: '3배 무거운 트럭과 승용차가 정면충돌하면 누가 더 큰 힘을 받을까?', preset: 2, chapter: 'action-reaction' },
           { q: '멈춘 대포가 포탄을 쏘면 대포는?', preset: 3, chapter: 'conserve' },
-          { q: '딱딱한 범퍼를 푹신한 범퍼로 바꾸면? (딱딱으로 기록한 뒤 범퍼를 푹신 0.2 s 로 바꿔 한 번 더)', preset: 4, set: { tau: 0.01 }, chapter: 'impulse' },
-          { q: '+2 m/s 와 −2 m/s 로 마주 오던 두 수레가 달라붙으면?', preset: OPPOSITE.preset, set: OPPOSITE.set, predict: false, chapter: 'sign-sum' }
+          { q: '딱딱한 범퍼로 한 번 기록한 뒤, 푹신한 범퍼(0.2 s)로 바꿔 또 해 보세요. 충돌 시간이 길어지면 힘은 어떻게 될까요?', preset: 4, set: { tau: 0.01 }, chapter: 'impulse' },
+          { q: '+2 m/s 와 −2 m/s 로 마주 오던 두 수레가 달라붙으면?', cardName: '마주 오다 달라붙기 (v₂ = −2)', preset: OPPOSITE.preset, set: OPPOSITE.set, predict: false, chapter: 'sign-sum' }
         ],
         teacherNote: '질문 1 이 끝나면 "튕기는 대신 붙으면 에너지 1 J 는 어디로?" → 질문 2. 질문 6 의 $v_2$ 는 ⚙ › 더 많은 설정 값이에요.' },
 

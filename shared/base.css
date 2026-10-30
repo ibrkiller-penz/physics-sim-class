@@ -171,7 +171,7 @@ h1, h2, h3, h4 {
 /* 버튼 안 키 안내: [▶ 실행  Space] — R1: 기본 숨김. 마우스 올림·키보드 포커스·html.show-keys 일 때만 */
 .btn__key { display: none; }
 /* R2(B3): 마우스를 올렸을 때(정밀 포인터)·교사 설정 '단축키 글자 보이기' 에서만. 포커스만으로는 보이지 않음 */
-@media (hover: hover) and (pointer: fine) { html:not(.cursor-hidden) .btn:hover > .btn__key { display: inline-block; } }
+@media (hover: hover) and (pointer: fine) { html:not(.cursor-hidden) .btn:not(.btn--run):hover > .btn__key { display: inline-block; } }
 html.show-keys .btn__key { display: inline-block; }
 @media (pointer: coarse) { html:not(.show-keys) .btn__key { display: none !important; } }
 .btn__key {
@@ -449,7 +449,10 @@ html:not(.cursor-hidden) .menu__item:hover { color: var(--color-primary); }
 .meter[data-q="energy-k"] .meter__value { color: var(--color-q-energy-k); }
 .meter[data-q="energy-p"] .meter__value { color: var(--color-q-energy-p-text); }
 .meter[data-q="heat"] .meter__value     { color: var(--color-q-energy-heat); }
-.meter.is-hidden-value .meter__value { color: transparent; text-shadow: 0 0 calc(14 * var(--u)) var(--color-ink-muted); } /* 교사 H 전 숨김값 */
+.meter.is-hidden-value .meter__value { position: relative; color: var(--color-ink-muted); text-shadow: none; opacity: 0.7; line-height: 1.1; font-size: var(--fs-body); }   /* R7 학생점검(디자인·팀장): '—' 줄을 본문 크기로 — 아래 '예측·실행 뒤 보여요' 가 띠 칸 밖으로 잘리지 않게 */
+.meter.is-hidden-value .meter__value > * { display: none; } /* 교사 H 전 숨김값 — R7: 블러 대신 또렷한 '—' */
+.meter.is-hidden-value .meter__value::before { content: "—"; font-size: var(--fs-body); }
+.meter.is-hidden-value .meter__value::after { content: "예측·실행 뒤 보여요"; display: block; font: var(--font-weight-regular) var(--fs-caption)/1.2 var(--font-sans); }
 
 /* ---------- 10. 그래프 상자 ------------------------------------------------ */
 .graph-box {
@@ -1323,8 +1326,11 @@ html:not(.cursor-hidden) .mode-opt:hover { border-color: var(--color-primary); b
 .var__ticks { bottom: calc(-26 * var(--u)); }
 .var__hint .chip, .var__meta .chip { margin-top: var(--space-2); }
 /* 실행 버튼: 상태가 바뀌어도(▶ 실행 → ⏸ 멈춤 → ↻ 다시 실행, Space 칩) 폭 고정 */
-.btn--run { position: relative; width: calc(240 * var(--u)); }
-.btn--run .btn__key { position: absolute; right: var(--space-2); bottom: var(--space-1); }
+.btn--run { position: relative; width: calc(240 * var(--u)); min-width: max(150px, calc(240 * var(--u))); }
+/* R7 학생점검(A6): 실행 단추의 키 칩은 hover 로 띄우지 않는다(html.show-keys 일 때만) — 글자 뒤 inline */
+.btn--run .btn__key { position: static; margin-left: var(--space-2); }
+.btn--run:hover > .btn__key { display: none; }
+html.show-keys .btn--run > .btn__key { display: inline-block; }
 /* 빈 기록 안내 한 상자 */
 .rec-need.is-empty p { color: var(--color-ink-muted); }
 
@@ -1835,3 +1841,8 @@ html:not(.cursor-hidden) .sym-chip:hover { border-color: var(--sim); }
   position: absolute; right: calc(-8 * var(--u)); top: calc(-8 * var(--u)); min-width: max(18px, calc(26 * var(--u))); text-align: center;
   padding: 2px calc(6 * var(--u)); font-size: max(11px, calc(18 * var(--u))); line-height: 1.2; background: var(--sim); color: var(--color-paper);
 }
+
+/* R7 학생점검(디자인·팀장): 띠 칸의 숨김 값 '—' + '예측·실행 뒤 보여요' 가 띠 칸(100u) 안에 들어가게 — 줄 간격·글자 줄임, 옆 칸으로 넘치지 않게 */
+.sim-band .meter.is-hidden-value .meter__value { display: block; min-width: 0; max-width: 100%; overflow: hidden; line-height: 1.1; }
+.sim-band .meter.is-hidden-value .meter__value::before { display: none; }   /* 띠 칸은 '(숨김)' 라벨이 있어 '—' 줄은 빼고 안내 글만 */
+.sim-band .meter.is-hidden-value .meter__value::after { font-size: max(16px, calc(20 * var(--u))); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

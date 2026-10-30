@@ -313,6 +313,8 @@
     stepTasks: [
       { text: function () {
         if (SK.prediction && SK.prediction.pending) return '아래 ▶ 실행을 눌러 예측을 확인해요';
+        // R7 학생점검(D2): 질문이 열려 있지 않은데 '답을 먼저 골라요' 라고 하지 않는다
+        if (!(SK.predicting && SK.predicting())) return '[예측하기]를 눌러 질문을 열어요';
         return '예측 질문의 답을 먼저 골라요';
       } },
       { text: function () {
@@ -325,13 +327,14 @@
       } },
       { text: function () {
         if (SK.records.length < 2) return '기록이 2개 있어야 비교해요 (지금 ' + SK.records.length + '개)';
-        return '표에서 ‘$p$ 보존?’ ‘$E_k$ 보존?’ 열을 봐요';
+        return '표에서 ‘운동량 보존’ ‘운동 에너지 보존’ 열을 봐요';
       } },
       { text: '오른쪽 질문에 답하며 정리해요' }
     ],
     // R2: 카드를 누르면 값이 먼저 바뀐다 → 예측 창이 떠 있는 동안 결과 층(그래프 판)을 숨긴다
     onPredictOpen: function () { SK.requestRender(); },
     onPredictClose: function () { SK.requestRender(); },
+    formulaDefault: 'momentum',   // R7 학생점검(A3): 카드가 없을 때 [ƒ 식] = 설명 2장
     dt: DT,
     stageFit: true,
     stageH: 660,
@@ -508,8 +511,9 @@
   var rule = buildRuleCard();
   SK.recordTable(null, {
     columns: [
-      { key: 'pOK', label: '$p$ 보존?', unit: '', from: 'value', priority: 1 },
-      { key: 'kOK', label: '$E_k$ 보존?', unit: '', from: 'value', priority: 1 },
+      // R7 학생점검(D4): 정리 '오늘 기록' 칩도 이 이름을 쓴다 → '운동량 보존 ○ · 운동 에너지 보존 ○'(O·E_k 평문 대신 말 + ○)
+      { key: 'pOK', label: '운동량 보존', unit: '', from: 'value', priority: 1 },
+      { key: 'kOK', label: '운동 에너지 보존', unit: '', from: 'value', priority: 1 },
       { key: 'pAB', label: '$p$ 합 전→후', unit: 'kg·m/s', from: 'value', priority: 1, text: function (r) { return fmt(r.values.pb, 2) + ' → ' + fmt(r.values.pa, 2); } },
       { key: 'kAB', label: '$E_k$ 합 전→후', unit: 'J', from: 'value', priority: 2, text: function (r) { return fmt(r.values.kb, 2) + ' → ' + fmt(r.values.ka, 2); } },
       { key: 'kind', label: '충돌 종류', unit: '', from: 'param', priority: 2, text: function (r) { return r.params.mode === 'separate' ? '–' : SK.valueText('kind', r.params.kind); } },
@@ -537,9 +541,9 @@
     var pOK = '–', kOK = '–';
     if (done) {
       // 표 칸이 좁아도 O/X 가 먼저 보이게 짧게 (벽 = 바깥 힘이 있어 수레만의 운동량은 바뀜)
-      pOK = P.mode === 'wall' ? 'X 벽' : Math.abs(P.pa - P.pb) < 1e-6 ? 'O' : 'X';
+      pOK = P.mode === 'wall' ? '× 벽' : Math.abs(P.pa - P.pb) < 1e-6 ? '○' : '×';
       var dk = P.ka - P.kb;
-      kOK = dk < -0.005 ? 'X 줄어듦' : dk > 0.005 ? 'X 늘어남' : 'O';
+      kOK = dk < -0.005 ? '× 줄어듦' : dk > 0.005 ? '× 늘어남' : '○';
     }
     return {
       series: done ? { fa: cv.fa, fb: cv.fb } : {},
@@ -576,7 +580,7 @@
      R2: 카드를 누르면 값이 바로 바뀌고(패널 숫자) 예측 창이 뜬다. 선택지는 한 줄 · 판정 문장에 그대로 들어감 */
   SK.setPresets([
     {
-      name: '같은 질량끼리 튕기면', tag: '탐구 재현', changes: '튕기기',
+      name: '같은 질량끼리 튕기면', tag: '탐구 재현', changes: '1 kg 두 대 · 튕기기', formulaCh: 'momentum',
       change: '충돌 종류: 튕기기', fixed: 'm₁ = m₂ = 1 kg · v₁ = +2, v₂ = 0 m/s · 범퍼 보통',
       values: { mode: 'collide', kind: 'elastic', e: 1, tau: 0.05, m1: 1, m2: 1, v1: 2, v2: 0 },
       predict: { question: '같은 질량의 A(2 m/s)가 멈춘 B와 부딪혀 튕겨요. 어떻게 될까?',
@@ -585,7 +589,8 @@
       onApply: function () { setTab('p'); }
     },
     {
-      name: '달라붙으면', tag: '탐구 재현', changes: '튕김 → 붙음',
+      // R7 학생점검(D1): 값은 그대로(B 정지) — 설명 9장 질문 6(마주 오다 붙기)과 다른 점을 부제 둘째 줄에
+      name: '달라붙으면', tag: '탐구 재현', changes: '튕기기 → 달라붙기\n설명 9장 질문 6은 $v_2$를 −2로 바꿔요', formulaCh: 'momentum',
       change: '충돌 종류만: 튕기기 → 달라붙기', fixed: 'm₁ = m₂ = 1 kg · v₁ = +2, v₂ = 0 m/s · 범퍼 보통',
       values: { mode: 'collide', kind: 'stick', e: 0, tau: 0.05, m1: 1, m2: 1, v1: 2, v2: 0 },
       predict: { question: '이번엔 두 수레가 부딪쳐 달라붙어요. 부딪친 뒤 운동량의 합은?', choices: ['줄어들어요', '그대로 2 kg·m/s', '늘어나요'],
@@ -594,7 +599,7 @@
       onApply: function () { setTab('p'); }
     },
     {
-      name: '트럭 vs 승용차', tag: '작용·반작용', changes: '질량 3배·정면',
+      name: '트럭 vs 승용차', tag: '작용·반작용', changes: '3배 무거운 트럭과 정면으로', formulaCh: 'action-reaction',
       change: '트럭 A 3 kg·+2 m/s, 승용차 B 1 kg·−2 m/s', fixed: '튕기기 · 범퍼 보통',
       values: { mode: 'collide', kind: 'elastic', e: 1, tau: 0.05, m1: 3, m2: 1, v1: 2, v2: -2 },
       predict: { question: '3배 무거운 트럭과 승용차가 정면충돌! 누가 더 큰 힘을 받을까?', choices: ['트럭이 더 큰 힘', '승용차가 더 큰 힘', '두 힘의 크기가 같아요'],
@@ -603,7 +608,7 @@
       onApply: function () { setTab('f'); }
     },
     {
-      name: '대포를 쏘면', tag: '발사체', changes: '분리 장면',
+      name: '대포를 쏘면', tag: '발사체', changes: '멈춘 대포가 포탄을 쏨', formulaCh: 'conserve',
       change: '포탄 나가는 속력 u = 4 m/s', fixed: '대포 A 2 kg · 포탄 B 0.5 kg · 처음엔 둘 다 정지',
       values: { mode: 'separate', tau: 0.05, m1: 2, m2: 0.5, u: 4 },
       predict: { question: '멈춘 대포(2 kg)가 포탄(0.5 kg)을 4 m/s로 쏘면 대포는?', choices: ['가만히 있어요', '뒤로 1 m/s', '뒤로 4 m/s'],
@@ -611,7 +616,7 @@
       onApply: function () { setTab('p'); }
     },
     {
-      name: '에어백은 무엇을 줄일까', tag: '교통안전', changes: '벽 장면 · 범퍼',
+      name: '에어백은 무엇을 줄일까', tag: '교통안전', changes: '벽에 부딪침 · 범퍼 딱딱 → 푹신', formulaCh: 'impulse',
       change: '범퍼: 딱딱 0.01 s → 푹신 0.2 s', fixed: '벽 · 달라붙기 · 수레 1 kg, +2 m/s',
       values: { mode: 'wall', kind: 'stick', e: 0, tau: 0.01, m1: 1, v1: 2 },
       predict: { question: '딱딱한 범퍼를 푹신한 범퍼(에어백)로 바꾸면 무엇이 달라질까?',
@@ -980,7 +985,7 @@
       { title: '수업 흐름 (40분 예)', items: [
         '예측: 처음 화면에 뜨는 실험 ①(같은 질량끼리 튕기면) → 손들기 → 실행. 이어서 ③ 트럭 vs 승용차로 작용·반작용 예측',
         '실행: 슬로 모션으로 힘 화살표 한 쌍을 확인 → [힘-시간] 탭에서 두 곡선이 위아래로 같은 모양인지 확인',
-        '비교: ① 실행 → 기록, ② 달라붙으면(충돌 종류만 바꿈) 실행 → 기록. 표의 p 보존?/Eₖ 보존? 열 → [규칙 확인하기]',
+        '비교: ① 실행 → 기록, ② 달라붙으면(충돌 종류만 바꿈) 실행 → 기록. 표의 운동량 보존·운동 에너지 보존 열 → [규칙 확인하기]',
         '적용: ⑤ 에어백 — 딱딱 기록 → 푹신 기록 → [힘-시간] 탭에서 넓이는 같고 높이만 다름을 확인',
         '정리: 오른쪽 질문 6개(계산 1개, 모범 답·해설 포함). 토론 전에는 교사 서랍에서 ‘답 확인 잠금’을 켤 수 있어요'
       ] },
@@ -1023,10 +1028,15 @@
     ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
     ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
   }
+  /** R7 학생점검(A8): 캔버스 글자 하한 = max(18px, N u) — 배율이 작은 화면(1180·820)에서 축 숫자·값('+2.00')·단위가 18px 아래로 내려가지 않게 */
+  function fsMin(n) {
+    var sc = (SK.view && SK.view.scale) || 1;
+    return Math.max(n || 22, Math.ceil(18 / sc));
+  }
   /** R4: 캔버스 글자는 모두 SK.text — 에스코어 드림 400(라벨·눈금)·500(제목·강조), 기호는 $…$ 수식(기울임 + 아래첨자) */
   function tOpt(o) {
     o = o || {};
-    return { size: o.size || 22, weight: (o.w || 400) >= 500 ? 500 : 400, color: o.color || '--color-ink', align: o.align || 'left',
+    return { size: fsMin(o.size || 22), weight: (o.w || 400) >= 500 ? 500 : 400, color: o.color || '--color-ink', align: o.align || 'left',
       baseline: o.base || 'middle', halo: o.halo, haloWidth: o.haloWidth };
   }
   function text(ctx, s, x, y, o) { return SK.text(ctx, s, x, y, tOpt(o)); }
@@ -1080,6 +1090,21 @@
     ctx.fillStyle = col('--color-paper-sunk');
     rr(ctx, sx(-2) - 10, RAIL, sx(2) - sx(-2) + 20, 12 * K, 4); ctx.fill();
     ctx.strokeStyle = col('--color-line-strong'); ctx.lineWidth = 2; ctx.stroke();
+    // R7 학생점검(D6): 트랙은 무대 양끝까지 이어진다 — ±2 m 바깥(눈금 없는 곳)은 옅은 점선 + '트랙 계속 →' (물리값은 그대로, 그림만)
+    var vw = (SK.view && SK.view.w) || 1250, ty = RAIL + 6 * K;
+    ctx.save();
+    ctx.strokeStyle = col('--color-line-strong'); ctx.globalAlpha = 0.45; ctx.lineWidth = 3; ctx.setLineDash([14, 10]);
+    ctx.beginPath();
+    ctx.moveTo(sx(2) + 10, ty); ctx.lineTo(vw - 4, ty);
+    ctx.moveTo(4, ty); ctx.lineTo(sx(-2) - 10, ty);
+    ctx.stroke();
+    ctx.restore();
+    if (TS === 22 && vw - (sx(2) + 10) > 60) {
+      // 트랙 설명 줄(왼쪽)과 닿으면 한 줄 아래로
+      var tcO = { size: TS * K, w: 400 }, tcW = textW(ctx, '트랙 계속 →', tcO), dW = textW(ctx, '마찰 없는 트랙 · 오른쪽이 + 방향 · 눈금 0.5 m', tcO);
+      var tcY = sx(-2) - 10 + dW + 24 > vw - 8 - tcW ? RAIL + 80 * K + fsMin(TS * K) * 1.25 : RAIL + 80 * K;
+      text(ctx, '트랙 계속 →', vw - 8, tcY, { size: TS * K, w: 400, color: '--color-ink-muted', align: 'right' });
+    }
     for (var i = -4; i <= 4; i++) {
       var x = sx(i / 2), big = i % 2 === 0;
       ctx.fillStyle = col(big ? '--color-line-strong' : '--color-line');
@@ -1441,14 +1466,16 @@
       var Jnow = P.J * (1 - Math.cos(k * tc)) / 2;
       info = '넓이 = 충격량 $I$ ' + fmt(Jnow, 2) + ' N·s · 최대 힘 ' + fmtF(P.Fmax) + ' N · 평균 ' + fmtF(P.Favg) + ' N';
     }
+    // R7(A8): 글자 하한(18px)으로 커진 만큼 줄 간격·그래프 위아래 여백도 늘린다(배율 0.82 이상이면 예전 값)
+    var fq = fsMin(22), L2 = b.y + 22 + Math.max(32, Math.round(fq * 1.15));
     var recInfo = lines.filter(function (L) { return !L.ghost; }).slice(-2).map(function (L) { return SK.recLabel(L.rec) + ': 최대 ' + fmtF(L.F) + ' N'; }).join('  ·  ');
-    text(ctx, info, b.x + 4, b.y + 54, { size: 22, w: 500, color: '--color-copper-text' });
+    text(ctx, info, b.x + 4, L2, { size: 22, w: 500, color: '--color-copper-text' });
     if (recInfo) {
       var iw = info ? textW(ctx, info, { size: 22, w: 500 }) + 30 : 0;
-      if (textW(ctx, recInfo, { size: 22 }) < b.w - iw) text(ctx, recInfo, b.x + b.w, b.y + 54, { size: 22, w: 400, color: '--color-ink-muted', align: 'right' });
+      if (textW(ctx, recInfo, { size: 22 }) < b.w - iw) text(ctx, recInfo, b.x + b.w, L2, { size: 22, w: 400, color: '--color-ink-muted', align: 'right' });
     }
 
-    var pl = b.x + 70, pr = b.x + b.w - 8, pt = b.y + 76, pb = b.y + b.h - 52;
+    var pl = b.x + Math.max(70, Math.round(fq * 2.6)), pr = b.x + b.w - 8, pt = L2 + Math.max(22, Math.round(fq * 0.8)), pb = b.y + b.h - Math.max(52, Math.round(fq * 2.1));
     var tauMax = P.tau, fpk = P.meet ? P.Fmax : 0;
     lines.forEach(function (L) { tauMax = Math.max(tauMax, L.tau || 0); L.s.fb.forEach(function (q) { fpk = Math.max(fpk, Math.abs(q[1])); }); });
     if (fpk <= 0) fpk = 10;
@@ -1460,9 +1487,9 @@
     for (var t = 0; t <= t1 + 1e-6; t += tstep) {
       ctx.strokeStyle = col('--color-grid'); ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(X(t), pt); ctx.lineTo(X(t), pb); ctx.stroke();
-      if (X(t) - lastX >= 60 && X(t) < pr - 20) { text(ctx, String(Math.round(t)), X(t), pb + 15, { size: 22, w: 400, color: '--color-ink-muted', align: 'center' }); lastX = X(t); }
+      if (X(t) - lastX >= 60 && X(t) < pr - 20) { text(ctx, String(Math.round(t)), X(t), pb + Math.max(15, Math.round(fq * 0.6)), { size: 22, w: 400, color: '--color-ink-muted', align: 'center' }); lastX = X(t); }
     }
-    text(ctx, '시간 (ms) · 0 = 부딪친 순간', pr, pb + 39, { size: 22, w: 400, color: '--color-ink-muted', align: 'right' });
+    text(ctx, '시간 (ms) · 0 = 부딪친 순간', pr, pb + Math.max(39, Math.round(fq * 1.6)), { size: 22, w: 400, color: '--color-ink-muted', align: 'right' });
     var ft = niceTop(fpk);
     ctx.strokeStyle = col('--color-grid'); ctx.lineWidth = 1;
     [ft, -ft].forEach(function (f) { ctx.beginPath(); ctx.moveTo(pl, Y(f)); ctx.lineTo(pr, Y(f)); ctx.stroke(); });

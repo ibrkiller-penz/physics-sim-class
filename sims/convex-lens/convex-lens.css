@@ -174,3 +174,8 @@ html.is-simple .simple-meter__label .term-inline { display: none; }
 }
 .cl-rowtry .ico { width: 0.9em; height: 0.9em; }
 .cl-rowtry:focus-visible { outline: var(--space-focus-ring) solid var(--color-focus); outline-offset: 2px; border-radius: var(--radius-sm); }
+
+/* R7 학생점검(A8): 수치 칸·그림 라벨 글자 하한 18px */
+.lens-kind__label, .lens-kind__sub, .lens-figcap { font-size: max(18px, calc(24 * var(--u))); }
+.lens-kind__main { font-size: max(18px, calc(27 * var(--u))); }
+.lens-cases { font-size: max(18px, calc(24 * var(--u))); }

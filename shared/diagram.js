@@ -91,7 +91,7 @@
   D.C = C;
   D.svg = function (kids, o) {
     o = o || {};
-    var title = o.title ? '<text x="20" y="34" style="font-size:20px;font-weight:500;fill:' + C.chip + '">' + tspans(o.title) + '</text>' : '';
+    var title = o.title ? '<text x="20" y="34" style="font-size:22px;font-weight:500;fill:' + C.chip + '">' + tspans(o.title) + '</text>' : '';
     return '<svg class="dg" viewBox="0 0 800 450" role="img" aria-label="' + esc((o.title || '') + (o.how ? ' — ' + o.how : '')) + '"' +
       (o.how ? ' data-how="' + esc(o.how) + '"' : '') + ' style="font-size:22px;font-weight:400">' + defs() + title + join(kids) + '</svg>';
   };
@@ -115,7 +115,7 @@
   };
   D.label = function (x, y, text, o) {
     o = o || {};
-    var size = Math.max(18, o.size || 22);   // R7-3(S7): 최소 18 (1280 에서 약 12px 이상)
+    var size = Math.max(22, o.size || 22);   // R7 학생점검(A8): 글자 하한 — 그림 폭 약 600px 에서 16px 안팎
     var st = 'font-size:' + size + 'px;font-weight:' + (o.weight === 500 ? 500 : 400) + ';fill:' + col(o.color === 'muted' ? 'chip' : o.color, 'ink') +
       (o.italic ? ';font-style:italic;font-family:var(--font-math)' : '') +
       (o.bg !== false ? ';stroke:' + C.paper + ';stroke-width:7;stroke-linejoin:round;paint-order:stroke' : '');
@@ -124,7 +124,7 @@
   /** 분수 라벨: 가운데 (x, y) = 막대 높이. num·den 은 '$v^2$' 같은 표기 */
   D.frac = function (x, y, num, den, o) {
     o = o || {};
-    var size = Math.max(18, o.size || 22), w = Math.max(String(num).replace(/\$/g, '').length, String(den).replace(/\$/g, '').length) * size * 0.62 + 10;
+    var size = Math.max(22, o.size || 22), w = Math.max(String(num).replace(/\$/g, '').length, String(den).replace(/\$/g, '').length) * size * 0.62 + 10;
     var cx = o.anchor === 'start' ? x + w / 2 : o.anchor === 'end' ? x - w / 2 : x;
     var lo = { anchor: 'middle', size: size, color: o.color, bg: o.bg };
     return '<g' + (o.sym ? ' class="dg-sym" data-sym="' + esc(normSym(o.sym)) + '"' : '') + '>' +

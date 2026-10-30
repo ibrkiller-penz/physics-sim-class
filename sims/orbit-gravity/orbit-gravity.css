@@ -267,4 +267,14 @@ html.is-simple .sheet__body .panel-head { display: none; }
 .sim-band .meters.has-core .meter.is-core[data-key="res"] { height: auto; min-height: 0; justify-content: center; padding-top: calc(2 * var(--u)); padding-bottom: calc(2 * var(--u)); }
 .sim-band .meters.has-core .meter.is-core[data-key="res"] .meter__value { font-size: calc(30 * var(--u)); line-height: 1.2; white-space: nowrap; }
 .sim-band .og-band { padding-top: calc(1 * var(--u)); }
-.sim-band .og-band__head { height: calc(22 * var(--u)); font-size: calc(20 * var(--u)); }
+.sim-band .og-band__head { height: auto; min-height: 0; line-height: 1.15; font-size: max(16px, calc(20 * var(--u))); padding-bottom: calc(2 * var(--u)); }   /* R7 학생점검(디자인A·B·C): 제목 줄 글자 하한 16px · 높이는 글자에 맞춤(막대 윗선과 겹치지 않게) */
+
+/* R7 학생점검(E2): 왼쪽 위 '높이는 보이게 키웠어요' 칩 (지구 전체·타원까지 보기) */
+.og-scale-chip { display: inline-flex; align-items: center; min-height: calc(34 * var(--u)); padding: 0 var(--space-3); font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-sans); color: var(--color-ink); white-space: nowrap; }
+.og-scale-chip[hidden] { display: none; }
+
+/* R7 학생점검(디자인A·B·C): 속력 띠 — 범례 글자 하한 16px, 제목 500 */
+.sim-band .og-band__legend { font-size: max(16px, var(--fs-caption)); }
+.sim-band .og-band__title { font-weight: var(--font-weight-medium); }
+/* R7 학생점검(팀장): 자세히 띠 — 계기 2칸 + [수치 더 보기] | 속력 띠를 반반으로(속력 띠에 구간 이름 셋 + 숫자 둘이 들어가게) */
+html:not(.is-simple) .sim > .sim-band { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }

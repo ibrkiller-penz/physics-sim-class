@@ -143,9 +143,11 @@
   }
   function niceMax(v) { if (!(v > 0)) return 1; var s = niceStep(v, 4); return Math.ceil(v * 1.05 / s) * s; }
   /** R4: 캔버스 글자 한 줄 = SK.text (기호는 $…$, 굵기 400 기본 · 강조 500) */
+  /** R7 학생점검(A8): 캔버스 글자 하한 — max(18px, n u). view.scale = 화면 px / u */
+  function fz(n) { var s = SK.view && SK.view.scale; return s > 0 ? Math.max(n, Math.min(18 / s, n * 1.3)) : n; }   // 아주 작은 그림에서는 1.3배까지만(겹침 방지)
   function text(ctx, s, x, y, o) {
     o = o || {};
-    return SK.text(ctx, s, x, y, { size: o.size || 22, weight: Math.min(500, o.weight || 400), align: o.align || 'left', baseline: o.base || 'middle',
+    return SK.text(ctx, s, x, y, { size: fz(o.size || 22), weight: Math.min(500, o.weight || 400), align: o.align || 'left', baseline: o.base || 'middle',
       color: o.color || '--color-ink', halo: o.halo ? '--color-paper-raised' : null, haloWidth: 6, bg: o.bg || false, pad: o.pad });
   }
   /** R4: 실험 화면에서 보이는 세로 범위 (논리 좌표). 16:9 = [0, 700], 태블릿은 위아래로 extra/2 씩 넓어짐 */
@@ -168,7 +170,7 @@
   /** 축·모눈. box = {x,y,w,h}, 반환 {mx,my} */
   function axes(ctx, box, xr, yr, o) {
     o = o || {};
-    var fs = o.fs || 16;
+    var fs = fz(o.fs || 16);   // R7(A8): 눈금 글자 하한 18px
     function mx(x) { return box.x + (x - xr[0]) / (xr[1] - xr[0]) * box.w; }
     function my(y) { return box.y + box.h - (y - yr[0]) / (yr[1] - yr[0]) * box.h; }
     var xs = niceStep(xr[1] - xr[0], o.nx || Math.max(2, Math.floor(box.w / 90)));
@@ -204,7 +206,7 @@
     ctx.save();
     ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2);
     var fills = { earth: '--color-primary-tint', moon: '--color-paper-sunk', mars: '--color-sim-collision-tint', jupiter: '--color-sim-lens-tint' };
-    var lines = { earth: '--color-primary', moon: '--color-line-strong', mars: '--color-sim-collision', jupiter: '--color-sim-lens' };
+    var lines = { earth: '--color-line-strong', moon: '--color-line-strong', mars: '--color-sim-collision', jupiter: '--color-sim-lens' };
     ctx.fillStyle = col(fills[key]); ctx.fill();
     ctx.clip();
     if (key === 'earth') {
@@ -274,6 +276,7 @@
   var deepView = null, deepKey = '';
   var kEl = null, seqEl = null, altNote = null, compareBtn = null;
   var hudEl = null, viewEl = null, kStepEl = null, kDone = false;
+  var shown = { v0: null, cview: null }, e3Told = false;   // R7(E3): 마지막으로 그린 대포 값(카드 ① 적용 알림)
   var modeCtl = null, lastSwitchAt = 0, DEFAULT_SEQ = null, preSimpleMode = null;   // R6: 심플 들어가기 전 모드
   function hideResults() { return SK.predicting && SK.predicting(); }   // 예측 창이 떠 있는 동안 결과 층(궤적·기록) 숨김
 
@@ -453,7 +456,11 @@
     today: MODES.cannon.today,
     stepTasks: tasksFor('cannon'),
     // R7(C2): 첫 화면 '무엇을 알아볼까요?' 창 대신 [실험 ▾] 시트 맨 위 모드 단추(MODES 표 재사용). 고르면 그 모드 첫 카드(MODES[v].preset)
-    presetModes: ['cannon', 'sat', 'kepler'].map(function (k) { return { key: 'mode', value: k, label: MODES[k].label, preset: MODES[k].preset }; }),
+    // R7 학생점검(E4): 모드 단추가 필터처럼 보이지 않게 묶음 이름 '모드' 데이터(시트 렌더는 공통 틀)
+    presetModes: ['cannon', 'sat', 'kepler'].map(function (k) { return { key: 'mode', value: k, label: MODES[k].label, preset: MODES[k].preset, group: '모드', groupHint: '모드를 고르면 그 모드 첫 실험으로 바뀌어요' }; }),
+    presetModesLabel: '모드',
+    // R7 학생점검(A3): 식 탭 기본 장(현재 실험이 없을 때)
+    formulaDefault: 'orbit-speed',
     // R6(C1) 심플 모드: 대포 모드 고정 · 발사 속력 하나 + 천체 칩 · 결과/지금 속력 + 속력 띠(넓은 칸) · 카드 ①·⑤
     simple: {
       task: '발사 속력을 바꿔 쏴요 — 몇 km/s부터 떨어지지 않고 돌까요?',
@@ -484,13 +491,14 @@
       } else if (curMode === 'sat') {
         if (!sat.done && SK.time + dt >= SAT_SCREEN_T - 1e-9) {
           sat.done = true;
-          SK.finish('한 바퀴 ' + periodText(sat.T) + ' — 기록하기 버튼으로 저장해요');
+          SK.finish('한 바퀴 ' + periodText(sat.T) + (geoPending() ? ' — 기록하고 ' + GEO_NEXT : ' — 기록하기 버튼으로 저장해요'));
         }
       } else {
         SK.pause();
       }
     },
     render: function (view, p) {
+      if (curMode !== 'cannon') syncScaleChip(false);
       if (curMode === 'cannon') renderCannon(view.ctx, p);
       else if (curMode === 'sat') renderSat(view.ctx, p);
       else if (curMode === 'kepler') renderKepler(view.ctx, p);
@@ -500,7 +508,7 @@
       drawDeep(p);
       updateHud(p);
       updateSeq();
-      if (curMode === 'cannon') lastShownBody = p.body;
+      if (curMode === 'cannon') { lastShownBody = p.body; shown.v0 = p.v0; shown.cview = p.cview; }
     },
     capture: function (p) {
       if (curMode === 'cannon') {
@@ -718,6 +726,10 @@
 
   /* 실험 화면 오른쪽 위: 시간 배속 한 줄 칩 '1초 = 30초' (R7-3 C2 — cornerTR 칩 1개)
      흐른 시간·화면 가로 km / 1 R 는 ⚙ '화면에 표시하기' › hudMore 를 켰을 때만 칩 아래 작은 글 */
+  // R7 학생점검(E2): 지구 전체·타원까지 보기에서는 산·궤적 높이를 보이게 키웠다는 칩(왼쪽 위)
+  var scaleChip = h('span', { class: 'chip og-scale-chip', hidden: true, title: '실제 산 높이 20 km는 이 축척에서 3u 정도라 보이게 키워 그렸어요(값은 그대로)', text: '높이는 보이게 키웠어요' });
+  SK.el.cornerTL.appendChild(scaleChip);
+  function syncScaleChip(on) { on = !!on && curMode === 'cannon'; if (scaleChip.hidden === on) scaleChip.hidden = !on; }
   hudEl = h('div', { class: 'og-hud' });
   SK.el.cornerTR.appendChild(hudEl);
   var hudKey = '';
@@ -964,6 +976,8 @@
       R6(C1) 심플: 막대 · 아래 줄 = 경계 숫자 28u(마지막 숫자에 단위) + 범례 '▼ 지금 · ● 기록'(숫자와 안 겹치는 쪽 끝) — 제목 줄 없음 */
   function speedBar(ctx, W, H, o) {
     var simple = SK.isSimple();
+    if (!simple) return speedBarInline(ctx, W, H, o);   // R7 학생점검(디자인A·B·C): 자세히는 숫자를 막대 안에 — 막대가 칸 높이를 다 쓴다
+
     // 심플: 칸 높이(1920 기준 약 88u)에 맞춰 글자·막대를 함께 키운다(세로 태블릿은 칸이 u 보다 커서 k ≈ 1.5)
     var k = simple ? Math.max(1, Math.min(1.3, H / 88)) : 1;
     var x0 = simple ? 4 : 12, x1 = W - (simple ? 4 : 12), NUM = simple ? Math.round(28 * k) : 22, ROW = simple ? 32 * k : 26, GAP = simple ? 4 : 1;   // R7(C3): 자세히 숫자 줄 26 — 22 글자가 칸(캔버스) 아래로 잘리지 않게
@@ -1028,6 +1042,67 @@
     }
     ctx.restore();
   }
+  /** R7 학생점검(디자인A·B·C): 자세히 속력 막대 — 제목 줄(HTML) 아래 칸을 막대 하나가 다 쓴다(한 줄).
+      경계 숫자(7.9·11.2)는 경계선 위 흰 테 글자, 구간 이름(추락·궤도·탈출)은 숫자·▼ 를 피해 구간 가운데. 글자 16~22px(칸이 낮으면 이름을 뺀다).
+      띠 캔버스는 fit:false — 좌표 단위 u, k = 1u 의 px */
+  function speedBarInline(ctx, W, H, o) {
+    var k = (bandView && bandView.scale) || 1;
+    var x0 = 8, x1 = W - 8, by = 3, bh = Math.max(16 / k, H - 6);
+    var FSZ = Math.max(16, Math.min(22, Math.round(bh * k - 8))) / k, NSZ = Math.max(16, Math.min(19, Math.round(bh * k - 10))) / k;   // 이름 16~22px · 숫자 16~19px
+    function T(s2, x, y, o2) { SK.text(ctx, s2, x, y, { size: o2.size, weight: 500, align: o2.align || 'center', baseline: 'middle', color: o2.color || '--color-ink', halo: o2.halo ? '--color-paper-raised' : null, haloWidth: 6 / k }); }
+    function X(v) { return x0 + (x1 - x0) * Math.max(0, Math.min(1, v / o.max)); }
+    ctx.save();
+    var flashV = !!(o.flashKey && SK.isFlashing && SK.isFlashing(o.flashKey));
+    var nx = o.now !== null && o.now !== undefined ? X(o.now) : null;
+    (o.zones || []).forEach(function (z) {
+      var a = X(z.from), b = X(z.to);
+      ctx.fillStyle = col(z.color); ctx.fillRect(a, by, b - a, bh);
+    });
+    ctx.strokeStyle = col('--color-line-strong'); ctx.lineWidth = 1 / k; ctx.strokeRect(x0, by, x1 - x0, bh);
+    var cy = by + bh / 2 + 1 / k, boxes = [];
+    var mk = (o.marks || []).slice().sort(function (a, b) { return a.v - b.v; });
+    mk.forEach(function (m, mi) {
+      // 경계 숫자는 경계선 바깥쪽(첫 숫자는 왼쪽 구간, 끝 숫자는 오른쪽 구간)에 — 가운데 구간(궤도)에 이름 자리를 남긴다
+      var mx = X(m.v), t = m.text, al = m.align || (mk.length >= 2 && mi === 0 ? 'right' : mk.length >= 2 && mi === mk.length - 1 ? 'left' : 'center');
+      ctx.beginPath(); ctx.moveTo(mx, by); ctx.lineTo(mx, by + bh); ctx.strokeStyle = col(flashV ? '--color-sim-orbit' : '--color-ink'); ctx.lineWidth = (flashV ? 6 : 2.5) / k; ctx.stroke();
+      var tw = SK.measure(ctx, t, { size: NSZ, weight: 500 }).w, tx = mx;
+      if (al === 'left') tx = mx + 5 / k; else if (al === 'right') tx = mx - 5 / k;
+      var left = al === 'left' ? tx : al === 'right' ? tx - tw : tx - tw / 2;
+      if (left < x0 + 2) { left = x0 + 2; tx = left; al = 'left'; } else if (left + tw > x1 - 2) { left = x1 - 2 - tw; tx = x1 - 2; al = 'right'; }
+      boxes.push([left - 4 / k, left + tw + 4 / k]);
+      T(t, tx, cy, { size: NSZ, align: al, color: flashV ? '--color-sim-orbit-text' : '--color-ink', halo: true });
+    });
+    if (nx !== null) boxes.push([nx - 10 / k, nx + 10 / k]);
+    (o.zones || []).forEach(function (z) {
+      if (!z.label) return;
+      var a = X(z.from), b = X(z.to);
+      var pad = 6 / k, sizes = [FSZ, Math.max(16 / k, FSZ * 0.8)], cx = null, fs = FSZ, tw = 0;
+      // 구간 안에서 숫자·▼ 와 겹치지 않는 자리: 가운데 → 왼쪽 → 오른쪽 (안 들어가면 글자를 16px 까지 줄여 한 번 더)
+      for (var si = 0; si < sizes.length && cx === null; si++) {
+        fs = sizes[si]; tw = SK.measure(ctx, z.label, { size: fs, weight: 500 }).w;
+        var cands = [(a + b) / 2, a + (b - a) * 0.3, a + (b - a) * 0.7, a + (b - a) * 0.2, a + (b - a) * 0.8];
+        for (var i = 0; i < cands.length && cx === null; i++) {
+          var L = cands[i] - tw / 2 - pad, R = cands[i] + tw / 2 + pad;
+          if (L < a + 2 || R > b - 2) continue;
+          if (boxes.every(function (bx) { return R < bx[0] || L > bx[1]; })) cx = cands[i];
+        }
+      }
+      if (cx === null) return;
+      boxes.push([cx - tw / 2 - pad, cx + tw / 2 + pad]);
+      T(z.label, cx, cy, { size: fs, color: z.text || '--color-ink' });
+    });
+    (o.dots || []).forEach(function (d) {
+      T(d.mark, X(d.v), cy, { size: FSZ, color: d.color, halo: true });
+    });
+    if (nx !== null) {
+      var tri = Math.min(11 / k, bh * 0.4), tw2 = Math.min(8 / k, bh * 0.3);
+      ctx.fillStyle = col('--color-sim-orbit');
+      ctx.beginPath(); ctx.moveTo(nx, by + tri); ctx.lineTo(nx - tw2, by); ctx.lineTo(nx + tw2, by); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = col('--color-sim-orbit'); ctx.lineWidth = 3 / k;
+      ctx.beginPath(); ctx.moveTo(nx, by); ctx.lineTo(nx, by + bh); ctx.stroke();
+    }
+    ctx.restore();
+  }
   /** 심플 범례 '▼ 지금 · ● 기록' — ▼ 는 막대의 표식과 같은 삼각형(그림), 나머지는 글자 */
   function legendWidth(ctx, parts, size) {
     var w = 0;
@@ -1060,7 +1135,7 @@
     if (b.key === 'jupiter') { setBandTitle('목성 탈출 속도 59.5 km/s — 범위 밖', ''); return; }
     var hid = hideResults();
     setBandTitle('발사 속력 $v_0$', hid ? '예측한 뒤에 보여요' : '▼ 지금 · ● 기록');   // R6(C2): 짧은 범례(제목 줄 오른쪽), 숫자는 막대 아래
-    var vc = +b.vCirc.toFixed(1), ve = +b.vEsc.toFixed(1), MAX = 14;   // R7-3(C3): 13 → 14 — '탈출' 칸에 이름이 들어가게(표시만)
+    var vc = +b.vCirc.toFixed(1), ve = +b.vEsc.toFixed(1), MAX = SK.isSimple() ? 14 : (bandView && bandView.w * (bandView.scale || 1) >= 520 ? 15 : 16);   // R7-3(C3): 13 → 14 — '탈출' 칸에 이름이 들어가게(표시만) · R7 학생점검(팀장): 자세히는 15(좁은 띠 16) — 11.2 숫자와 '탈출' 이름이 함께 들어가게
     speedBar(ctx, W, H, {
       max: MAX,
       zones: hid ? [{ from: 0, to: MAX, color: '--color-paper-sunk', label: '' }] : [
@@ -1144,6 +1219,15 @@
     var b = c.b, R = b.R, V = viewOf(p, b), hid = hideResults();
     var labels = [];
     function map(x, y) { return [V.cx + x * V.s, V.cy - y * V.s]; }
+    // R7 학생점검(E2): earth·far 보기에서는 산을 22u로 키워 그리므로 궤적·포탄도 같은 만큼 띄워 그린다(표시만 — 물리값은 그대로).
+    // 지표(r = R)에서는 0, 산 높이(r = R + 20 km) 이상에서는 22u — 떨어진 곳은 땅 위에 그대로
+    var LIFT = V.key === 'near' ? 0 : 22, hR = MOUNT / R;
+    function mapL(x, y) {
+      if (!LIFT) return map(x, y);
+      var rr = Math.sqrt(x * x + y * y) || 1, k = Math.max(0, Math.min(1, (rr - 1) / hR)), f = 1 + LIFT * k / (rr * V.s);
+      return [V.cx + x * V.s * f, V.cy - y * V.s * f];
+    }
+    syncScaleChip(LIFT > 0 && b.key !== 'jupiter');
     // 천체
     drawBody(ctx, b.key, V.cx, V.cy, V.s);
     var top = map(0, 1), peak = map(0, (R + MOUNT) / R);
@@ -1178,25 +1262,50 @@
     if (!hid) SK.records.forEach(function (r) {
       if ((r.values.bk || r.params.body) !== b.key) { other++; return; }
       var st = SK.recStyle(r.slot);
-      SK.drawPath(ctx, r.series.path, st, map);
+      SK.drawPath(ctx, r.series.path, st, mapL);
       if (r.values.lx !== null && r.values.lx !== undefined) {
-        var q = map(r.values.lx, r.values.ly);
+        var q = mapL(r.values.lx, r.values.ly);
         ctx.save(); ctx.strokeStyle = st.color; ctx.lineWidth = 3; ctx.setLineDash([]);
         ctx.beginPath(); ctx.moveTo(q[0] - 7, q[1] - 7); ctx.lineTo(q[0] + 7, q[1] + 7); ctx.moveTo(q[0] + 7, q[1] - 7); ctx.lineTo(q[0] - 7, q[1] + 7); ctx.stroke(); ctx.restore();
       }
       // 이름표 자리: 추락은 떨어진 곳, 궤도·탈출은 궤적 중간(끝점이 대포 자리라 겹치므로)
       var sp = r.series.path, e = r.values.lx !== null && r.values.lx !== undefined ? sp[sp.length - 1] : sp[Math.min(sp.length - 1, Math.floor(sp.length * (r.values.res === '탈출' || r.values.res === '먼 타원' ? 0.7 : 0.375)))];
-      var eq = map(e[0], e[1]);
+      var eq = mapL(e[0], e[1]);
       if (eq[0] > 10 && eq[0] < 1240 && eq[1] > vTop() + 10 && eq[1] < vBot() - 10) labels.push({ x: eq[0] + 12, y: eq[1] - 16, text: (st.mark ? st.mark + ' ' : '') + SK.fmt(r.params.v0, 1) + ' km/s', anchor: 'left', size: 22, color: st.color });
     });
-    if (!hid && SK.ghost && SK.ghost.series.path && (SK.ghost.values.bk || SK.ghost.params.body) === b.key) SK.drawPath(ctx, SK.ghost.series.path, SK.ghostStyle(), map);
+    if (!hid && SK.ghost && SK.ghost.series.path && (SK.ghost.values.bk || SK.ghost.params.body) === b.key) SK.drawPath(ctx, SK.ghost.series.path, SK.ghostStyle(), mapL);
     if (other && !hid) labels.push({ x: 24, y: vBot() - 36, text: '다른 천체 기록 ' + other + '개는 ' + (SK.isSimple() ? '더 보기의 표' : '표') + '에서 비교해요', anchor: 'left', size: 22, color: '--color-ink-muted' });
     // 지금 궤적
     var pts = p.trail ? c.path : c.path.slice(-10);
     var cur = pts.concat([[c.x / R, c.y / R]]);
-    if (!hid) SK.drawPath(ctx, cur, { color: col('--color-sim-orbit'), dash: [], width: 4 }, map);
+    if (!hid) {
+      // R7(E2): 흰 테두리(halo)로 천체 테두리·기록 선과 떨어져 보이게 + 진행 방향 화살촉
+      SK.drawPath(ctx, cur, { color: col('--color-paper-raised'), dash: [], width: 10 }, mapL);
+      SK.drawPath(ctx, cur, { color: col('--color-sim-orbit'), dash: [], width: 4 }, mapL);
+      if (cur.length >= 6) [0.3, 0.7].forEach(function (fr) {
+        var i1 = Math.max(1, Math.floor((cur.length - 1) * fr)), i0 = i1 - 1;
+        var a1 = mapL(cur[i1][0], cur[i1][1]), a0 = mapL(cur[i0][0], cur[i0][1]);
+        while (i0 > 0 && Math.abs(a1[0] - a0[0]) + Math.abs(a1[1] - a0[1]) < 8) { i0--; a0 = mapL(cur[i0][0], cur[i0][1]); }
+        var dx = a1[0] - a0[0], dy = a1[1] - a0[1], dl = Math.sqrt(dx * dx + dy * dy);
+        if (dl < 2) return;
+        dx /= dl; dy /= dl;
+        ctx.save(); ctx.beginPath();
+        ctx.moveTo(a1[0] + dx * 12, a1[1] + dy * 12);
+        ctx.lineTo(a1[0] - dx * 8 - dy * 9, a1[1] - dy * 8 + dx * 9);
+        ctx.lineTo(a1[0] - dx * 8 + dy * 9, a1[1] - dy * 8 - dx * 9);
+        ctx.closePath(); ctx.lineJoin = 'round';
+        ctx.lineWidth = 4; ctx.strokeStyle = col('--color-paper-raised'); ctx.stroke();
+        ctx.fillStyle = col('--color-sim-orbit'); ctx.fill(); ctx.restore();
+      });
+      // 끝난 뒤: 한 바퀴 돈 길이라는 것을 글로
+      if (SK.finished && c.res === '원 궤도' && LIFT && p.trail && c.path.length > 8) {
+        var mi = c.path[Math.floor(c.path.length * 0.125)], mq = mapL(mi[0], mi[1]);
+        var ox = mq[0] - V.cx, oy = mq[1] - V.cy, ol = Math.sqrt(ox * ox + oy * oy) || 1;
+        labels.push({ x: mq[0] + ox / ol * 30, y: mq[1] + oy / ol * 30, text: '한 바퀴 지나간 길', anchor: ox >= 0 ? 'left' : 'right', size: 22, color: '--color-sim-orbit-text' });
+      }
+    }
     // 포탄
-    var bp = map(c.x / R, c.y / R);
+    var bp = mapL(c.x / R, c.y / R);
     var off = bp[0] < 0 || bp[0] > 1250 || bp[1] < vTop() || bp[1] > vBot();   // R4: 화면 밖 판정은 보이는 높이 전체(hFull) 기준
     var r = Math.sqrt(c.x * c.x + c.y * c.y);
     if (off) {
@@ -1229,7 +1338,7 @@
   }
   /** R6(D2): 심플에서는 실험 화면 라벨을 28u 이상으로 (자리 계산은 placeLabel·keepIn 이 크기를 읽어 다시 한다) */
   function simpleLabels(labels) {
-    if (SK.isSimple()) labels.forEach(function (l) { l.size = Math.max(l.size || 22, 28); });
+    labels.forEach(function (l) { l.size = fz(Math.max(l.size || 22, SK.isSimple() ? 28 : 0)); });   // R7(A8): 화면에서 18px 아래로 줄지 않게
     return labels;
   }
 
@@ -1563,19 +1672,32 @@
       return typeof answer === 'function' ? answer(p, values) : answer;
     };
   }
+  function altRec(a) { return SK.records.some(function (r) { return Math.abs(r.params.alt - a) < 1; }); }
+  /** R7 학생점검(E1): 실험 ③(정지궤도) 예측을 들고 ISS 등 다른 고도를 실행한 뒤 — 다음은 정지궤도 */
+  function geoPending() {
+    return !!(SK.activePreset && SK.activePreset() === 2 && curMode === 'sat' && SK.prediction && SK.prediction.pending && Math.abs(SK.get('alt') - 35786) >= 1);
+  }
+  var GEO_NEXT = '다음: 정지궤도 ▶ 눌러 비교해요';
   function cannonAnswer(p, values) { var r = values.res; return r === '추락' ? 1 : (r === '탈출' || r === '먼 타원') ? 3 : 2; }
   SK.setPresets([
     modeGetter({
-      name: '뉴턴의 대포', tag: '과학사',
-      changes: 'v₀ 7.9 km/s', change: '발사 속력 v₀ (4 → 6 → 7.9 → 10 → 11.2 km/s)', fixed: '지구 · 산 높이 20 km · 수평 발사',
+      name: '뉴턴의 대포', tag: '과학사', formulaCh: 'escape',
+      changes: '발사 속력 7.9 km/s', change: '발사 속력 v₀ (4 → 6 → 7.9 → 10 → 11.2 km/s)', fixed: '지구 · 산 높이 20 km · 수평 발사',
       values: { mode: 'cannon', body: 'earth', v0: 7.9, tscale: 10, cview: 'earth', trail: true, arrows: true },
       predict: { question: '공기 없는 산꼭대기(20 km)에서 7.9 km/s로 수평으로 쏘면 포탄은 어떻게 될까?', choices: ['조금 가다 떨어진다', '지구를 한 바퀴 돈다', '우주로 날아간다'],
         judge: judgeIf(function (p) { return p.mode === 'cannon' && p.body === 'earth' && Math.abs(p.v0 - 7.9) < 0.05; }, cannonAnswer),
         why: '포탄은 계속 떨어지지만, 떨어지는 만큼 둥근 땅도 휘어 내려가서 땅에 닿지 않아요. 이 실험은 공기가 없는 약 20 km 높이 산에서 쏴요. 지표에서 7.9 km/s는 거의 원 궤도 속력이에요.' },
-      onApply: function () { seq = SEQS.v; updateSeq(true); }
+      onApply: function (p) {
+        seq = SEQS.v; updateSeq(true);
+        // R7 학생점검(E3): 화면에 보이던 값(발사 속력·보는 범위)이 카드 ① 값으로 바뀌면 한 번만 알림 — 예측 창을 열 때 화면이 튀는 까닭
+        if (!e3Told && shown.v0 !== null && (Math.abs(shown.v0 - p.v0) > 1e-9 || shown.cview !== p.cview)) {
+          e3Told = true;
+          SK.notice('실험 ① 값으로 맞췄어요(보는 범위: 지구 전체)', 'info');
+        }
+      }
     }, 'cannon'),
     modeGetter({
-      name: 'ISS도 낙하 중', tag: '오개념',   // R5: 2줄 안 (예전 이름은 3줄로 '중' 이 잘림)
+      name: 'ISS도 낙하 중', tag: '오개념', formulaCh: 'orbit-speed',   // R5: 2줄 안 (예전 이름은 3줄로 '중' 이 잘림)
       changes: '질량만 바꾸기', change: '위성 질량 m (100 → 1,000 → 10,000 kg)', fixed: '고도 400 km (국제우주정거장)',
       values: { mode: 'sat', alt: 400, mass: 100, gaxis: 'lin', trail: true, arrows: true },
       predict: { place: 'top', question: '같은 400 km 높이에서 무거운 위성은 더 빨리 돌까?', choices: ['무거우면 더 빨리', '똑같은 빠르기', '무거우면 더 느리게'],
@@ -1585,17 +1707,18 @@
       onApply: function () { seq = SEQS.m; updateSeq(true); }
     }, 'sat'),
     modeGetter({
-      name: '정지궤도 위성', tag: '대표 문항',
+      name: '정지궤도 위성', tag: '대표 문항', formulaCh: 'orbit-speed',
       changes: '고도만 바꾸기', change: '고도 h (ISS 400 → GPS 20,200 → 정지궤도 35,786 km)', fixed: '위성 질량 1,000 kg',
       values: { mode: 'sat', alt: 400, mass: 1000, gaxis: 'lin', trail: true, arrows: true },
       predict: { place: 'top', question: '지구에서 35,786 km 높이의 위성은 국제우주정거장(400 km)보다 빨리 돌까, 천천히 돌까?', choices: ['더 빨리 돈다', '같은 빠르기로 돈다', '더 천천히 돈다'],
-        judge: judgeIf(function (p) { return p.mode === 'sat'; }, 3),
+        // R7 학생점검(E1): 시작은 ISS(400 km). 정지궤도(35,786 km)를 실행했거나 두 고도 기록이 다 있을 때만 판정(그 전까지 예측 유지)
+        judge: judgeIf(function (p) { return p.mode === 'sat' && (Math.abs(p.alt - 35786) < 1 || (altRec(400) && altRec(35786))); }, 3),
         why: R_NOTE + ' 멀수록 중력이 약해서 천천히 돌아도 궤도를 지켜요(v = √(GM/r)). ISS는 r = 6,771 km에서 7.7 km/s, 정지궤도는 r = 42,157 km에서 3.1 km/s예요.',
         afterHint: '고도만 바꿔 세 번 기록해요' },
       onApply: function () { seq = SEQS.h; updateSeq(true); }
     }, 'sat'),
     modeGetter({
-      name: '행성 주기 규칙', tag: '탐구 재현',   // R5: 2줄 안 (예전 '행성 자료로 규칙' 은 '규칙' 이 잘림)
+      name: '행성 주기 규칙', tag: '탐구 재현', formulaCh: 'kepler-2',   // R5: 2줄 안 (예전 '행성 자료로 규칙' 은 '규칙' 이 잘림)
       changes: '행성 6개 자료', change: '행성 6개의 거리 a와 공전 주기 T', fixed: '단위 AU · 년',
       values: { mode: 'kepler', gaxis: 'lin', kzoom: 'all', kguide: true },
       predict: { place: 'top', question: '태양에서 멀리 있는 행성일수록 공전 주기(1년의 길이)는 어떻게 될까?', choices: ['거리만큼 길어진다', '거리보다 더 많이 길어진다', '거리와 상관없다'],
@@ -1604,8 +1727,8 @@
       onApply: function () { seq = null; kClear(); updateSeq(true); }
     }, 'kepler'),
     modeGetter({
-      name: '3 km/s로 쏘면?', tag: '대표 문항',
-      changes: '천체: 달', change: '중심 천체 (달 → 화성 → 지구)', fixed: '발사 속력 v₀ 3 km/s',
+      name: '3 km/s로 쏘면?', tag: '대표 문항', formulaCh: 'escape',
+      changes: '달에서 3 km/s로 쏘기', change: '중심 천체 (달 → 화성 → 지구)', fixed: '발사 속력 v₀ 3 km/s',
       values: { mode: 'cannon', body: 'moon', v0: 3, tscale: 10, cview: 'far', trail: true, arrows: true },
       predict: { question: '3 km/s로 쏘면 어느 천체에서 포탄이 탈출할까?', choices: ['달', '화성', '지구', '모두 떨어진다'],
         judge: judgeIf(function (p) { return p.mode === 'cannon' && Math.abs(p.v0 - 3) < 0.05 && p.body !== 'jupiter'; }, 1),
@@ -1619,13 +1742,24 @@
   seqEl = h('div', { class: 'og-seq', hidden: true, role: 'group', 'aria-label': '순서대로 바꿔 보기' });
   var seqKey = '';
   function sameRec(r, v) { return r.params[seq.key] === v && (seq.key === 'body' || seq.mode !== 'cannon' || r.params.body === SK.get('body')); }
+  /** R7 학생점검(E1): 질량 칸 안내는 '질량만 바꾸기'(SEQS.m)일 때만, 고도 순서(SEQS.h)면 반대로 */
+  var massHintTxt = null;
+  function syncMassHint() {
+    var c = SK.controls.mass, el = c && c.el && c.el.querySelector('.var__hint');
+    if (!el || !SEQS) return;
+    var t = seq === SEQS.m ? '고도는 그대로 두고 질량만 바꿔 봐요' : seq === SEQS.h ? '질량은 그대로 두고 고도만 바꿔요' : '';
+    if (t === massHintTxt) return;
+    massHintTxt = t; el.textContent = t; el.hidden = !t;
+  }
   function updateSeq(force) {
+    syncMassHint();
     if (!seqEl) return;
     if (!seq || seq.mode !== curMode || (seq.mode === 'cannon' && seq.key !== 'body' && SK.get('body') === 'jupiter')) { if (!seqEl.hidden) seqEl.hidden = true; seqKey = ''; return; }
     var now = SK.get(seq.key), idx = -1;
     seq.vals.forEach(function (v, i) { if (v === now) idx = i; });
     var recd = SK.records.some(function (r) { return sameRec(r, now); });
-    var key = [seq.id, now, SK.running, SK.finished, SK.records.length, recd, SK.get('body')].join('|');
+    var geo = seq === SEQS.h && geoPending();
+    var key = [seq.id, now, SK.running, SK.finished, SK.records.length, recd, SK.get('body'), geo].join('|');
     if (!force && key === seqKey && seqEl.parentNode) return;
     seqKey = key;
     var host = SK.controls[seq.key] && SK.controls[seq.key].el;
@@ -1644,6 +1778,9 @@
     });
     var next = idx < seq.vals.length - 1 ? seq.vals[idx + 1] : null;
     if (idx < 0) next = seq.vals[0];
+    // R7 학생점검(E1): 실험 ③ 예측을 들고 있으면 다음은 정지궤도(판정 값). 마지막 값 뒤에는 아직 안 한 값으로
+    if (geo) next = 35786;
+    else if (next === null && !all) seq.vals.forEach(function (v) { if (next === null && v !== now && !SK.records.some(function (r) { return sameRec(r, v); })) next = v; });
     if (next !== null) {
       var why = SK.running ? '실행이 끝난 뒤에 넘어가요' : (SK.finished && !recd && idx >= 0 ? '먼저 위 기록하기를 눌러요' : '');
       var nb = h('button', { class: 'btn btn--secondary btn--sm og-seq__next' + (why ? ' is-blocked' : ''), type: 'button', 'aria-disabled': why ? 'true' : 'false',
@@ -1834,6 +1971,7 @@
     }
     if (curMode === 'sat') {
       var s = satCalc(p.alt), line = '고도 ' + comma(p.alt) + ' km: 속력 ' + SK.fmt(s.v, 2) + ' km/s, 주기 ' + periodText(s.T);
+      if (geoPending()) line += ' · ' + GEO_NEXT;
       if (Math.abs(p.alt - 400) < 1) return { line: line, more: 'ISS도 계속 떨어지고 있지만, 옆으로 ' + SK.fmt(s.v, 1) + ' km/s로 달려서 땅이 같이 휘어 멀어져요. 중력은 지표의 ' + pctText(s.g) + '% — 무중력이 아니라 함께 떨어지는 상태예요. 위성 질량을 바꿔도 속력·주기는 그대로예요.', lesson: 'weightless' };
       if (Math.abs(p.alt - 35786) < 1) return { line: line, more: '주기가 지구 자전(약 하루)과 같아서 늘 같은 곳 위에 떠 있어요(정지궤도). 높을수록 중력이 약해 느리게 돌고, 돌 길도 길어져 주기가 길어요.', lesson: 'orbit-heights' };
       return { line: line, more: 'r = 지구 반지름 6,371 km + 고도 = ' + comma(6371 + p.alt) + ' km. 높을수록 중력이 약해 느리게 돌고, 돌 길도 길어져 주기가 길어요.', lesson: 'orbit-heights' };

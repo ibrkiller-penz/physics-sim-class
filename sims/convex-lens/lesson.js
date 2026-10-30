@@ -82,23 +82,25 @@
   function posSvg(D) {
     var L = 400, f = 50, kids = [];
     var strips = [
-      { y: 105, s: 150, name: '2F 밖', res: '작은 실상 (0.5배)' },
-      { y: 235, s: 75, name: 'F ~ 2F', res: '큰 실상 (2배)' },
-      { y: 365, s: 25, name: 'F 안', res: '큰 허상 (2배)' }
+      /* R7 학생점검(디자인C): 4칸이 viewBox 450 아래로 잘리던 것 — 칸을 12 위로, 광선은 축 아래 48 까지만, 구분선은 칸 사이 가운데(이름 글자 위 18) */
+      { y: 88, s: 150, name: '2F 밖', res: '작은 실상 (물체 30 cm 예: 0.5배)' },
+      { y: 188, s: 100, name: '2F', res: '2F — 같은 크기 실상 (1배)' },
+      { y: 288, s: 75, name: 'F ~ 2F', res: '큰 실상 (2배)' },
+      { y: 388, s: 25, name: 'F 안', res: '큰 허상 (2배)' }
     ];
-    kids.push(D.line(20, 170, 780, 170, { color: 'line', w: 1.2 }), D.line(20, 300, 780, 300, { color: 'line', w: 1.2 }));
+    kids.push(D.line(20, 140, 780, 140, { color: 'line', w: 1.2 }), D.line(20, 240, 780, 240, { color: 'line', w: 1.2 }), D.line(20, 340, 780, 340, { color: 'line', w: 1.2 }));
     strips.forEach(function (st) {
-      var y = st.y, ox = L - st.s, h = 30, sp = st.s * f / (st.s - f), m = sp / st.s, ix = L + sp, ih = -h * m;
-      kids.push(axis(D, 60, 740, y), D.lens(L, y, 100), fdot(D, L - f, y), fdot(D, L + f, y), fdot(D, L - 2 * f, y), fdot(D, L + 2 * f, y));
-      var s1 = h / f, x1 = Math.min(620, L + (h + 62) / s1);
+      var y = st.y, ox = L - st.s, h = 26, sp = st.s * f / (st.s - f), m = sp / st.s, ix = L + sp, ih = -h * m;
+      kids.push(axis(D, 60, 740, y), D.lens(L, y, 80), fdot(D, L - f, y), fdot(D, L + f, y), fdot(D, L - 2 * f, y), fdot(D, L + 2 * f, y));
+      var s1 = h / f, x1 = Math.min(620, L + (h + 48) / s1);
       kids.push(D.ray([[ox, y - h], [L, y - h], [x1, y - h + (x1 - L) * s1]], { style: 1, arrow: false }));
-      var s3 = h / st.s, x3 = Math.min(620, L + 62 / s3);
+      var s3 = h / st.s, x3 = Math.min(620, L + 48 / s3);
       kids.push(D.ray([[ox, y - h], [L, y], [x3, y + (x3 - L) * s3]], { style: 3, arrow: false }));
       if (sp < 0) kids.push(D.line(L, y - h, ix, y - ih, { color: 'muted', w: 1.8, dash: '5 5' }), D.line(L, y, ix, y - ih, { color: 'muted', w: 1.8, dash: '5 5' }));
       kids.push(arrowV(D, ox, y, h, { w: 3.5 }), arrowV(D, ix, y, ih, { color: IMG, dashed: sp < 0, w: 3.5 }));
-      kids.push(D.label(24, y - 40, st.name, { weight: 500, size: 22 }), D.label(780, y - 40, st.res, { anchor: 'end', size: 20, color: 'sim' }));
+      kids.push(D.label(24, y - 30, st.name, { weight: 500, size: 22 }), D.label(24, y + 36, st.res, { size: 22, color: 'sim' }));
     });
-    return D.svg(kids, { title: '물체 위치 세 구간 (점: 렌즈 양쪽 F·2F)', how: '실선 화살표 = 실상(거꾸로) · 점선 화살표 = 허상(바로) — 물체가 F 쪽으로 다가올수록 상이 멀어지고 커져요' });
+    return D.svg(kids, { title: '물체 위치 네 곳 (점: 렌즈 양쪽 F·2F)', how: '실선 화살표 = 실상(거꾸로) · 점선 화살표 = 허상(바로) — 물체가 F 쪽으로 다가올수록 상이 멀어지고 커져요. 2F 밖은 항상 1배보다 작아요' });
   }
   /** '지금 값' — 상 거리(표시용 계산, 실험 계산은 sim.js Phys). 예측 중·f 숨김이면 답을 말하지 않는다 */
   function hush() { return !!(window.SimKit && SimKit.predicting && SimKit.predicting()); }
@@ -121,7 +123,7 @@
       { term: '물체 거리', sym: '$s$', unit: 'cm', mean: '렌즈 가운데에서 물체까지의 거리', where: 's' },
       { term: '상 거리', sym: '', unit: 'cm', mean: '렌즈 가운데에서 상까지의 거리', where: 'meter:si' },
       { term: '실상', sym: '', unit: '', mean: '빛이 실제로 모여 생긴 상 — 스크린에 맺히고 거꾸로 서요' },
-      { term: '허상', sym: '', unit: '', mean: '퍼지는 빛을 되짚어 보이는 상 — 스크린에 안 맺히고 바로 서요' },
+      { term: '허상', sym: '', unit: '', mean: '퍼지는 빛을 거꾸로 연장한 선이 만나는 곳에 보이는 상 — 스크린에 안 맺히고 바로 서요' },
       { term: '배율', sym: '', unit: '배', mean: '{{frac:상 크기|물체 크기}} = {{frac:상 거리|물체 거리}}', where: 'meter:m' }
     ],
     chapters: [
@@ -130,7 +132,7 @@
         question: '렌즈를 반쯤 가리면 상도 반쪽만 생길까?',
         body: [
           '돋보기, 카메라, 프로젝터, 우리 눈 속에는 모두 볼록렌즈가 있어요. 볼록렌즈는 빛을 꺾어 한곳에 모아 **상**을 만들어요.',
-          '빛의 길(광선)을 그려 상의 위치와 모양을 알아내요(그림의 세 광선은 4장에서).',
+          '빛의 길(광선)을 그려 상의 위치와 모양을 알아내요.',   // R7 학생점검(디자인C): '(세 광선은 4장에서)' 는 그림 설명에 같은 말이 있어 뺌
           '물체를 가까이 하거나 멀리 할 때 상이 어떻게 달라지는지도 확인해요.'
         ],
         goals: ['굴절과 초점', '세 광선으로 상 찾기', '물체 위치에 따라 달라지는 상'],
@@ -239,7 +241,7 @@
       { id: 'real-virtual', type: 'diagram', title: '실상과 허상',
         body: [
           '빛이 실제로 한 점에 모여 만든 상이 **실상**이에요. 스크린에 비치고, 볼록렌즈가 만든 실상은 위아래·좌우가 뒤집혀 있어요.',
-          '**허상**은 빛이 모이지 않고 퍼질 때 생겨요. 퍼지는 빛을 거꾸로 되짚어 만나는 곳에 상이 있는 것처럼 보여요. 스크린에는 맺히지 않고, 렌즈 너머로 들여다봐야 보이며 바로 서 있어요.',
+          '**허상**은 빛이 모이지 않고 퍼질 때 생겨요. 퍼지는 빛을 거꾸로 연장한 선이 만나는 곳에 상이 있는 것처럼 보여요. 스크린에는 맺히지 않고, 렌즈 너머로 들여다봐야 보이며 바로 서 있어요.',
           '물체가 초점보다 바깥에 있으면 실상, 초점 안쪽에 있으면 허상이 생겨요.'
         ],
         try: { label: '실험 ④ 돋보기 — 스크린 놓기(I)로 안 맺힘 확인', preset: 3 },
@@ -264,14 +266,14 @@
             '<path d="M660 ' + (b + 2) + ' q-16 -13 -32 0 q16 13 32 0z" style="fill:var(--color-paper-raised);stroke:var(--color-ink);stroke-width:2.5"/><circle cx="645" cy="' + (b + 2) + '" r="5" style="fill:var(--color-ink)"/>',
             chipLabel(D, 650, b - 30, '여기서 들여다봐요', { anchor: 'middle', size: 18 }),
             chipLabel(D, 600, b + 80, '빛이 안 모여요: 스크린에 안 맺힘', { anchor: 'middle', size: 18, color: 'muted' })
-          ], { title: '실상과 허상', how: '위: 빛이 실제로 모임(실선) → 스크린에 맺힘 · 아래: 빛이 퍼짐 → 되짚은 점선이 만나는 곳에 허상(점선 화살표)' });
+          ], { title: '실상과 허상', how: '위: 빛이 실제로 모임(실선) → 스크린에 맺힘 · 아래: 빛이 퍼짐 → 연장한 점선이 만나는 곳에 허상(점선 화살표)' });
         } },
 
       /* 6장 */
       { id: 'by-position', type: 'diagram', title: '물체 위치에 따라 달라지는 상',
         body: [
           '물체를 렌즈에 가까이 가져올수록 상은 렌즈에서 멀어지고 커져요. 멀리 두면 상은 초점 쪽으로 다가오며 작아져요.',
-          '초점(F)과 2F 를 경계로 위치를 나누어 살펴봐요. 2F 에 두면 반대쪽 2F 에 같은 크기의 거꾸로 선 실상이 생겨요.',
+          '초점(F)과 2F 를 경계로 위치를 나누어 살펴봐요. 2F 에 두면 반대쪽 2F 에 같은 크기(1배)의 거꾸로 선 실상이 생겨요. 2F 밖은 항상 1배보다 작아요.',
           '초점에 둔 물체의 빛은 렌즈를 지나 나란히 나가서 상이 생기지 않아요.'
         ],
         try: { label: '실험 ② — 물체를 2F 에', preset: 1 },
@@ -285,7 +287,7 @@
         table: {
           head: ['물체 위치', '물체 거리 $s$', '상 거리', '상의 모습'],
           rows: [
-            ['2F 보다 멀리', '30 cm', '15 cm', '거꾸로 선 실상 · 0.5배'],
+            ['2F 보다 멀리', '30 cm', '15 cm', '거꾸로 선 실상 · 0.5배 (30 cm 예)'],
             ['2F', '20 cm', '20 cm', '거꾸로 선 실상 · 1배'],
             ['F ~ 2F', '15 cm', '30 cm', '거꾸로 선 실상 · 2배'],
             ['초점 F', '10 cm', '없음', '상이 생기지 않음'],
@@ -327,11 +329,11 @@
             axis(D, 40, 760, y), D.lens(L, y, 260),
             D.ray([[ox, y - oh], [L, y], [ix, y + ih]], { style: 3, arrow: false }),
             arrowV(D, ox, y, oh), arrowV(D, ix, y, -ih, { color: IMG }),
-            D.dim(ox, y + 40, L, y + 40, '물체 거리 15 cm', { off: 22, size: 19 }), D.dim(L, y - 40, ix, y - 40, '상 거리 30 cm (2배)', { off: -22, size: 19 }),
+            D.dim(ox, y + 40, L, y + 40, '', {}), D.label(L - 36, y + 66, '물체 거리 15 cm', { anchor: 'end', size: 20 }), D.dim(L, y - 40, ix, y - 40, '상 거리 30 cm (2배)', { off: -22, size: 19 }),
             D.dim(ox - 26, y, ox - 26, y - oh, '', {}), D.label(ox - 40, y - oh / 2, '물체 크기', { anchor: 'end', size: 19 }),
             D.dim(ix + 26, y, ix + 26, y + ih, '', {}), D.label(ix + 40, y + ih / 2, '상 크기', { anchor: 'start', size: 19 }),
             D.label(L, 380, '광선 ③ (렌즈 중심을 곧게)', { anchor: 'middle', size: 19, color: 'muted' })
-          ], { title: '닮은 삼각형 두 개', how: '옅은 두 삼각형은 닮은꼴 · 상 거리가 물체 거리의 2배면 상 크기도 물체 크기의 2배예요' });
+          ], { title: '닮은 삼각형 두 개', how: '색이 연한 두 삼각형은 닮은꼴(모양이 같고 크기만 달라요) · 상 거리가 물체 거리의 2배면 상 크기도 물체 크기의 2배예요' });
         },
         teacherNote: '화면 배율은 크기 비(양수)예요. 뒤집힘은 \'거꾸로\' 로 따로 말하고, 부호($m$ < 0)는 더 보기에서만.' },
 
@@ -357,7 +359,7 @@
             kids.push(D.line(x0 + 10, cy, x0 + w - 10, cy, { color: 'muted', w: 1.2, dash: '6 4' }), D.lens(L, cy, 110));
             kids.push(D.dots([[L - f, cy], [L - 2 * f, cy], [L + f, cy]], { r: 3.5, color: 'sim' }));
             kids.push(arrowV(D, Math.max(x0 + 14, L - c.s * f), cy, 28, { w: 3 }));
-            kids.push(D.label(L - f, cy + 22, 'F', { anchor: 'middle', size: 16, color: 'sim' }), D.label(L - 2 * f, cy + 22, '2F', { anchor: 'middle', size: 16, color: 'sim' }));
+            kids.push(D.label(L - f + 10, cy + 26, 'F', { anchor: 'middle', size: 22, color: 'sim' }), D.label(L - 2 * f - 8, cy + 26, '2F', { anchor: 'middle', size: 22, color: 'sim' }));
             kids.push(D.label(x0 + w / 2, 352, c.kind, { anchor: 'middle', size: 18, color: 'sim' }));
           });
           return D.svg(kids, { title: '물체를 어디에 두나 (F·2F 기준)', how: '돋보기는 F 안, 프로젝터는 F~2F, 카메라·눈과 반도체 공정은 2F 밖' });
@@ -386,10 +388,10 @@
         questions: [
           { q: '먼 풍경의 상은 렌즈에서 얼마나 떨어진 곳에 생길까? 초점거리 $f$ 를 어떻게 알아낼까?', preset: 0, chapter: 'terms' },
           { q: '물체를 2F 에 두면 상은 어디에, 어떤 크기로?', preset: 1, chapter: 'by-position' },
-          { q: '물체가 2F 보다 멀면(기본 상태) 상은?', preset: null, set: base({}), predict: false, chapter: 'by-position-table' },
+          { q: '물체가 2F 보다 멀면(기본 상태) 상은?', cardName: '기본 상태 · 물체 30 cm', preset: null, set: base({}), predict: false, chapter: 'by-position-table' },
           { q: '프로젝터 화면을 크게 하려면 슬라이드를 어디로?', preset: 2, chapter: 'magnify' },
           { q: '물체를 초점 안쪽에 두고 들여다보면?', preset: 3, chapter: 'real-virtual' },
-          { q: '물체를 초점 바로 위에 두면 상은?', preset: null, set: base({ s: 10 }), predict: false, chapter: 'by-position-table' },
+          { q: '물체를 초점 바로 위에 두면 상은?', cardName: '물체 10 cm (초점 위)', preset: null, set: base({ s: 10 }), predict: false, chapter: 'by-position-table' },
           { q: '렌즈 위쪽 절반을 가리면 상은 어떻게 될까?', preset: 4, chapter: 'misc' }
         ],
         teacherNote: '한 질문에 해 보기 하나. 4장은 기본 상태에서 Q·W·E 로 광선을 하나씩 꺼 보고, 5장은 실험 ④ + 스크린 놓기(I) 로 확인해요. 실험 ① 은 $f$ 를 숨기므로 정리 단계에서 답을 공개해요.' },
