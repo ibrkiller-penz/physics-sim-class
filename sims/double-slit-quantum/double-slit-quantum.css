@@ -50,8 +50,12 @@
 .dsq-skip { width: 100%; }
 
 /* 화면에 표시하기 2 × 2 */
-.dsq-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
-.dsq-grid2 .check { padding: 0 var(--space-3); gap: var(--space-2); font-size: var(--fs-meta); }
+.dsq-grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }   /* R8(A9): minmax(0,1fr) — 긴 이름이 2열을 밀어내지 않게 */
+.dsq-grid2 .check { padding: 0 var(--space-3); gap: var(--space-2); font-size: var(--fs-meta); min-width: 0; }
+.dsq-grid2 .check__label, .dsq-grid2 .check > span { min-width: 0; overflow-wrap: anywhere; word-break: keep-all; }
+.dsq-grid2 > * { min-width: 0; }
+/* R8(A9): ⚙ 팝업 폭이 360px 보다 좁으면(화면 ≈ 390px 이하) 1열 */
+@media (max-width: 400px) { .dsq-grid2 { grid-template-columns: minmax(0, 1fr); } }
 
 /* 하단 띠 왼쪽: 계기판 1줄 3칸 */
 .dsq-meters {
@@ -238,3 +242,59 @@ html:not(.is-simple) .sim-panel .dsq-speed .btn { min-height: calc(64 * var(--u)
 .dsq-eq.dsq-eq--e .dsq-eq__l2 { line-height: 1.15; }
 .dsq-eq.dsq-eq--e .dsq-eq__l1 { grid-column: 2; grid-row: 2; justify-content: flex-start; flex-wrap: nowrap; }
 .dsq-eq.dsq-eq--e .dsq-pmnote { display: none; }
+
+/* ── R8 (UI팀2) ── */
+/* C1: 키보드 측정 — 확대창 위 투명 칸(포커스 링만) · 캔버스 밖 측정 단추(− n + · 지우기 · 측정 방법 ?) */
+.dsq-zoomkey { z-index: 2; border-radius: calc(8 * var(--u)); pointer-events: none; outline: none; }
+.dsq-zoomkey:focus-visible { box-shadow: 0 0 0 3px var(--color-focus, var(--color-primary)), 0 0 0 6px var(--color-paper); }
+.dsq-zoomkey[hidden], .dsq-mbtn[hidden], .dsq-mnum[hidden] { display: none !important; }
+.dsq-mbtn {
+  z-index: 3; box-sizing: border-box; min-width: 44px; min-height: 44px; margin: 0; padding: 0 calc(10 * var(--u));
+  display: inline-flex; align-items: center; justify-content: center; gap: calc(6 * var(--u));
+  font-weight: var(--font-weight-medium); line-height: 1; white-space: nowrap; word-break: keep-all;
+}
+.dsq-mbtn--pm { padding: 0; font-size: 1.25em; }
+.dsq-mbtn--pm span { font-size: 1.3em; line-height: 1; }
+.dsq-mbtn--how { border-radius: 999px; background: var(--color-paper-raised); }
+.dsq-mbtn--how[aria-pressed="true"] { background: var(--color-sim-slit-tint, var(--sim-tint)); }
+.dsq-mbtn--how .ico { width: 1.1em; height: 1.1em; flex: none; }
+.dsq-mbtn--how.is-round { padding: 0; }
+.dsq-mbtn--how.is-round .dsq-mbtn__t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.dsq-mbtn:disabled { opacity: .45; }
+.dsq-mnum {
+  z-index: 3; box-sizing: border-box; min-height: 44px; margin: 0; padding: 0 2px; text-align: center;
+  border-radius: var(--radius-md); border: 2px solid var(--color-line-strong); background: var(--color-paper);
+  color: var(--color-ink); font-family: var(--font-num); font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums; -moz-appearance: textfield; appearance: textfield;
+}
+.dsq-mnum::-webkit-outer-spin-button, .dsq-mnum::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+/* C1·C5: 띠 단계 칸 = 단추 — 이름 2줄 허용(말줄임 없음) · 지금 단계는 색 면 · 글자 한 단계 키움 */
+button.dsq-step { font: inherit; color: inherit; text-align: left; cursor: pointer; }
+button.dsq-step:hover { border-color: var(--color-sim-slit); }
+.dsq-step { padding: calc(2 * var(--u)) var(--space-2); gap: calc(2 * var(--u)); }
+.dsq-step__name { white-space: normal; overflow: visible; text-overflow: clip; align-items: flex-start; font-size: max(17px, calc(23 * var(--u))); line-height: 1.12; word-break: keep-all; }
+.dsq-step__name .circ { flex: none; margin-top: calc(1 * var(--u)); }
+.dsq-step__val { font-size: max(17px, calc(22 * var(--u))); line-height: 1.1; overflow: visible; text-overflow: clip; }
+/* 칸 폭을 이름에: 화살표는 번호 원이 순서를 말해 줘서 뺌 · 좁은 화면은 머리 '무늬 간격 Δy 재기' 도 뺌(ƒ 식 단추·안내줄이 같은 말) */
+.dsq-steps .dsq-step__arrow { display: none; }
+@media (max-width: 1400px) { .dsq-steps__t { display: none; } }
+.dsq-step.is-now { background: var(--color-sim-slit); border-color: var(--color-sim-slit); }
+.dsq-step.is-now .dsq-step__name, .dsq-step.is-now .dsq-step__val { color: var(--color-ink-inverse, var(--color-paper)); }
+.dsq-step.is-now .dsq-step__name .circ { border-color: currentColor; color: inherit; }
+/* C4: 전자 — 윗줄 잠금 상자(이론 Δy · 기록 뒤 보여요) · 아랫줄 '입력: 전압 → λ' 는 점선 아래 별도 칸 */
+.dsq-eq.dsq-eq--e .dsq-eq__l2 { padding-bottom: calc(4 * var(--u)); border-bottom: 1px dashed var(--color-line-strong); }
+.dsq-eq.dsq-eq--e .dsq-eq__f, .dsq-eq.dsq-eq--e .dsq-eq__l1 { padding-top: calc(4 * var(--u)); }
+.dsq-eq.dsq-eq--e .dsq-eq__f > b { color: var(--color-ink); font-weight: var(--font-weight-medium); }
+/* C2: 이론 곡선 보조 문구 */
+.dsq-theorynote { grid-column: 1 / -1; margin: 0; font-size: var(--fs-caption); color: var(--color-ink-muted); }
+/* C7·A11: 심플 dy 잠금 */
+html.is-simple .simple-meter[data-key="dy"].is-locked .simple-meter__value { color: var(--color-ink-muted); }
+/* C5: ③ '사이 간격 수 n' 이 가장 길어 칸을 조금 넓게(세 줄로 넘치지 않게) */
+.dsq-steps > .dsq-step:last-child { flex-grow: 1.3; }
+
+/* 팀장 R8 결과(디자인A): 1024 설정·패널 파장 눈금 '보라 400 초록 550빨강 700' 이 붙어 읽힘 → 좁은 폭은 눈금 글자를 줄이고 끝 눈금을 안쪽으로 */
+@media (max-width: 1100px) {
+  .dsq-rainbow .var__ticks { font-size: max(11px, calc(18 * var(--u))); letter-spacing: -0.02em; }
+  .dsq-rainbow .var__ticks span.is-start { margin-left: calc(-20 * var(--u)); }
+  .dsq-rainbow .var__ticks span.is-end { margin-left: calc(20 * var(--u)); }
+}

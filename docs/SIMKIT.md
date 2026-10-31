@@ -7,6 +7,53 @@
 
 ---
 
+## 0R8. R8 에서 바뀐 것 (2026-10-31, 디자인팀) — 문구 표준·용어표·CSS 클래스 약속 · 먼저 읽기
+
+근거 `docs/개선/R8_검토.md` §2-2. CSS 는 `shared/base.css`·`shell.css` 끝의 'R8 디자인팀' 블록, 토큰은 `tokens.css`.
+
+### 0R8-1. 문구 표준 한 벌 (5종 공통 — sim 마다 따로 쓰지 않는다)
+| 자리 | 표준 문구 |
+|---|---|
+| 예측 상태줄 | `먼저 결과를 예측해요 — 보기를 하나 골라요` |
+| 보기를 고르기 전 [예측하기] 단추 | `보기를 골라요` (고른 뒤 `예측하기`) |
+| 기록 단추 | `결과 기록하기` (title `이번 값과 결과를 비교 표에 넣어요 (S)`) · 첫 기록 토스트 `기록 1 저장 — ⋯ › 기록 비교에서 봐요`, 이후 `기록 N / 5 — 값 하나만 바꿔 또 해요` |
+| 값을 단추에 쓰기 | `11.2 km/s 로 해 보기` · `v0 10 m/s 로 해 보기` (`값 로 해 보기`) |
+| 잠긴 계기 | 라벨은 짧게(`상 거리`) + 자물쇠 + `실행 뒤` (이중 슬릿·전자는 `기록 뒤`). 클래스 `.meter.is-locked` + `data-reason`, 18자 이내, 대비 ink-muted 이상 |
+| 결과 칩 | 라벨 `상태` (값: 쏘기 전 · 날아가는 중 · 궤도 유지 · 추락 · 탈출) |
+| 성취기준 칩 | `첫 코드 + [N개]` (예: `[12역학01-03] 외 2`가 아니라 `[12역학01-03] +2`) |
+| 렌즈 | `F`·`2F` 대문자 · 보기 `F 자리 · 2F 자리 · 렌즈 바로 뒤 · 아주 멀리` |
+
+### 0R8-2. 5종 용어표 (한 낱말 한 뜻)
+| 낱말 | 뜻 | 쓰지 않는 것 |
+|---|---|---|
+| **간격 수 n** | 이중 슬릿 측정에서 밝은 줄 사이 간격의 개수 (`한 간격 = Δy`, `간격 1개 = Δy`) | `칸 수 n`, `한 칸` |
+| **눈금** | 전자 모드의 모형 길이 단위 (`L = 5 눈금`, `확대 ±15 눈금`, 용어 `모형 눈금`) | `칸`(길이 단위) |
+| 무늬 간격 Δy | 이웃한 밝은 줄 사이 간격 | — |
+| 상태 | 실험의 지금 단계 칩 | `결과`(칩 이름) |
+검사: `grep "칸" sims/double-slit-quantum/lesson.js docs/교과설명/double-slit-quantum.md` 에 길이·개수 뜻이 남지 않는다('위아래 두 칸' 같은 판 칸은 다른 뜻).
+
+### 0R8-3. 레이아웃 규칙
+- **hover 가 레이아웃을 바꾸지 않는다.** `.btn__key` 는 예측 띠 보기 칩(`.pop--band .predict__opt`)에서 늘 숨김(`display:none !important`) — 번호 원 ①②③이 키를 알려 준다. 폭이 변해 칩이 다음 줄로 넘어가면 mouseup 이 빈 자리에 떨어져 첫 클릭을 놓친다(R8 학생E). 새 칩·단추도 hover 로 크기·표시가 바뀌면 안 된다.
+- **접힌 결과 줄**: 문장 단위로 끊고 줄임표(…)를 쓰지 않는다. 첫 문장(마침표까지)을 쓰고, 두 줄 안에 들어오게 짧게 쓴다.
+
+### 0R8-4. CSS ↔ JS 클래스 약속 (JS 가 달고 CSS 가 꾸민다)
+`.predict.is-3opt/.is-4opt`(보기 3·4개: ≥1000px 3칸·≥1100px 4칸 한 줄, 그 아래는 1열·2×2) · `.pop--band.is-more[data-more="N"]`(넘침: 하단 페이드 + '↓ 보기 N개 더') · `.result-card.is-collapsed` + `.result-card__line`·`.result-card__body`(안쪽 스크롤 없음 — 0R8-6) · `.predict__tally`·`.predict__tally-row`·`.predict__tally-bar(.is-right)` · `.pop--think.is-wide`·`.think-card.is-paged`·`.think-nav` · `.check__label`(상태 글자 노드 없음)·`.settings__group(.is-teacher)` · `.meter.is-locked[data-reason]` · `.preset-mode`(이름만)·`.preset-mode-desc`·`.preset-cards.is-grid2`/`.preset-list.is-grid2` · `.tool-chip--timer` · `.bar-spring`(용수철 E_p, 토큰 `--color-q-energy-spring`) · `.lesson__restart`(설명 머리 [처음부터]).
+토큰: `--fs-canvas-min`(18px, ≥1600 은 26px — `SK.fs` 가 읽음) · `--color-q-energy-spring`(청보라, 열 빗금 적갈과 색약에서도 구분, 점선 테두리와 함께).
+
+### 0R8-6. 팀장 마무리 (검수 뒤 공통 틀에 더한 것, 2026-10-31) — 결과는 `docs/개선/R8_검토.md` §5
+- **예측 띠 보기 격자**: `.is-3opt` 는 ≥1000px 3칸 한 줄, `.is-4opt` 는 ≥1100px **4칸 한 줄**(1100 미만 2×2). 띠가 무대 45% 를 넘지 않게 하는 1차 수단.
+- **`SK.canvas` insetShift(`cfg.stageBandShift`)**: 띠가 남는 세로보다 높으면 그림 위를 덮기 전에 축척을 먼저 줄인다 — 최대 `cfg.stageBandShrink`(기본 0.2 = 20 %). 그래도 모자라면 그때만 `view.coverTop` 으로 덮는다(렌즈·포물선 창 처리 그대로).
+- **결과 카드**: 안쪽 스크롤 없음(`.result-card__body { max-height:none }`). 규칙 '두 겹 스크롤 금지' 가 회의록 6번의 40 % 안쪽 스크롤보다 앞선다 — 0R8-4 의 '펼침 max-height 40vh' 는 폐기.
+- **계기 단위 km/s**: `.meter__value:has(> .meter__unit[data-unit="km/s"])` 는 38u 상한(core 48u 예외 없음) — 궤도 '7.90 km/s' 가 칸을 넘지 않게.
+- **캔버스 글자 상한 배수**: 궤도 `fz` 1.3배 → 1.7배. 하한 18px 를 1024(축척 0.5)에서도 맞추려면 22u 글자가 37u 까지 커져야 한다. 다른 sim 은 `fsMin`/`SK.fs` 가 상한 없이 하한만 적용.
+- **캔버스 이름표 간격**: 글자 하한으로 글자가 커지는 곳은 간격을 상수가 아니라 **글자 높이의 배수**로 둔다(이중 슬릿 `SCR_BOT + 10 + f·0.6`). 상수 22 는 1024 에서 겹친다.
+- **tools/audit.py --r8**: (c) 는 살아 있는 DOM 을 걸어가며 `display:none`·`visibility:hidden` 글자를 뺀다. (d) 는 `.dsq-zoomkey`(role=application) 에서만 Enter·→·Space.
+
+### 0R8-5. 교사 메모 틀 (실험 카드별 한 벌 — 서랍·`teacherNote` 공통)
+카드마다 네 줄: **질문**(학생에게 던질 한 문장) · **바꿀 값**(하나만, 값 포함) · **기대 결과**(숫자 한 개 포함) · **깨는 오개념**(학생이 흔히 하는 말을 따옴표로). 값은 카드 ① 값·변수 기본값과 같아야 한다(서랍 자동 채움).
+
+---
+
 ## 0R7-3. R7 3차에서 바뀐 것 (2026-10-31, UI팀1) — 먼저 읽기 · UI팀2·3 은 여기만 읽고 작업
 
 근거 `docs/개선/R7_3차_계획.md` §1-3~§1-9. **sim 이 아무것도 안 바꿔도 지금처럼 동작한다**(하위 호환). 숨긴 노드(`SK.el.btnPresetsTop`·`SK.el.cardChip`·심플 `E.formulaBtn`·`E.settingsBtn`)는 지우지 않았다.

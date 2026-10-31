@@ -70,6 +70,8 @@
   --color-q-energy-p:      #B07A00; /* 위치 에너지 (면·선 전용) */
   --color-q-energy-p-text: #8A5A00; /* 위치 에너지 글자 */
   --color-q-energy-heat:   #A8432A; /* 열·손실 */
+  --color-q-energy-spring: #4B5FB5; /* R8(D1) 용수철에 저장된 탄성 E_p — 열(#A8432A 적갈) 과 색약에서도 구분(청보라), 점선 테두리와 함께 */
+  --fs-canvas-min: 18px; /* R8(A12) 캔버스 글자 하한 — SK.fs 헬퍼가 읽음. ≥1600 은 아래 미디어쿼리 26px */
   --color-q-ghost:         rgb(28 26 23 / 0.35); /* 직전 실행 흐림 */
 
   /* ---------- 4. 기록 5회 = 색 + 선 모양 ------------------------------- */
@@ -269,3 +271,5 @@
 [data-sim="collision-momentum"]  { --sim: var(--color-sim-collision);  --sim-tint: var(--color-sim-collision-tint);  --sim-text: var(--color-sim-collision-text); }
 [data-sim="orbit-gravity"]       { --sim: var(--color-sim-orbit);      --sim-tint: var(--color-sim-orbit-tint);      --sim-text: var(--color-sim-orbit-text); }
 [data-sim="convex-lens"]         { --sim: var(--color-sim-lens);       --sim-tint: var(--color-sim-lens-tint);       --sim-text: var(--color-sim-lens-text); }
+
+@media (min-width: 1600px) { :root { --fs-canvas-min: 26px; } }

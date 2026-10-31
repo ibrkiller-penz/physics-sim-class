@@ -172,6 +172,8 @@ h1, h2, h3, h4 {
 .btn__key { display: none; }
 /* R2(B3): 마우스를 올렸을 때(정밀 포인터)·교사 설정 '단축키 글자 보이기' 에서만. 포커스만으로는 보이지 않음 */
 @media (hover: hover) and (pointer: fine) { html:not(.cursor-hidden) .btn:not(.btn--run):hover > .btn__key { display: inline-block; } }
+/* R8(A1): 예측 띠 보기 칩에서는 hover 로도 단축키 글자를 내지 않는다 — 폭이 변해 줄바꿈되면 첫 클릭을 놓친다(번호 원 ①②③이 키를 알려 줌). hover 는 레이아웃을 바꾸지 않는다 */
+.pop--band .predict__opt > .btn__key, .pop--band .predict__choices .btn > .btn__key { display: none !important; }
 html.show-keys .btn__key { display: inline-block; }
 @media (pointer: coarse) { html:not(.show-keys) .btn__key { display: none !important; } }
 .btn__key {
@@ -452,7 +454,7 @@ html:not(.cursor-hidden) .menu__item:hover { color: var(--color-primary); }
 .meter.is-hidden-value .meter__value { position: relative; color: var(--color-ink-muted); text-shadow: none; opacity: 0.7; line-height: 1.1; font-size: var(--fs-body); }   /* R7 학생점검(디자인·팀장): '—' 줄을 본문 크기로 — 아래 '예측·실행 뒤 보여요' 가 띠 칸 밖으로 잘리지 않게 */
 .meter.is-hidden-value .meter__value > * { display: none; } /* 교사 H 전 숨김값 — R7: 블러 대신 또렷한 '—' */
 .meter.is-hidden-value .meter__value::before { content: "—"; font-size: var(--fs-body); }
-.meter.is-hidden-value .meter__value::after { content: "예측·실행 뒤 보여요"; display: block; font: var(--font-weight-regular) var(--fs-caption)/1.2 var(--font-sans); }
+.meter.is-hidden-value .meter__value::after { content: "실행 뒤"; display: block; color: var(--color-ink-muted); font: var(--font-weight-regular) var(--fs-caption)/1.2 var(--font-sans); }
 
 /* ---------- 10. 그래프 상자 ------------------------------------------------ */
 .graph-box {
@@ -1846,3 +1848,69 @@ html:not(.cursor-hidden) .sym-chip:hover { border-color: var(--sim); }
 .sim-band .meter.is-hidden-value .meter__value { display: block; min-width: 0; max-width: 100%; overflow: hidden; line-height: 1.1; }
 .sim-band .meter.is-hidden-value .meter__value::before { display: none; }   /* 띠 칸은 '(숨김)' 라벨이 있어 '—' 줄은 빼고 안내 글만 */
 .sim-band .meter.is-hidden-value .meter__value::after { font-size: max(16px, calc(20 * var(--u))); line-height: 1.2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+
+/* ===== R8 디자인팀 (회의록 §2-2 클래스 약속) ============================== */
+/* A13 실험 고르기: 모드는 이름만 한 줄·같은 높이 세그먼트, 설명은 아래 한 줄, 카드는 2열 격자 */
+.preset-modes { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); grid-auto-rows: 1fr; padding-bottom: var(--space-2); border-bottom: 0; }
+.preset-mode { min-height: max(44px, calc(60 * var(--u))); padding: 0 var(--space-2); text-align: center; justify-items: center; }
+.preset-mode__label { white-space: nowrap; word-break: keep-all; font-size: max(16px, var(--fs-meta)); }
+.preset-mode__desc { display: none; }   /* 이름만 — 설명은 .preset-mode-desc 한 줄로 */
+.preset-mode-desc { margin: 0; padding-bottom: var(--space-2); border-bottom: 1px solid var(--color-line); font: var(--font-weight-regular) var(--fs-caption)/1.35 var(--font-sans); color: var(--color-ink-muted); white-space: nowrap; overflow: hidden; text-overflow: clip; word-break: keep-all; }
+.preset-mode-desc:empty { display: none; }
+.preset-cards.is-grid2, .preset-list.is-grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+.pop .preset-list.is-grid2 .preset-card, .preset-cards.is-grid2 .preset-card { min-height: calc(76 * var(--u)); padding-top: var(--space-2); padding-bottom: var(--space-2); }
+
+/* A9 설정 토글 줄: 이름 칸은 줄어들고 긴 이름은 줄바꿈, 단축키는 줄 끝 작게, 상태 글자 자리 없음 */
+.check__label { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; word-break: keep-all; }
+.check__text { overflow-wrap: anywhere; }
+.check > .check__state:empty { display: none; }
+.check .btn__key, .check kbd { flex: none; margin-left: auto; font-size: max(12px, calc(18 * var(--u))); padding: 1px var(--space-2); display: inline-block; }
+.pop--settings .settings__group { display: grid; gap: var(--space-2); padding-top: var(--space-2); }
+.pop--settings .settings__group + .settings__group { border-top: 1px solid var(--color-line); margin-top: var(--space-1); }
+.pop--settings .settings__group > h3, .pop--settings .settings__group > .settings__title { margin: 0; font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-sans); color: var(--color-ink-muted); }
+.pop--settings .settings__group.is-teacher { padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-paper-sunk); }
+.pop--settings .pop__body { padding-bottom: calc(72 * var(--u)); }   /* '더 있어요' 띠가 마지막 항목을 가리지 않게 */
+.pop--settings { width: min(420px, 92vw); }
+
+/* A5 예측 집계(교사 손들기): 가로 막대 3개, 틀린 보기는 중립색 ○ */
+.predict__tally { display: grid; gap: calc(6 * var(--u)); padding: var(--space-2) 0; }
+.predict__tally-row { display: grid; grid-template-columns: max-content minmax(0, 1fr) max-content; align-items: center; gap: var(--space-2); font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-sans); }
+.predict__tally-bar { display: block; height: max(10px, calc(16 * var(--u))); min-width: 2px; border-radius: var(--radius-pill); background: var(--color-line-strong); }
+.predict__tally-bar.is-right { background: var(--color-ok); }
+.result-card .is-neutral-miss, .predict__tally .is-miss { color: var(--color-ink-muted); }
+
+/* A8 정리 팝업: 한 문항씩(is-paged), 이전·다음, 선택지 가로 3칸 */
+.think-card.is-paged[hidden] { display: none; }
+.think-nav { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) 0; font: var(--font-weight-medium) var(--fs-meta)/1.2 var(--font-sans); }
+.think-nav .btn { min-height: max(44px, calc(56 * var(--u))); }
+.think-nav__left { flex: 1; text-align: right; color: var(--color-ink-muted); }
+.think-card.is-paged .think-card__choices, .pop--think.is-wide .think-card__choices { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pop--think .side-body.is-more, .pop--think .pop__body.is-more { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 64px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 64px), transparent); }
+.pop--think .think-card { gap: var(--space-2); }
+
+/* A11 계기: 숫자는 칸 폭에 맞춰 줄고, 단위는 더 작게 · 잠금(is-locked): 자물쇠 + 짧은 이유 */
+.meter__val { font-size: clamp(22px, 2.6vw, calc(40 * var(--u))); }
+.sim-band .meter__value, .sim-band .meter__val { font-size: clamp(22px, 2.6vw, calc(40 * var(--u))); }
+.sim-band .meter__value--md { font-size: clamp(20px, 2.2vw, calc(34 * var(--u))); }
+.sim-band .meters.has-core .meter.is-core .meter__value { font-size: clamp(22px, 2.6vw, calc(48 * var(--u))); }
+:root { --ico-lock: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V7a3 3 0 0 0-6 0z'/></svg>"); }
+.meter__val .meter__unit, .meter__value .meter__unit, .meter__unit { font-size: .6em; }
+.meter.is-locked { color: var(--color-ink-muted); }
+.meter.is-locked .meter__val, .meter.is-locked .meter__value { color: var(--color-ink-muted); opacity: 1; font-size: var(--fs-meta); line-height: 1.2; white-space: nowrap; }
+.meter.is-locked::before { content: ""; display: inline-block; width: .9em; height: .9em; margin-right: .3em; vertical-align: -.1em; background: currentColor; -webkit-mask: var(--ico-lock, none) center/contain no-repeat; mask: var(--ico-lock, none) center/contain no-repeat; }
+.meter.is-locked[data-reason]::after { content: attr(data-reason); display: block; color: var(--color-ink-muted); font: var(--font-weight-regular) var(--fs-caption)/1.2 var(--font-sans); white-space: nowrap; overflow: hidden; }
+
+/* A14 기록 배지: [⋯] 오른쪽 위 모서리 밖으로 반쯤, 작게 */
+.tool-btn__badge--more { top: -6px; right: -6px; min-width: 16px; padding: 1px 4px; font-size: max(11px, calc(16 * var(--u))); }
+.sim-top__tools .tool-btn__badge, .sim-top__tools .tool-btn__badge--more { top: -6px; right: -6px; min-width: 16px; padding: 1px 4px; font-size: max(11px, calc(16 * var(--u))); }
+
+/* A1 보기 칩: 줄바꿈을 막지 않되 hover 로 폭이 변하지 않게 키 자리는 없음 (위 규칙) */
+
+/* R8(A11): 숨김 값 안내는 짧게('실행 뒤') — data-reason 이 있으면 그 글(이중 슬릿 '기록 뒤' 등). 자물쇠 아이콘 + 한 줄 */
+.meter.is-hidden-value[data-reason] .meter__value::after { content: attr(data-reason); }
+.meter.is-hidden-value .meter__value::after { white-space: nowrap; overflow: hidden; text-overflow: clip; opacity: 1; color: var(--color-ink-muted); }
+.sim-band .meter.is-hidden-value .meter__value::before { content: ""; display: inline-block; width: .9em; height: .9em; margin-right: .25em; vertical-align: -.1em; background: currentColor; -webkit-mask: var(--ico-lock) center / contain no-repeat; mask: var(--ico-lock) center / contain no-repeat; font-size: max(16px, calc(20 * var(--u))); color: var(--color-ink-muted); }
+.sim-band .meter.is-hidden-value .meter__value { white-space: nowrap; }
+.sim-band .meter.is-hidden-value .meter__label { white-space: nowrap; overflow: hidden; }
+.sim-band .meter.is-hidden-value .meter__value::after { display: inline; }

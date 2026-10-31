@@ -193,6 +193,32 @@
     }
     html:not(.cursor-hidden) .card__fork:hover, .card__fork:focus-visible { background: var(--sim-tint); }
     .card__forksep { font-style: normal; color: var(--color-line-strong); }
+    /* R8(H1): 가로 4:3 태블릿(1024·1180)에서 카드는 내용만큼 자란다 — 질문·'무엇을 하나요'가 겹치지 않게 */
+    .cards { align-items: stretch; grid-auto-rows: 1fr; }
+    @media (orientation: landscape) and (max-aspect-ratio: 17/10) {
+      .card { height: auto; max-height: none; }
+      .card > .card__mid { flex-shrink: 0; min-height: auto; overflow: visible; }
+      .card__q { -webkit-line-clamp: 3; line-clamp: 3; display: -webkit-box; -webkit-box-orient: vertical; overflow: hidden; }
+    }
+    @media (max-width: 1100px) { .card__q { font-size: max(14px, calc(22 * var(--u))); } .card__title { font-size: calc(30 * var(--u)); } }
+    /* R8 총괄: 16:9 에서도 가운데(질문·무엇을 하나요)는 내용보다 줄지 않는다 — 제목이 세 줄인 1번 카드에서 질문이 '무엇을 하나요'를 덮던 것 */
+    .card > .card__mid { flex-shrink: 0; }
+    .card__q { min-height: auto; }
+    .card__go { margin-top: auto; }
+    .card__steps { flex-wrap: nowrap; white-space: nowrap; }
+    /* '처음이면 여기부터' 는 제목과 분리된 윗줄 */
+    .card__top { flex-wrap: wrap; row-gap: var(--space-1); }
+    .card__first { margin-left: 0; flex-basis: auto; }
+    /* 갈래(빛|전자, 대포|위성) = 44px 이상 보조 버튼 둘, 갈래 없는 카드도 같은 높이의 빈 줄 */
+    .card__forks { min-height: max(44px, calc(56 * var(--u))); gap: var(--space-2); }
+    .card__fork {
+      flex: 1 1 0; min-height: max(44px, calc(56 * var(--u))); text-decoration: none;
+      border: calc(2 * var(--u)) solid var(--sim); background: var(--sim-tint); font-size: var(--fs-meta); font-weight: var(--font-weight-medium);
+    }
+    .card__forksep { display: none; }
+    .hub-foot { font-size: calc(var(--fs-meta) * 1.12); }
+    /* 820 세로: 5번 카드는 두 열 전체 폭 */
+    @media (orientation: portrait) and (min-width: 601px) { .card:nth-child(5):last-child { grid-column: 1 / -1; } }
   </style>
 </head>
 <body>
@@ -259,7 +285,7 @@
         q: '전자를 하나씩 보내도 줄무늬가 생길까?', what: '파장·틈 간격을 바꿔 무늬 간격을 재요', std: '[12물리03-01] [12전자03-01]', chapters: 11, cards: 5,
         sub: [{ mode: 'physics', label: '빛', full: '빛으로 줄무늬 재기' }, { mode: 'quantum', label: '전자', full: '전자 하나씩 보내기' }] },
       { slug: 'collision-momentum', icon: 'collision', title: '일차원 충돌과 운동량 보존', subj: '물리학',
-        q: '같은 질량의 두 수레가 부딪치면 어떻게 될까?', what: '두 수레를 부딪쳐 운동량·힘을 비교해요', std: '[12물리01-03]', chapters: 9, cards: 5 },
+        q: '같은 질량의 두 수레가 부딪치면 어떻게 될까?', what: '두 수레를 부딪쳐 운동량·힘을 비교해요', std: '[12물리01-03]', chapters: 9, cards: 6 },
       { slug: 'orbit-gravity', icon: 'orbit', title: '인공위성과\n탈출 속도', subj: '역학과 에너지',
         q: '얼마나 빨리 던지면 땅에 떨어지지 않고 지구를 돌까?', what: '발사 속력을 높여 궤도·탈출을 찾아요', std: '[12역학01-03·04·05]', mode: 'cannon', chapters: 11, cards: 5,
         sub: [{ mode: 'cannon', label: '대포', full: '대포로 궤도 찾기' }, { mode: 'sat', label: '위성', full: '높이별 위성 속력' }] },

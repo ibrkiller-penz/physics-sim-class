@@ -112,13 +112,13 @@
       { term: '경로차', mean: '두 슬릿에서 스크린의 한 점까지 가는 거리의 차. 파장의 정수배면 밝은 줄' },
       { term: '무늬 간격', sym: '$Δy$', unit: 'mm', mean: '이웃한 밝은 줄 사이 간격 — $Δy$ = {{frac:$λL$|$d$}}', where: 'stage:dy' },
       { term: '파장', sym: '$λ$', unit: 'nm', mean: '마루에서 다음 마루까지 거리 (1 nm = 10⁻⁹ m)', where: LAM },
-      { term: '슬릿 간격', sym: '$d$', unit: 'mm', mean: '두 슬릿 사이 간격 (전자 실험은 모형 칸)', where: DD },
-      { term: '스크린 거리', sym: '$L$', unit: 'm', mean: '슬릿판에서 스크린까지 거리 (전자 실험은 모형 칸)', where: LL },
+      { term: '슬릿 간격', sym: '$d$', unit: 'mm', mean: '두 슬릿 사이 간격 (전자 실험은 모형 눈금)', where: DD },
+      { term: '스크린 거리', sym: '$L$', unit: 'm', mean: '슬릿판에서 스크린까지 거리 (전자 실험은 모형 눈금)', where: LL },
       { term: '광자', mean: '빛의 에너지 알갱이. 하나의 에너지 $E$ = $hf$' },
       { term: '물질파', mean: '움직이는 입자가 가지는 파동 — 파장 $λ$ = {{frac:$h$|$p$}} (드브로이 파장)', where: 'stage:lam' },
       { term: '가속 전압', sym: '$V$', unit: 'V', mean: '전자를 빠르게 하는 전압. 클수록 운동량 $p$ 가 커져 파장이 짧아요', where: 'V' },
       { term: '측정기', mean: '전자가 어느 슬릿을 지났는지 기록하는 장치', where: 'det' },
-      { term: '모형 단위', mean: '전자 실험의 $d$·$L$·줄 간격은 화면에 보이게 키운 칸 — 실제 간격은 훨씬 좁아요' }
+      { term: '모형 눈금', mean: '전자 실험의 $d$·$L$·줄 간격은 화면에 보이게 키운 눈금 — 실제 간격은 훨씬 좁아요' }
     ],
     chapters: [
       /* 1장 */
@@ -221,7 +221,7 @@
         /* 식 팝업 '지금 값' — 기록 전에는 대입까지만(정답 누출 금지), 기록 뒤에 값 */
         now: function (p, v, st) {
           if (p.entry === 'quantum' || p.send === 'electron' || p.send === 'marble') {
-            return '전자: $d$ ' + p.dR + '·$L$ ' + p.LR + ' 칸(모형) · $V$ ' + p.V + ' V → $λ$ ≈ ' + f(pmOfV(p.V), 1) + ' pm';
+            return '전자: $d$ ' + p.dR + '·$L$ ' + p.LR + ' 눈금(모형) · $V$ ' + p.V + ' V → $λ$ ≈ ' + f(pmOfV(p.V), 1) + ' pm';
           }
           var s = '$Δy$ = {{frac:$λL$|$d$}} 에 ' + p.lam + ' nm · ' + f(p.L, 1) + ' m · ' + f(p.d, 2) + ' mm 를 넣으면';
           if (p.slit && p.slit !== 'both') return s + ' … (지금은 슬릿이 하나라 줄무늬가 없어요)';
@@ -300,7 +300,7 @@
           { sym: '$λ$', name: '물질파 파장', unit: 'pm', target: 'stage:lam' },
           { sym: '$V$', name: '가속 전압', unit: 'V', target: 'V' }
         ],
-        condition: '화면의 줄 간격은 키운 모형 단위(칸)예요. 실제는 훨씬 좁아요.',
+        condition: '화면의 줄 간격은 키운 모형 눈금이에요. 실제는 훨씬 좁아요.',
         more: { title: '더 알아보기 — 식의 기호', body: ['$h$ 플랑크 상수 6.63×10⁻³⁴ J·s · $m$ 전자 질량 9.11×10⁻³¹ kg · $e$ 기본 전하 1.60×10⁻¹⁹ C. $V$ = 1000 V 이면 $λ$ ≈ 38.8 pm (1 pm = 10⁻¹² m) 예요.'] },
         now: function (p) { return '$V$ = ' + p.V + ' V → $λ$ = {{frac:$h$|√(2·$m$·$e$·$V$)}} ≈ ' + f(pmOfV(p.V), 1) + ' pm (1 pm = 10⁻¹² m)'; },
         svg: function (D) {

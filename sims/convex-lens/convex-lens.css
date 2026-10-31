@@ -179,3 +179,25 @@ html.is-simple .simple-meter__label .term-inline { display: none; }
 .lens-kind__label, .lens-kind__sub, .lens-figcap { font-size: max(18px, calc(24 * var(--u))); }
 .lens-kind__main { font-size: max(18px, calc(27 * var(--u))); }
 .lens-cases { font-size: max(18px, calc(24 * var(--u))); }
+
+/* ── R8 (UI팀3) ── */
+/* F7: 가림판 칩 글자 한 줄(없음·위·구멍) — 1024 에서 잘리지 않게 */
+.lens-sitrow .seg__opt { white-space: nowrap; min-width: calc(64 * var(--u)); }
+@media (max-width: 1100px) {
+  .sim-panel .lens-sitrow { grid-template-columns: minmax(0, 1fr); align-items: stretch; }
+  .sim-panel .lens-sitrow > .ctl[data-key="screen"] { justify-self: start; }
+}
+/* 학생C(1024): 하단 '상의 모습' 칸 — 둘째 줄이 잘리지 않게 높이는 내용만큼 */
+.sim-band .lens-kind { height: auto; min-height: 0; align-content: center; }
+.sim-band .lens-kind__sub { white-space: normal; overflow: visible; }
+/* A11: 잠긴 계기 칸 — 이름 줄은 그대로, 값 자리에 자물쇠 + '실행 뒤' 한 줄(공통 ::before/::after 는 이 띠에서 칸 높이를 넘겨서 값 자리로 옮김) */
+.sim-band .meter.is-locked::before, .sim-band .meter.is-locked[data-reason]::after { content: none; display: none; }
+.sim-band .meter.is-locked .meter__value, .sim-band .meters.has-core .meter.is-core.is-locked .meter__value { display: flex; align-items: center; gap: .3em; font: var(--font-weight-regular) max(16px, var(--fs-caption))/1.2 var(--font-sans) !important; color: var(--color-ink-muted); white-space: nowrap; }
+.sim-band .meter.is-locked .meter__value > * { display: none; }
+.sim-band .meter.is-locked .meter__value::before { content: ""; display: inline-block; flex: none; width: .9em; height: .9em; background: currentColor; -webkit-mask: var(--ico-lock) center/contain no-repeat; mask: var(--ico-lock) center/contain no-repeat; }
+.sim-band .meter.is-locked .meter__value::after { content: "실행 뒤"; }
+@media (max-width: 1100px) {
+  .sim-band .lens-kind { padding-top: 2px; padding-bottom: 2px; row-gap: 0; }
+  .sim-band .lens-kind__main { font-size: 17px !important; line-height: 1.15; white-space: nowrap; }
+  .sim-band .lens-kind__sub { font-size: 16px !important; line-height: 1.15; }
+}

@@ -60,7 +60,7 @@
   /** 부호 붙인 수: +2 · −2 · 0 */
   function sg(x) { var r = Math.round(x * 100) / 100; return (r > 0 ? '+' : r < 0 ? '−' : '') + f(Math.abs(r), Math.abs(r) % 1 ? 1 : 0); }
   /** 'x-opposite' 해 보기: 같은 질량 +2 와 −2 가 달라붙기 (새 카드 없이 실험 ② + set — v2 는 ⚙ 더 많은 설정 값) */
-  var OPPOSITE = { preset: 1, set: { m1: 1, m2: 1, v1: 2, v2: -2, kind: 'stick' }, predict: false };
+  var OPPOSITE = { preset: 5, set: { m1: 1, m2: 1, v1: 2, v2: -2, kind: 'stick' }, predict: false };   // 팀장 R8 결과(D3): 카드 ⑥ 「마주 오다 부딪치기」가 생겨 preset 5 (값은 카드와 같음)
 
   SK.lesson({
     slug: 'collision-momentum',
@@ -186,7 +186,8 @@
       /* 4장 */
       { id: 'conserve', type: 'formula', title: '바깥 힘이 없으면 합은 일정',
         body: [
-          '두 물체가 서로 주는 힘은 크기가 같고 방향이 반대라, A 가 잃은 $p$ 를 B 가 얻어 **합은 그대로**예요.'
+          '두 물체가 서로 주는 힘은 크기가 같고 방향이 반대라, A 가 잃은 $p$ 를 B 가 얻어 **합은 그대로**예요.',
+          '로켓도 대포와 같은 원리예요 — 가스를 뒤로 뿜으면 로켓은 앞으로 가요(질량×속도가 서로 반대).'
         ],
         eq: [{ tex: '$m_1v_1$ + $m_2v_2$ = $m_1v_1′$ + $m_2v_2′$', caption: '충돌 전 운동량 합 = 충돌 후 운동량 합' }],
         symbols: [
@@ -215,7 +216,10 @@
             D.line(400, 320, 400, 400, { color: 'ink', w: 3 }),
             bar(400, 360, -2 * k, 'cmH4'), bar(400, 360, 2 * k, 'cmH4'),
             D.label(306, 360, '대포 −2', { anchor: 'end', weight: 500 }), D.label(494, 360, '포탄 +2', { weight: 500 }),
-            D.label(620, 360, '합 = 0', { weight: 500, color: 'sim' })
+            D.label(620, 360, '합 = 0', { weight: 500, color: 'sim' }),
+            D.label(600, 295, '로켓도 같은 원리', { anchor: 'middle', size: 18, color: 'muted' }),
+            D.arrow(560, 322, 520, 322, { color: 'muted', w: 3 }), D.label(512, 322, '가스', { anchor: 'end', size: 18, color: 'muted' }),
+            D.arrow(630, 322, 690, 322, { color: 'sim', w: 3 }), D.label(698, 322, '로켓', { size: 18, color: 'sim' })
           ], { title: '운동량 막대로 본 보존 (1칸 = 1 kg·m/s)', how: '막대가 옮겨 가도 합의 길이는 그대로 · 분리는 −2 와 +2 가 합쳐 0' });
         },
         more: { title: '더 알아보기 — 대포를 쏘면 (실험 ④)', body: ['붙어 있다가 밀어내도 같아요. 처음 합 0 → 포탄(0.5 kg)이 +4 m/s 로 +2 kg·m/s 를 가지면 대포(2 kg)는 −2 kg·m/s, 곧 뒤로 1 m/s 예요.'] },
@@ -343,9 +347,9 @@
           { q: '3배 무거운 트럭과 승용차가 정면충돌하면 누가 더 큰 힘을 받을까?', preset: 2, chapter: 'action-reaction' },
           { q: '멈춘 대포가 포탄을 쏘면 대포는?', preset: 3, chapter: 'conserve' },
           { q: '딱딱한 범퍼로 한 번 기록한 뒤, 푹신한 범퍼(0.2 s)로 바꿔 또 해 보세요. 충돌 시간이 길어지면 힘은 어떻게 될까요?', preset: 4, set: { tau: 0.01 }, chapter: 'impulse' },
-          { q: '+2 m/s 와 −2 m/s 로 마주 오던 두 수레가 달라붙으면?', cardName: '마주 오다 달라붙기 (v₂ = −2)', preset: OPPOSITE.preset, set: OPPOSITE.set, predict: false, chapter: 'sign-sum' }
+          { q: '+2 m/s 와 −2 m/s 로 마주 오던 두 수레가 달라붙으면?', cardName: '마주 오다 부딪치기', preset: OPPOSITE.preset, set: OPPOSITE.set, predict: false, chapter: 'sign-sum' }
         ],
-        teacherNote: '질문 1 이 끝나면 "튕기는 대신 붙으면 에너지 1 J 는 어디로?" → 질문 2. 질문 6 의 $v_2$ 는 ⚙ › 더 많은 설정 값이에요.' },
+        teacherNote: '질문 1 이 끝나면 "튕기는 대신 붙으면 에너지 1 J 는 어디로?" → 질문 2. 질문 6 은 카드 ⑥ 「마주 오다 부딪치기」로 열려요(붙으면 멈추고, 튕기면 속도를 맞바꿔요).' },
 
       /* 정리 — 설명 순서에서 빠지고 정리 모달(형성평가 3문항 + 교사 [정답 공개])에서만 */
       { id: 'wrap', type: 'wrap', title: '실험 뒤 정리',

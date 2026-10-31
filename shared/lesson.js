@@ -108,7 +108,10 @@
     els.toSim = SK.btn([els.toSimTxt, h('span', { class: 'lesson__btntxt-s', text: '실험' }), ico('arrow-right', 'ico--trail')], 'btn--primary lesson__tosim', function () { close(); }, { title: '실험 화면으로 (Esc · J)' });
     var helpB = SK.btn([ico('help')], 'btn--outline lesson__icon', function () { toggleKeys(); }, { 'aria-label': '설명 화면 키 안내', title: '키 안내 (?)' });
     var fsB = SK.btn([ico('expand')], 'btn--outline lesson__icon', function () { SK.toggleFullscreen(); }, { 'aria-label': '전체 화면', title: '전체 화면 (F)' });
-    var head = h('header', { class: 'lesson__head' }, [hub, els.title, els.where, h('span', { class: 'lesson__gap' }), els.pace, els.toSim, helpB, fsB]);
+    // R8(A23): 'N / 9' 칩 옆 [처음부터] 글자 단추(1장이면 숨김, '이어진 장' 칩이 보이면 그 칩의 단추가 대신)
+    els.restart = h('button', { class: 'btn btn--outline lesson__restart', type: 'button', text: '처음부터', title: '1장부터 다시 읽기', hidden: true });
+    els.restart.addEventListener('click', function () { fromSim = null; go(0); });
+    var head = h('header', { class: 'lesson__head' }, [hub, els.title, els.where, els.restart, h('span', { class: 'lesson__gap' }), els.pace, els.toSim, helpB, fsB]);
     els.text = h('article', { class: 'lesson__text', tabindex: '-1' });
     els.text.addEventListener('scroll', function () { markOver(); }, { passive: true });
     global.addEventListener('resize', function () { if (open) requestAnimationFrame(markOver); });
@@ -332,6 +335,7 @@
     els.where.appendChild(ico('chev-down', 'ico--trail'));
     syncPace(c);
     syncFromChip();
+    els.restart.hidden = cur === 0 || !els.fromChip.hidden;
     els.where.setAttribute('aria-label', '목차 — 지금 ' + (cur + 1) + ' / ' + v.length + '장 ' + SK.plainMath(c.title || ''));
     // R7-2(S13): [바로 실험] 늘 보임 — 첫 진입 '바로 실험', 실험 중 '실험으로'
     els.toSim.hidden = false;

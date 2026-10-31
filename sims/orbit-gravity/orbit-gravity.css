@@ -278,3 +278,48 @@ html.is-simple .sheet__body .panel-head { display: none; }
 .sim-band .og-band__title { font-weight: var(--font-weight-medium); }
 /* R7 학생점검(팀장): 자세히 띠 — 계기 2칸 + [수치 더 보기] | 속력 띠를 반반으로(속력 띠에 구간 이름 셋 + 숫자 둘이 들어가게) */
 html:not(.is-simple) .sim > .sim-band { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+
+/* ── R8 (UI팀3) ── */
+/* E1: 예측 중·심플 첫 진입 — v₀ 눈금 이름('지구 돌기'·'탈출')만 숨김(눈금 막대 ::before 는 남김) · 속력 칩 줄·다음 ▶ 숨김(자리는 그대로) */
+.og-var-v0.og-predicting .var__ticks span { visibility: hidden; }   /* innerText 에서도 빠짐(audit c) */
+.og-var-v0.og-predicting .var__ticks span::before { visibility: visible; }
+.og-var-v0.og-predicting > .og-seq { display: none; }   /* 팀장 R8 결과(디자인A·B·C): 자리까지 비워 두면 패널 가운데가 크게 빈다 → 예측 뒤에 나타남 */
+.og-var-v0.og-predicting { padding-bottom: var(--space-5); }
+/* 1100 이하: '지구 돌기' 는 눈금 왼쪽에 끝을 맞춰 '탈출' 과 붙지 않게(1024 '지구 돌기탈출') */
+@media (max-width: 1100px) {
+  .sim-panel .og-var-v0 .var__ticks span:first-child { transform: translateX(calc(-100% + 0.6em)); }
+  .sim-panel .og-var-v0 .var__ticks span:first-child::before { left: auto; right: 0.6em; margin-left: 0; margin-right: -1px; }
+}
+/* E4: 케플러 표 — 예측 띠(--band-h) 아래에서 시작, 넘치면 표 안에서 스크롤 · 머리글 16px 이상 두 줄(기호 + 풀이) */
+.og-kepler { top: calc(var(--band-h, 0px) + 108 * var(--u)); overflow-y: auto; }
+.is-predicting .og-kepler { top: calc(var(--band-h, 0px) + var(--space-3)); }
+.og-ktable th { height: auto; padding-top: calc(4 * var(--u)); padding-bottom: calc(4 * var(--u)); font-size: max(16px, var(--fs-caption)); line-height: 1.15; vertical-align: bottom; }
+.og-ktable th b { display: block; font: italic var(--font-weight-regular) max(18px, var(--fs-meta))/1.1 var(--font-math); color: var(--color-ink); }
+.og-kth__sub { display: block; font-size: max(16px, calc(20 * var(--u))); font-weight: var(--font-weight-medium); white-space: nowrap; }
+.og-kin::placeholder { color: var(--color-ink-muted); font-style: italic; font-family: var(--font-math); font-weight: var(--font-weight-regular); opacity: .7; }
+/* E8: 계기 '지금 속력 v' 이름은 위쪽 한 줄 고정 · 속력 띠 범례는 막대 아래 줄 */
+.sim-band .meter[data-key="v"] .meter__label, .sim-band .meter[data-key="res"] .meter__label { display: block; white-space: nowrap; overflow: hidden; text-overflow: clip; }
+.og-band { grid-template-rows: auto minmax(0, 1fr) auto; }
+.og-band__foot { display: flex; justify-content: flex-end; min-width: 0; line-height: 1.1; padding-top: calc(1 * var(--u)); }
+.og-band__foot .og-band__legend { margin-left: 0; padding-left: 0; white-space: nowrap; font-size: max(16px, var(--fs-caption)); }
+html.is-simple .simple-meter[data-key="vband"] .og-band__foot { display: none; }
+/* G1: [수치 더 보기] 에너지 막대 */
+.og-energy { grid-column: 1 / -1; display: grid; gap: var(--space-1); min-width: min(360px, 80vw); padding: var(--space-2) var(--space-3); border: 1px solid var(--color-line); border-radius: var(--radius-md); background: var(--color-paper-raised); }
+.og-energy__t { font: var(--font-weight-medium) var(--fs-caption)/1.3 var(--font-sans); color: var(--color-ink); }
+.og-energy__fig svg { display: block; width: 100%; height: auto; max-height: 230px; }
+.og-energy__note { font: var(--font-weight-regular) var(--fs-caption)/1.4 var(--font-sans); color: var(--color-ink-muted); }
+.og-energy__v { font: var(--font-weight-medium) var(--fs-caption)/1.35 var(--font-sans); color: var(--color-ink); }
+.og-energy__v.is-bound { color: var(--color-warn-text); }
+.og-energy__v.is-edge { color: var(--color-ok-text); }
+.og-energy__v.is-free { color: var(--color-primary); }
+.og-energy__eq { font: var(--font-weight-regular) max(16px, calc(20 * var(--u)))/1.35 var(--font-sans); color: var(--color-ink-muted); }
+/* A11: 잠긴 계기 칸 — 이름 줄은 그대로, 값 자리에 자물쇠 + '실행 뒤' 한 줄(공통 ::before/::after 는 이 띠에서 칸 높이를 넘겨서 값 자리로 옮김) */
+.sim-band .meter.is-locked::before, .sim-band .meter.is-locked[data-reason]::after { content: none; display: none; }
+.sim-band .meter.is-locked .meter__value, .sim-band .meters.has-core .meter.is-core.is-locked .meter__value { display: flex; align-items: center; gap: .3em; font: var(--font-weight-regular) max(16px, var(--fs-caption))/1.2 var(--font-sans) !important; color: var(--color-ink-muted); white-space: nowrap; }
+.sim-band .meter.is-locked .meter__value > * { display: none; }
+.sim-band .meter.is-locked .meter__value::before { content: ""; display: inline-block; flex: none; width: .9em; height: .9em; background: currentColor; -webkit-mask: var(--ico-lock) center/contain no-repeat; mask: var(--ico-lock) center/contain no-repeat; }
+.sim-band .meter.is-locked .meter__value::after { content: "실행 뒤"; }
+@media (max-width: 1100px) {
+  html:not(.is-simple) .sim-band .meter[data-key="v"] .meter__value, html:not(.is-simple) .sim-band .meter[data-key="v"] .meter__value .num { font-size: 22px !important; letter-spacing: 0; }
+  html:not(.is-simple) .sim-band .meter[data-key="v"] .meter__unit { font-size: 15px !important; }
+}

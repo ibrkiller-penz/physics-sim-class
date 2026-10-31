@@ -1483,3 +1483,79 @@ html:not(.is-teacher) .lesson__pace { display: none; }
 .lesson__fromb { min-height: 36px; padding: 0 var(--space-3); font-size: var(--fs-caption); }
 @media (max-width: 900px) { .lesson__from { display: none; } }
 .lesson__how { white-space: pre-line; }
+
+/* ===== R8 디자인팀 (회의록 §2-2) ======================================== */
+/* A2 예측 띠: 높이 상한 = 무대의 45%. 보기 4개는 2×2, 3개는 넓으면 3칸·좁으면 1열. 넘치면 스크롤 + 아래 페이드 */
+.sim-stage > .pop--band { max-height: 45%; overflow-y: auto; scrollbar-width: thin; }
+.sim-stage > .pop--band[data-folded="1"] { max-height: none; overflow: visible; }
+.pop--band .predict.is-4opt .predict__choices, .pop--band .predict.is-3opt .predict__choices { display: grid; flex-wrap: nowrap; gap: var(--space-2); width: 100%; }
+.pop--band .predict.is-4opt .predict__choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.pop--band .predict.is-3opt .predict__choices { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1000px) { .pop--band .predict.is-3opt .predict__choices { grid-template-columns: repeat(3, minmax(0, 1fr)); } }   /* 팀장 R8 결과: 1024 도 한 줄(세로 쌓임이 무대 절반을 먹음) */
+@media (min-width: 1100px) { .pop--band .predict.is-4opt .predict__choices { grid-template-columns: repeat(4, minmax(0, 1fr)); } }   /* 팀장 R8 결과: 보기 4개도 한 줄 — 띠가 무대 45% 를 넘어 렌즈를 가리던 것 */
+.pop--band .predict.is-4opt .predict__ans, .pop--band .predict.is-3opt .predict__ans { flex: 1 1 auto; }
+.pop--band .predict.is-4opt .predict__opt, .pop--band .predict.is-3opt .predict__opt { min-height: 44px; justify-content: flex-start; text-align: left; }
+.pop--band .predict.is-4opt.is-2row, .pop--band .predict.is-3opt.is-2row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "q tools" "ans ans" "foot foot"; }
+.pop--band .predict.is-4opt .predict__foot, .pop--band .predict.is-3opt .predict__foot { justify-content: flex-start; }
+/* 스크립트가 넘침을 알리면(.is-more) 하단 페이드 + '보기 N개 더'(data-more) 띠 */
+.sim-stage > .pop--band.is-more { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent); }
+.sim-stage > .pop--band.is-more[data-more]::after { content: "↓ 보기 " attr(data-more) "개 더"; position: sticky; bottom: 0; display: block; padding: 4px var(--space-4); text-align: center; font: var(--font-weight-medium) var(--fs-caption)/1.3 var(--font-sans); color: var(--color-primary); background: var(--color-paper-raised); }
+
+/* A3 결과 카드: 접힌 줄은 한 줄 높이·문장 단위(줄임표 금지), 펼침 본문은 패널 스크롤 안(안쪽 스크롤 없음), 수치 바꾸기 머리는 고정 */
+.result-card.is-collapsed { min-height: 0; padding-top: var(--space-2); padding-bottom: var(--space-2); overflow: hidden; }
+.result-card.is-collapsed > :not(.result-card__head):not(.result-card__sum):not(.result-card__line):not(.result-card__acts) { display: none; }
+.result-card__line { display: block; white-space: normal; overflow: visible; text-overflow: clip; word-break: keep-all; line-height: 1.35; }
+.result-card.is-collapsed .result-card__line { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; text-overflow: clip; }
+.result-card__body { max-height: none; overflow: visible; }   /* 팀장 R8 결과: 안쪽 스크롤 없음 — 규칙 '두 겹 스크롤 금지'가 회의록 6번보다 앞선다. 패널 스크롤 한 겹 */
+.panel-sec[data-sec="values"] > .panel-sec__title { position: sticky; top: 0; z-index: 5; }
+
+/* A9 설정 창: 1024 이하는 아래 시트 */
+@media (max-width: 1100px) {
+  .pop--settings { left: var(--space-4); right: var(--space-4); width: auto; max-height: 70vh; }
+}
+
+/* A10 식 팝업: 1024 이하 아래 시트, 스크롤 표시 */
+@media (max-width: 1100px) {
+  .pop--formula { left: var(--space-4); right: var(--space-4); width: auto; max-height: min(62vh, 520px); }
+  .pop--formula .pop__body { overflow-y: auto; scrollbar-width: auto; }
+}
+
+/* A8 정리 팝업: 전자칠판(≥1600)은 화면 폭 전체 */
+@media (min-width: 1600px) {
+  .pop--think.is-wide { left: var(--space-5); right: var(--space-5); width: auto; max-width: none; }
+  .pop--think.is-wide .think-card { padding-top: var(--space-2); padding-bottom: var(--space-2); }
+}
+
+/* A11 계기 띠: 1100 이하 [수치 더 보기] 는 아이콘 폭, 상태 카드는 두 줄 + 여백, 칩은 화면 밖으로 안 나감 */
+@media (max-width: 1100px) {
+  .meters__more { min-width: 44px; padding: 0 var(--space-2); }
+  .meters__more .btn__t, .meters__more > span:not(.ico) { display: none; }
+}
+.sim-band .meter { min-width: 0; }
+.sim-band .meter .meter__label { white-space: nowrap; overflow: hidden; text-overflow: clip; }
+.sim-band .meter.is-locked { min-width: 0; }
+.sim-band .meter__value { min-width: 0; }
+.sim-band .meter__value:has(> .meter__unit[data-unit="km/s"]), .sim-band .meters.has-core .meter.is-core .meter__value:has(> .meter__unit[data-unit="km/s"]) { font-size: clamp(22px, 2.3vw, calc(38 * var(--u))); letter-spacing: -0.02em; }   /* 팀장 R8 결과: 궤도 '7.90 km/s' 단위가 칸 테두리에 닿던 것 */
+.pop .preset-list.is-grid2 .preset-card__changes, .preset-cards.is-grid2 .preset-card__changes { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; text-overflow: clip; line-height: 1.25; }   /* 팀장 R8 결과: 1920 2열 카드 값 줄이 오른쪽에서 잘리던 것 → 두 줄 */
+.band-cell .stage-card, .sim-band .state-card, .sim-band .meter--state { min-height: calc(2 * 1.3 * var(--fs-caption) + 12px); padding-bottom: calc(6 * var(--u)); }
+.sim-band { padding-bottom: calc(4 * var(--u)); }
+
+/* A14 알림은 계기 띠 바로 위 */
+.sim-stage > .notice-zone.is-low { top: auto !important; bottom: var(--space-4); }
+
+/* A20 심플 하단 막대 <900: 버튼 사이 8px 이상 · 최소 폭 */
+@media (max-width: 900px) {
+  html.is-simple .simple-bar { gap: max(8px, var(--gap-s)); }
+  html.is-simple .simple-bar .btn { min-width: 64px; white-space: nowrap; flex-shrink: 1; }
+}
+/* A25 심플 설명 본문 하한 20px */
+html.is-simple .lesson__more .lesson__p { font-size: max(20px, calc(28 * var(--u))); }
+@media (orientation: portrait) and (min-width: 601px) { html.is-simple .lesson__p, html.is-simple .lesson__goals li { font-size: max(20px, calc(30 * var(--p))); } }
+/* C8 설명 강조 용어는 중간에서 끊지 않는다 */
+.lesson__p strong, .lesson__p b { white-space: nowrap; }
+/* 설명 머리줄 [처음부터] 글자 단추 */
+.lesson__restart { min-height: 36px; padding: 0 var(--space-3); font-size: var(--fs-caption); white-space: nowrap; }
+/* 타이머 칩 자리(UI팀1 G4) */
+.tool-chip--timer { display: inline-flex; align-items: center; gap: var(--space-1); min-height: 44px; padding: 0 var(--space-3); border-radius: var(--radius-pill); background: var(--color-paper-sunk); font: var(--font-weight-medium) var(--fs-caption)/1 var(--font-num); font-variant-numeric: tabular-nums; }
+/* D1 에너지 칸: 용수철 저장 E_p 는 열 빗금과 다른 점선 테두리·옅은 면 */
+.bar-spring { background: var(--color-q-energy-spring); outline: 2px dashed var(--color-q-energy-spring); outline-offset: -2px; }

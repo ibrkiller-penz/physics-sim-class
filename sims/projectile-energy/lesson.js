@@ -286,7 +286,7 @@
           // 범례 (선 모양으로 구분)
           k.push(rect(536, 50, 244, 132, 'var(--color-paper-raised)', 'var(--color-line-strong)', 10));
           k.push(D.group([D.line(552, 80, 608, 80, { color: 'sim', w: 2.5, dash: '10 8' })], { opacity: 0.7 }), D.label(620, 80, '30° — 35.3 m', { size: 20, bg: false }));
-          k.push(D.line(552, 116, 608, 116, { color: 'sim', w: 3.5 }), D.label(620, 116, '45° — 가장 멀리', { size: 20, weight: 500, bg: false }));
+          k.push(D.line(552, 116, 608, 116, { color: 'sim', w: 3.5 }), D.label(620, 116, '45° — 최대', { size: 20, weight: 500, bg: false }));
           k.push(D.group([D.line(552, 152, 608, 152, { color: 'sim', w: 2.5, dash: '16 6 3 6' })], { opacity: 0.7 }), D.label(620, 152, '60° — 35.3 m', { size: 20, bg: false }));
           return D.svg(k, { title: '같은 속력 20 m/s, 각도만 다르게', how: '선 모양으로 각도를 구분해요 · 땅에서($h$ = 0) 던질 때 · $g$ = 9.8 m/s²' });
         }
