@@ -92,6 +92,8 @@
             ? ''   // R8(A7): 공통 띠 한 줄 비교(cfg.compareLine) + [표 보기]
             : curPreset === 2 && SK.records.length === 1 && SK.records[0].params && +SK.records[0].params.theta === 30
               ? '이제 각도 θ 만 60°로 바꿔 실행하고 기록해요 (1/2)'   // R7: 설명 8장 Q3 · 카드 ③ (30° 기록 뒤 60°)
+              : curPreset === 5 && SK.records.length === 1 && SK.records[0].params && +SK.records[0].params.theta === 30
+              ? '이제 각도 θ 만 45°로 바꿔 실행하고 기록해요 (1/2)'   // R9: 고급 카드 ⑥
               : '값 하나만 바꿔 실행하고 기록해요 (' + SK.records.length + '/2)';
         } },
       { text: '오른쪽 질문에 답하며 정리해요' }
@@ -114,13 +116,19 @@
     compareLine: function (r1, r2) { return compareLine(r1, r2); },
     onPredictOpen: function () { SK.requestRender(); },    // 예측 창이 떠 있는 동안 궤적·기록(결과 층)을 숨긴다
     onPredictClose: function () { SK.requestRender(); },
-    // R6(A1): 심플 모드 — 12역학01-02 핵심(v₀·θ, 수평 거리, v_x 그대로·v_y 부호). h·g·m 은 더 보기 시트(패널)에.
-    // 실험 카드: '45° 가장 멀리' 카드는 따로 없어 가장 가까운 둘 — ② 30°와 60°(같은 사거리), ⑤ 최고점에서 속도는?(v₀ 20 · 45°)
-    simple: {
-      task: '속력과 각도를 바꿔 공이 어디까지 가는지 봐요',
-      params: ['v0', 'theta'], situation: ['planet'], meters: ['x', 'vx', 'vy'],
-      presets: [0, 2, 4], predict: 'button',   // R8(B4): 심플도 카드 ①로 열리므로 시트에도 ①
-      extras: [{ key: 'energy', label: '에너지 막대' }]
+    // R9(§4-1): 단계 — 초급 = 중학교 수준(v₀·θ 두 값, 지구, 수평 거리 + 숫자 없는 에너지 막대, 카드 ①②⑤ 쉬운 말)
+    //                    중급 = R8 자세히 그대로(카드 ①~⑤) · 고급 = + 공기 저항·지구 g 패널로, 시간 t 계기, 카드 ⑥ '높이가 있으면 최적각'
+    //   예전 cfg.simple(R6: v0·θ + planet, x·vx·vy, 카드 ①③⑤)은 이 basic 으로 바뀜 — ?simple=1 은 basic 으로 열린다
+    levels: {
+      basic: {
+        task: '속력과 각도를 바꿔 공이 어디까지 가는지 봐요',
+        params: ['v0', 'theta'], situation: [],
+        chips: [{ text: function (p) { return p.h > 0 ? '절벽 ' + p.h + ' m' : '땅에서 던져요'; } }],   // h 슬라이더 대신 할 일 줄 칩(무대에도 h 라벨)
+        meters: ['x', { key: 'energyBar', label: '에너지 막대', plain: true, node: function () { return ebarEl; } }],
+        presets: [0, 1, 4], predict: 'button'
+      },
+      mid: { presets: [0, 1, 2, 3, 4] },
+      adv: { expose: ['air', 'gEarth'] }
     }
   };
   SK.init(CFG);
@@ -129,8 +137,9 @@
   function bandCols() { SK.el.band.style.gridTemplateColumns = window.innerWidth <= 1100 ? 'minmax(0, 1fr) minmax(0, 1fr)' : 'minmax(0, 5fr) minmax(0, 4fr)'; }
   bandCols();
   window.addEventListener('resize', bandCols);
-  // R6(A2): 모드를 바꾸면 범례·캔버스 글자를 다시 (물리 상태는 그대로)
-  if (SK.onMode) SK.onMode(function () { legendKey = ''; if (run) updateLegend(SK.params); SK.requestRender(); });
+  // R6(A2): 모드를 바꾸면 범례·캔버스 글자를 다시 (물리 상태는 그대로) · R9: 단계마다(고급은 시간 t 계기를 띠로)
+  if (SK.onLevel) SK.onLevel(function () { legendKey = ''; syncLevelMeters(); if (run) { updateLegend(SK.params); drawEnergy(SK.params); } SK.update(); SK.requestRender(); });
+  else if (SK.onMode) SK.onMode(function () { legendKey = ''; if (run) updateLegend(SK.params); SK.requestRender(); });
   (function putToday() {
     var pop = SK.el.top.querySelector('.info-pop');
     if (pop) pop.insertBefore(h('p', { class: 'pe-today' }, [h('b', { text: '오늘 알아볼 것' }), TODAY]), pop.firstChild);
@@ -277,6 +286,31 @@
   if (vyM) vyM.title = '수직 속도: 위로 가면 +, 아래로 가면 −';   // 라벨 title 은 '식 보기'(공통)가 쓴다 — 칸 전체에
   if (vyLab) { vyLab.appendChild(h('span', { class: 'sr-only', text: ' (위로 가면 +, 아래로 가면 −)' })); }
 
+  // R9(§4-1): 고급은 시간 t 칸을 띠로 올린다(중급·초급은 [수치 더 보기] 안 — R8 그대로). 노드만 옮김, 값 경로 그대로
+  function syncLevelMeters() {
+    var tc = meters.el.querySelector('[data-key="t"]') || (meters.moreEl && meters.moreEl.querySelector('[data-key="t"]'));
+    if (!tc) return;
+    var adv = SK.level && SK.level() === 'adv';
+    if (adv && tc.parentNode !== meters.el) { meters.el.insertBefore(tc, meters.el.firstChild); tc.classList.add('is-core'); }
+    else if (!adv && meters.moreEl && tc.parentNode !== meters.moreEl) { meters.moreEl.insertBefore(tc, meters.moreEl.firstChild); tc.classList.remove('is-core'); }
+    meters.el.classList.toggle('has-t', adv);
+  }
+  // R9(U1-6): 초급 에너지 막대 — 숫자 없이 길이만(운동 | 위치, 전체 = 처음 에너지). 초급 측정 칸(.simple-meter.is-plain) 안에 둔다
+  var ebarK = h('i', { class: 'pe-ebar__k' }), ebarU = h('i', { class: 'pe-ebar__p' }), ebarH = h('i', { class: 'pe-ebar__heat' });
+  var ebarEl = h('span', { class: 'pe-ebar', role: 'img', 'aria-label': '에너지 막대 — 운동 에너지와 위치 에너지, 합한 길이는 처음과 같아요' }, [
+    h('span', { class: 'pe-ebar__track' }, [ebarK, ebarU, ebarH]),
+    h('span', { class: 'pe-ebar__keys', 'aria-hidden': 'true' }, [h('span', { class: 'pe-ebar__key pe-ebar__key--k', text: '운동' }), h('span', { class: 'pe-ebar__key pe-ebar__key--p', text: '위치' })])
+  ]);
+  var ebarSig = '';
+  function updateEbar() {
+    if (!run) return;
+    var E = PH.energy(run, st), max = run.E0 > 0 ? run.E0 : 1;
+    var k = Math.max(0, Math.min(1, E.K / max)), u = Math.max(0, Math.min(1 - k, E.U / max)), ht = Math.max(0, Math.min(1 - k - u, E.heat / max));
+    var sig = [k.toFixed(3), u.toFixed(3), ht.toFixed(3)].join(',');
+    if (sig === ebarSig) return;
+    ebarSig = sig;
+    ebarK.style.width = (k * 100).toFixed(1) + '%'; ebarU.style.width = (u * 100).toFixed(1) + '%'; ebarH.style.width = (ht * 100).toFixed(1) + '%';
+  }
   var energyBox = h('div', { class: 'pe-energy', 'aria-label': '에너지 막대 — 역학적 에너지 E = 운동 에너지 Ek + 위치 에너지 Ep', title: '역학적 에너지 E = 운동 에너지 Ek + 위치 에너지 Ep' });
   SK.el.graph.appendChild(energyBox);
   var ev = SK.canvas(energyBox, { fit: false, bg: '--color-paper-raised' });
@@ -352,6 +386,13 @@
       changes: '20 m 절벽에서 옆으로 10 m/s',   // R7 학생점검(B4): 부제는 기호 대신 말
       formulaCh: 'two-motions',   // R7 학생점검(A3): [ƒ 식]·[설명]이 여는 장 change: 'v₀ 10 m/s · 각도 0° · 높이 20 m · 떨어뜨린 공 함께',
       values: vals({ planet: 'earth', air: 'off', h: 20, v0: 10, theta: 0, m: 1, cmp: true, flash: true, shadow: true }),
+      // R9(§4-1): 초급 — 같은 실험·같은 정답(③), 보기 말만 쉽게
+      basic: {
+        name: '옆으로 던지기',
+        q: '절벽에서 옆으로 던진 공과 그냥 놓은 공, 누가 먼저 땅에 닿을까?',
+        choices: ['옆으로 던진 공', '그냥 놓은 공', '같이 닿아요'],
+        why: '옆으로 던져도 아래로 떨어지는 빠르기는 그냥 놓은 공과 똑같아요. 그래서 두 공은 같이 땅에 닿아요.'
+      },
       predict: {
         place: 'bottom',   // R5: 20 m 절벽(발사점)이 위쪽이라 창은 아래에
         question: '20 m 절벽에서 옆으로 10 m/s 로 던진 공과 그냥 떨어뜨린 공(회색), 무엇이 먼저 땅에 닿을까요?',
@@ -369,6 +410,14 @@
       changes: '20 m 절벽 · 10 m/s · 30°',
       formulaCh: 'energy', change: 'v₀ 10 m/s · 각도 30° · 높이 20 m · 질량 1 kg',
       values: vals({ planet: 'earth', air: 'off', h: 20, v0: 10, theta: 30, m: 1, flash: true, energy: true }),
+      // R9(§4-1·0-2 #18): 초급 — '세게 던지면 더 멀리?' (같은 카드 값에서 시작, 처음 속력만 키워 다시 · 막대도 함께 봄). 초급 전용 보기·정답
+      basic: {
+        name: '세게 던지기', changes: '절벽 20 m · 10 m/s 뒤 더 세게',
+        q: '세게 던지면 더 멀리 갈까요? 에너지 막대는 어떻게 될까요?',
+        choices: ['더 멀리 가요, 막대도 더 길어요', '더 멀리 가요, 막대는 같아요', '거리는 같아요'], answer: 1, judge: null,
+        afterHint: '먼저 10 m/s 로 던지고, 처음 속력을 키워 한 번 더 해 봐요',
+        why: '처음에 빠를수록 옆으로도 빠르게 가서 더 멀리 떨어져요. 에너지 막대도 처음부터 더 길어요 — 날아가는 동안 전체 길이는 그대로예요.'
+      },
       predict: {
         place: 'bottom',   // R5: 20 m 절벽(발사점)이 위쪽이라 창은 아래에
         question: '날아가는 동안 운동 에너지 + 위치 에너지의 합(역학적 에너지)은 어떻게 될까요?',
@@ -423,17 +472,43 @@
       formulaCh: 'split-v',   // 최고점 속도 = 수평 성분 — 설명 '속도를 둘로 나누기'(실험 ⑤ 해 보기가 있는 장)   // R5: '최고점에서 멈춤' 은 '최고점에서 공이 멈춘다' 오개념 — 화면만 멈춤 (카드 폭 1024 에서도 한 줄)
       change: '최고점에서 화면이 잠깐 멈춰요 — 공은 계속 움직여요 (v₀ 20 m/s · 45° · 화살표 보기)',
       values: vals({ planet: 'earth', air: 'off', h: 0, v0: 20, theta: 45, m: 1, topStop: true, showV: true, showA: true }),
+      // R9(§4-1): 초급 — 쉬운 말(정답 ③ 그대로), 가속도 화살표는 끔
+      basic: {
+        name: '꼭대기에서 멈출까?', changes: '꼭대기에서 화면 멈춤',
+        q: '가장 높은 곳에서 공은 멈출까요?',
+        choices: ['멈춰요', '멈췄다가 다시 떨어져요', '멈추지 않고 옆으로 계속 가요'],
+        why: '가장 높은 곳에서는 위아래로 움직이는 빠르기만 0 이에요. 옆으로 가는 빠르기는 그대로라 공은 멈추지 않아요.',
+        set: { showA: false }
+      },
       predict: {
         place: 'top',
         question: '가장 높은 곳(최고점)에서 공의 속도와 가속도는 어떨까요?',
         choices: ['속도 0, 가속도 0', '속도 0, 가속도 g', '속도 0 아님, 가속도 g'], answer: 3,
         why: '최고점에서는 수직 속도만 0 이에요. 수평 속도 $v_x$ 는 그대로 남아 있고, 중력 때문에 가속도는 내내 g(아래 방향)예요.'
       }
+    },
+    {
+      // R9(§4-1): 고급 카드 ⑥ — 높이가 있으면 45°가 가장 멀리 가지 않는다(h 40 m · v₀ 20 m/s: 30° ≈ 70.2 m, 45° ≈ 65.7 m)
+      name: '높이 있을 때 최적각', misconception: '어디서 던지든 45°가 가장 멀리 간다',
+      changes: '40 m 절벽 · 20 m/s · 30° 뒤 45°',
+      formulaCh: 'symmetry', change: 'v₀ 20 m/s · 높이 40 m · 각도 30° (다음엔 45°로 바꿔 기록)',
+      values: vals({ planet: 'earth', air: 'off', h: 40, v0: 20, theta: 30, m: 1, flash: true }),
+      predict: {
+        place: 'bottom',
+        question: '40 m 절벽에서 20 m/s 로 던질 때, 30°와 45° 중 어느 쪽이 더 멀리 갈까요?',
+        choices: ['30°', '45°', '같다'], answer: 1,
+        why: '높은 곳에서 던지면 떨어지는 시간이 이미 길어서, 위로 더 올리는 것보다 옆으로 더 빠르게 던지는 편이 유리해요. 그래서 가장 멀리 가는 각도가 45°보다 작아져요($h$ = 40 m 이면 30°가 약 70.2 m, 45°가 약 65.7 m).',
+        judge: function (p) {
+          var r30 = PH.rangeFor(p, { theta: 30 }), r45 = PH.rangeFor(p, { theta: 45 }), d = r30 - r45;
+          return Math.abs(d) < 0.05 ? 3 : (d > 0 ? 1 : 2);
+        }
+      }
     }
   ];
   SK.setPresets(PRESETS.map(function (pr, i) {
     return {
       name: pr.name, changes: pr.changes, change: pr.change, values: pr.values, predict: pr.predict, formulaCh: pr.formulaCh, misconception: pr.misconception,   // R8(A6) 서랍 '지금 실험 카드'
+      basic: pr.basic,   // R9: 초급 변형(SK.presetView 가 basic 일 때만 덮음)
       onApply: function () {
         curPreset = i; fixedBox = null;
         if (!SK.get('autoScale')) SK.set('autoScale', true);
@@ -620,6 +695,7 @@
   function takeawayText(p) {
     if (!st || !st.result || !(st.tLand > 1e-9)) return null;
     var r = st.result, d = eDec(run.E0);
+    if (SK.level && SK.level() === 'basic') return basicTakeaway(p, r);   // R9: 초급 = 기호 없이 '~했어요'
     if (!run.analytic) {
       return {
         line: '공기 저항 때문에 역학적 에너지 $E$ 가 줄었어요.',
@@ -647,6 +723,13 @@
         more: PH.PLANETS[p.planet].name + ' $R$ = ' + fmt(r.R, 1) + ' m, 지구 ' + fmt(re, 1) + ' m (회색 점선). $g$ 가 작으면 천천히 떨어져서 비행 시간 $T$ 가 길어지고, 수평 속도 $v_x$ 는 같으니 그만큼 더 멀리 가요($R$ ∝ {{frac:1|$g$}}).', lesson: 'g-air'
       };
     }
+    if (curPreset === 5 && run.h > 0 && p.planet === 'earth') {   // R9: 고급 카드 ⑥ — 높이가 있으면 최적각 < 45°
+      var r30 = PH.rangeFor(p, { theta: 30 }), r45 = PH.rangeFor(p, { theta: 45 });
+      return {
+        line: '높이 ' + run.h + ' m 에서는 30°(' + fmt(r30, 1) + ' m)가 45°(' + fmt(r45, 1) + ' m)보다 멀리 가요.',
+        more: '지금 ' + run.theta + '° → $R$ = ' + fmt(r.R, 1) + ' m. 높은 곳에서 던지면 떨어지는 시간 $T$ 가 이미 길어서, $v_x$ 를 키우는(각도를 낮추는) 쪽이 유리해요. $h$ > 0 이면 가장 멀리 가는 각도는 45°보다 작아요 — 45°로 바꿔 기록해 비교해 봐요.', lesson: 'symmetry'
+      };
+    }
     if (curPreset === 4 || p.topStop) {
       return {
         line: '최고점에서 $v_y$ = 0, $v_x$ ≈ ' + fmt(run.vx0, 1) + ' m/s 가 남고 가속도는 아래로 $g$ 예요.',
@@ -672,6 +755,32 @@
         ? '45°에서 $R$ ≈ ' + fmt(r.R, 1) + ' m 가 가장 멀어요($h$ = 0, 공기 없음).'
         : '사거리 $R$ = 수평 속도 $v_x$ × 비행 시간 $T$ 예요.',
       more: '옆으로는 $v_x$ = ' + fmt(run.vx0, 1) + ' m/s 그대로 $T$ = ' + fmt(r.T, 2) + ' s 동안 날아가 ' + fmt(r.R, 1) + ' m 앞에 떨어졌어요(' + fmt(run.vx0, 1) + ' × ' + fmt(r.T, 2) + ' = ' + fmt(run.vx0 * r.T, 1) + ').' + (run.h > 0 && run.analytic ? ' 높이 $h$ = ' + run.h + ' m 에서 던지면 가장 멀리 가는 각도는 45°보다 작아요.' : ''), lesson: run.h > 0 ? 'symmetry' : 'range'
+    };
+  }
+
+  /** R9(§1-1): 초급 결과 해설 — 고등 기호 없이 본 것을 말로 */
+  function basicTakeaway(p, r) {
+    if (p.cmp && st.cLand !== null && run.vy0 === 0) {
+      return {
+        line: '옆으로 던진 공과 그냥 놓은 공이 같이 땅에 닿았어요.',
+        more: '두 공 모두 약 ' + fmt(st.tLand, 1) + '초 뒤에 땅에 닿았어요. 옆으로 던져도 아래로 떨어지는 빠르기는 그냥 놓은 공과 똑같아요. 이제 처음 속력을 바꿔 다시 해 봐요.'
+      };
+    }
+    if (curPreset === 1) {
+      return {
+        line: '날아가는 동안 에너지 막대 전체 길이는 그대로였어요.',
+        more: '공이 내려오면서 위치 에너지 막대가 줄어든 만큼 운동 에너지 막대가 늘었어요. 둘을 합친 길이는 처음과 같아요. 처음 속력을 키우면 막대가 처음부터 더 길고, 공은 ' + fmt(r.R, 1) + ' m 보다 더 멀리 가요.'
+      };
+    }
+    if (curPreset === 4 || p.topStop) {
+      return {
+        line: '가장 높은 곳에서도 공은 옆으로 계속 갔어요.',
+        more: '꼭대기에서는 위아래로 움직이는 빠르기만 0 이 돼요. 옆으로 가는 빠르기는 그대로라 공은 멈추지 않아요.'
+      };
+    }
+    return {
+      line: '공이 ' + fmt(r.R, 1) + ' m 앞에 떨어졌어요.',
+      more: '처음 속력을 크게 하면 더 멀리 가요. 각도를 바꾸면 거리가 달라져요 — 한 가지만 바꿔 두 번 해 보고 비교해요.'
     };
   }
 
@@ -939,7 +1048,7 @@
     if (!p || !p.planet) return [];
     var g = PH.gOf(p);
     // R7-3(A2): 무대 칩은 2개 이하 → 공통 칩 '지구 · g 9.8 · 실행 전'. 공기 저항은 켰을 때만, 나머지(공기 없음·눈금)는 statusNote 로
-    var out = [PH.PLANETS[p.planet].name + ' · $g$ ' + gText(g)];
+    var out = [PH.PLANETS[p.planet].name + (SK.level && SK.level() === 'basic' ? '' : ' · $g$ ' + gText(g))];   // R9: 초급은 장소 이름만
     if (p.air !== 'off' && PH.kOf(p) !== 0) out.push('공기 저항 있음');
     return out;
   }
@@ -1032,6 +1141,16 @@
       ctx.strokeStyle = C.line; ctx.lineWidth = 2; ctx.strokeRect(L.AX + 4, cy, L.X0 - L.AX - 4, L.GY - cy);
       ctx.strokeStyle = C.ink; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(L.AX + 4, cy); ctx.lineTo(L.X0, cy); ctx.stroke();
+      // R9(§4-1): 초급 — h 슬라이더가 없으므로 절벽 안에 높이 글자('20 m', 할 일 줄 칩과 같은 값). 절벽이 글자보다 낮으면 생략
+      // 절벽 폭(82u)이 좁아 가로 글자는 왼쪽 눈금 숫자와 붙는다 → 세로로 세워 가운데(눈금과 40u 넘게 떨어짐)
+      var hTxt = '높이 ' + numTxt(run.h) + ' m';
+      // 팀장 R9 결과(학생M·H·S): 글자는 절벽 아래쪽에 바닥 맞춤 — 위쪽의 '떨어뜨릴 공' 이름표(공 아래 44u)와 겹치지 않게. 자리가 모자라면 생략(할 일 줄 칩 '절벽 20 m' 가 같은 값)
+      var hTw = SK.measure(ctx, hTxt, { size: TS, weight: 500 }).w, hTop = p.cmp && !SK.started && !drag ? 44 : 8;
+      if (SIMPLE && L.GY - cy >= hTw + 16 + hTop) {
+        ctx.save(); ctx.translate((L.AX + 4 + L.X0) / 2, L.GY - 8 - hTw / 2); ctx.rotate(-Math.PI / 2);
+        SK.text(ctx, hTxt, 0, 0, { size: TS, weight: 500, color: '--color-ink', baseline: 'middle', align: 'center' });
+        ctx.restore();
+      }
     } else {
       ctx.fillStyle = C.line; ctx.fillRect(L.X0 - 24, L.GY - 6, 48, 6);
     }
@@ -1052,7 +1171,7 @@
     // R6(A3): 축 이름을 8u 올려(GY+40 → +32) 1920 에서 글자 아래가 캔버스 밖으로 잘리지 않게. 심플(28u)은 눈금 숫자와 같은 줄
     // 심플: 같은 줄에 긴 이름을 두면 떨어진 공(사거리 ≈ 오른쪽 끝의 1/1.1)이 가려서 짧게 — 이름은 아래 측정 칸 '수평 거리 x'
     // R7-3(A3): 모눈 크기는 x축 제목 옆 '· 1칸 N m'(왼쪽 아래 '모눈 1칸 = N m' 삭제). 심플은 숫자만으로 읽음(그대로)
-    var XT = SIMPLE ? '$x$ (m)' : '수평 거리 $x$ (m) · 1칸 ' + numTxt(cell) + ' m', xTitleY = SIMPLE ? L.GY + 8 : L.GY + 32;
+    var XT = SIMPLE ? '거리 (m)' : '수평 거리 $x$ (m) · 1칸 ' + numTxt(cell) + ' m', xTitleY = SIMPLE ? L.GY + 8 : L.GY + 32;
     var xTitleL = W - 12 - SK.measure(ctx, XT, { size: TS, weight: 500 }).w;
     ctx.font = SK.font(400, TS);
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
@@ -1076,10 +1195,10 @@
     var yTitleRight = L.AX - 12 - yTickW - 24, yTitleMin = TS + 4 - view.ox / (view.scale || 1);   // 팀장 R8 결과: 세로 제목과 눈금 숫자 사이 24u(820 에서 '(m)' 이 '15' 에 닿던 것)
     if (yTitleMin > yTitleRight) {
       // R4 마무리: 여백이 없는 태블릿(ox 0)에서는 세로 제목이 눈금 숫자와 겹치므로 y축 위 끝에 가로로 (16:9 는 여백이 있어 아래 세로 제목 그대로)
-      SK.text(ctx, '높이 $y$ (m)', L.AX + 10, TOPD + 6, { size: TS, weight: 500, color: '--color-ink-muted', baseline: 'top', align: 'left' });
+      SK.text(ctx, SIMPLE ? '높이 (m)' : '높이 $y$ (m)', L.AX + 10, TOPD + 6, { size: TS, weight: 500, color: '--color-ink-muted', baseline: 'top', align: 'left' });
     } else {
-      ctx.save(); ctx.translate(Math.max(12, yTitleRight), (TOPD + L.GY) / 2); ctx.rotate(-Math.PI / 2);
-      SK.text(ctx, '높이 $y$ (m)', 0, 0, { size: TS, weight: 500, color: '--color-ink-muted', baseline: 'bottom', align: 'center' }); ctx.restore();
+      ctx.save(); ctx.translate(yTitleRight, (TOPD + L.GY) / 2); ctx.rotate(-Math.PI / 2);   // R9(학생S): 12u 로 붙잡지 않는다 — 눈금 숫자와 24u(조건문이 왼쪽 여백 안을 보장)
+      SK.text(ctx, SIMPLE ? '높이 (m)' : '높이 $y$ (m)', 0, 0, { size: TS, weight: 500, color: '--color-ink-muted', baseline: 'bottom', align: 'center' }); ctx.restore();
     }
 
     // 달·화성: 같은 조건으로 지구에서 던졌다면 (회색 점선)
@@ -1327,6 +1446,7 @@
 
   /** 에너지 막대 (가로 한 줄): [운동 | 위치 | 열] 이어 붙인 막대 + 처음 에너지 눈금 + 아래 글자 */
   function drawEnergy(p) {
+    updateEbar();   // R9: 초급 측정 칸 막대(띠가 숨어 있어도)
     var ctx = ev.ctx, W = ev.w, H = ev.h;
     ev.clear();
     if (W < 60 || H < 40) return;

@@ -1854,7 +1854,8 @@ html:not(.cursor-hidden) .sym-chip:hover { border-color: var(--sim); }
 /* A13 실험 고르기: 모드는 이름만 한 줄·같은 높이 세그먼트, 설명은 아래 한 줄, 카드는 2열 격자 */
 .preset-modes { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); grid-auto-rows: 1fr; padding-bottom: var(--space-2); border-bottom: 0; }
 .preset-mode { min-height: max(44px, calc(60 * var(--u))); padding: 0 var(--space-2); text-align: center; justify-items: center; }
-.preset-mode__label { white-space: nowrap; word-break: keep-all; font-size: max(16px, var(--fs-meta)); }
+.preset-mode__label { white-space: normal; word-break: keep-all; line-height: 1.2; font-size: max(16px, var(--fs-meta)); }   /* 팀장 R9 결과(학생S): 긴 이름('전자 하나씩 보내기')은 두 줄로 — 칸 밖으로 안 나간다 */
+.preset-mode { min-width: 0; overflow: hidden; }
 .preset-mode__desc { display: none; }   /* 이름만 — 설명은 .preset-mode-desc 한 줄로 */
 .preset-mode-desc { margin: 0; padding-bottom: var(--space-2); border-bottom: 1px solid var(--color-line); font: var(--font-weight-regular) var(--fs-caption)/1.35 var(--font-sans); color: var(--color-ink-muted); white-space: nowrap; overflow: hidden; text-overflow: clip; word-break: keep-all; }
 .preset-mode-desc:empty { display: none; }

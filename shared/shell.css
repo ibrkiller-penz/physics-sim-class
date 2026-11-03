@@ -1559,3 +1559,95 @@ html.is-simple .lesson__more .lesson__p { font-size: max(20px, calc(28 * var(--u
 .tool-chip--timer { display: inline-flex; align-items: center; gap: var(--space-1); min-height: 44px; padding: 0 var(--space-3); border-radius: var(--radius-pill); background: var(--color-paper-sunk); font: var(--font-weight-medium) var(--fs-caption)/1 var(--font-num); font-variant-numeric: tabular-nums; }
 /* D1 에너지 칸: 용수철 저장 E_p 는 열 빗금과 다른 점선 테두리·옅은 면 */
 .bar-spring { background: var(--color-q-energy-spring); outline: 2px dashed var(--color-q-energy-spring); outline-offset: -2px; }
+
+
+/* =====================================================================
+   R9 (docs/개선/R9_중학교연계_난이도.md §2-3) — 단계(초급·중급·고급) · 중학교 다시 보기
+   ===================================================================== */
+/* 단계 칩 '중급 ▾' — 실험 머리줄·설명 머리줄 공통 */
+.level-chip {
+  flex: none; display: inline-flex; align-items: center; gap: var(--space-1);
+  min-height: max(36px, calc(44 * var(--u))); padding: 0 var(--space-3) 0 var(--space-4);
+  border-radius: var(--radius-pill); border: calc(2 * var(--u)) solid var(--color-line-strong); background: var(--color-paper-raised);
+  font: var(--font-weight-medium) var(--fs-meta)/1 var(--font-sans); color: var(--color-primary-text); white-space: nowrap; cursor: pointer;
+}
+.level-chip[data-level="basic"] { background: var(--color-copper-tint); color: var(--color-copper-text); border-color: var(--color-copper); }
+.level-chip[data-level="adv"] { background: var(--color-primary); color: var(--color-paper); border-color: var(--color-primary); }
+.level-chip .ico { width: 0.9em; height: 0.9em; min-width: 12px; min-height: 12px; margin: 0; }
+html:not(.cursor-hidden) .level-chip:hover { border-color: var(--sim); }
+.level-chip__time { flex: none; font: var(--font-weight-regular) var(--fs-caption)/1 var(--font-num); color: var(--color-ink-chip); white-space: nowrap; }
+.level-chip__time:empty { display: none; }
+.lesson__head .level-chip { min-height: max(40px, calc(48 * var(--u))); }
+@media (max-width: 1100px) { .level-chip__chev, .level-chip .ico--trail { display: none; } .level-chip { padding: 0 var(--space-3); } }
+/* 설정 '화면 구성' 3칸 */
+.mode-seg.level-seg .mode-seg__opt { min-width: calc(96 * var(--u)); padding: 0 var(--space-3); }
+/* 숫자 없는 계기(막대·말만) */
+.meter.is-plain .meter__value { display: none; }
+.simple-meter.is-plain .simple-meter__value:empty { display: none; }
+.simple-meter.is-plain .simple-meter__bar { display: block; width: 100%; min-height: calc(18 * var(--u)); }
+/* 초급 할 일 줄 옆 고정 칩('절벽 20 m') */
+.simple-task__chip { flex: none; align-self: center; font: var(--font-weight-medium) var(--fs-caption)/1 var(--font-sans); background: var(--color-copper-tint); color: var(--color-copper-text); white-space: nowrap; }
+/* 공식 보기 첫 줄 · 수업 안내 단계 줄 */
+.formula__lead { margin: 0 0 var(--space-2); font: var(--font-weight-medium) var(--fs-meta)/1.4 var(--font-sans); color: var(--color-copper-text); word-break: keep-all; }
+.guide-level { margin: 0 0 var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--color-primary-tint); color: var(--color-primary-text); font: var(--font-weight-medium) var(--fs-caption)/1.4 var(--font-sans); }
+.panel-sec--adv[hidden] { display: none; }
+
+/* ── 중학교에서 배운 것(복습 장) ── */
+.lesson__review-badge { margin: 0; display: inline-flex; align-items: center; min-height: max(28px, calc(40 * var(--u))); padding: 0 var(--space-3); border-radius: var(--radius-pill); background: var(--color-review-tint); color: var(--color-review-text); font: var(--font-weight-medium) var(--fs-meta)/1 var(--font-sans); white-space: nowrap; }
+.lesson__review-badge b { font-weight: var(--font-weight-medium); }
+.lesson__reviewfold, .lesson__skipreview { min-height: max(32px, calc(40 * var(--u))); padding: 0 var(--space-3); font-size: var(--fs-caption); white-space: nowrap; }
+.lesson__skipreview { border-color: var(--color-review); color: var(--color-review-text); }
+.lesson__kickrow .lesson__skipreview { margin-left: auto; }
+.lesson__source { margin: 0; font: var(--font-weight-regular) var(--fs-caption)/1.4 var(--font-sans); color: var(--color-ink-chip); word-break: keep-all; }
+.lesson__terms { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; }
+.lesson__term { border-color: var(--color-review); color: var(--color-review-text); font-size: var(--fs-caption); }
+.lesson__bridge { display: grid; gap: var(--space-1); margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--color-review-tint); border-left: calc(8 * var(--u)) solid var(--color-review); font: var(--font-weight-regular) max(18px, calc(28 * var(--u)))/1.5 var(--font-sans); color: var(--color-ink); word-break: keep-all; }
+.lesson__bridge-t { font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-sans); color: var(--color-review-text); }
+.lesson__selfcheck { display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); border: calc(2 * var(--u)) solid var(--color-line); background: var(--color-paper-raised); }
+.lesson__sc-label { margin: 0; font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-sans); color: var(--color-review-text); }
+.lesson__sc-q { margin: 0; font: var(--font-weight-medium) max(18px, calc(28 * var(--u)))/1.45 var(--font-sans); word-break: keep-all; }
+.lesson__sc-choices { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.lesson__sc-choice { min-height: max(40px, calc(52 * var(--u))); padding: 0 var(--space-3); gap: var(--space-2); font-size: var(--fs-meta); white-space: normal; text-align: left; line-height: 1.25; }
+.lesson__sc-no { flex: none; color: var(--color-ink-chip); }
+.lesson__sc-choice.is-ok { background: var(--color-ok-tint); border-color: var(--color-ok); color: var(--color-ok); }
+.lesson__sc-choice.is-miss { background: var(--color-paper-sunk); border-style: dashed; }
+.lesson__sc-res { margin: 0; font: var(--font-weight-regular) var(--fs-meta)/1.5 var(--font-sans); word-break: keep-all; }
+.lesson__sc-res.is-ok { color: var(--color-ok); }
+.lesson__sc-res[hidden], .lesson__sc-skip[hidden] { display: none; }
+.lesson__sc-skip { display: inline-flex; align-items: center; gap: var(--space-2); margin: 0; font: var(--font-weight-medium) var(--fs-meta)/1.2 var(--font-sans); color: var(--color-ok); }
+.lesson__sc-skip .ico { width: 1em; height: 1em; }
+/* 본 단원 1장 위 띠 */
+.lesson__review-strip { display: inline-flex; align-items: center; gap: var(--space-2); align-self: flex-start; max-width: 100%; min-height: max(32px, calc(44 * var(--u))); margin: 0; padding: 0 var(--space-4) 0 var(--space-3); border-radius: var(--radius-pill); border: calc(2 * var(--u)) solid var(--color-review); background: var(--color-review-tint); color: var(--color-review-text); font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-sans); cursor: pointer; text-align: left; }
+.lesson__review-strip .ico { width: 1.1em; height: 1.1em; flex: none; margin: 0; }
+.lesson__review-strip--note { cursor: default; background: var(--color-copper-tint); border-color: var(--color-copper); color: var(--color-copper-text); }
+html:not(.cursor-hidden) button.lesson__review-strip:hover { background: var(--color-paper-raised); }
+/* 점 표시줄: 복습 점 다른 색 + 구분선 */
+.lesson__dot--review::before { border-color: var(--color-review); }
+.lesson__dot--review.is-seen::before { background: var(--color-review-tint); border-color: var(--color-review); }
+.lesson__dot--review[aria-current="step"]::before { background: var(--color-review); border-color: var(--color-review); }
+.lesson__dots-sep { align-self: center; width: calc(2 * var(--u)); min-width: 2px; height: calc(22 * var(--u)); min-height: 14px; background: var(--color-line-strong); border-radius: 2px; margin: 0 calc(2 * var(--u)); }
+/* 목차 맨 위 묶음 */
+.lesson__tocgroup { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--color-review-tint); color: var(--color-review-text); font: var(--font-weight-medium) var(--fs-caption)/1.2 var(--font-sans); text-align: left; cursor: pointer; }
+.lesson__tocgroupn { margin-left: auto; color: var(--color-review-text); }
+.lesson__tocgroupo { color: var(--color-review-text); }
+.lesson__tocsep { display: block; height: 1px; margin: var(--space-1) var(--space-2); background: var(--color-line-strong); }
+.lesson__tocitem.is-review .lesson__tocno { color: var(--color-review-text); }
+
+/* R9: 복습 장은 한 화면에 — 본문 글자 한 단계 작게 · 다리 문장은 그림 아래 */
+.lesson__text.is-review .lesson__p { font-size: max(18px, calc(28 * var(--u))); line-height: 1.5; }
+.lesson__text.is-review { gap: var(--space-2); }
+.lesson__fig .lesson__bridge { margin-top: var(--space-3); }
+
+/* ===== 팀장 R9 결과(검수 반영) ============================================ */
+/* 학생M: 초급(심플) 화면은 기호 없이 말만 — 변수 이름 옆 기호(v₀·θ·s…)는 중급부터 */
+html.is-simple .var__sym { display: none; }
+/* 학생M: 심플 '더 보기 › ④ 정리' 판 — 단계 문항(모달과 같은 카드)이 맨 위, 옛 질문 카드는 초급에서 숨김 */
+.think-quiz--simple { display: grid; gap: var(--space-4); }
+.think-quiz--simple[hidden] { display: none; }
+/* 학생M: 정리 판이 길어도 아래 도구 줄(뒤로·앞으로·기록하기)을 덮지 않게 — 판 안에서만 스크롤 */
+html.is-simple .sheet__body > .think-board, html.is-simple .sheet__body > .rec-big { overflow: hidden; }
+html.is-simple .sheet__body > .think-board > .side-body, html.is-simple .sheet__body > .rec-big > .side-body { overflow: auto; min-height: 0; }
+/* 학생H: 중급 1장 띠 보조 글 — 좁은 폭에서는 숨김 */
+.lesson__review-strip__sub { font-weight: var(--font-weight-regular); color: var(--color-ink-muted); }
+.lesson__review-strip__sub::before { content: '·'; margin-right: var(--space-2); }
+@media (max-width: 1599px) { .lesson__review-strip__sub { display: none; } }   /* 1280 의 왼쪽 글 칸(470px)에서는 띠가 두 줄로 꺾여 숨김 — 칩 title 로 대신 */

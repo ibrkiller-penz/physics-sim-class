@@ -229,5 +229,28 @@
     return out;
   };
 
+  /** R9 복습 그림: 물결(사인 곡선) — (x, y)=왼쪽 끝 가운데선, w 길이, amp 높이, cycles 마루 수 */
+  D.wave = function (x, y, w, amp, cycles, o) {
+    o = o || {};
+    var pts = [], N = Math.max(24, Math.round(cycles * 24)), i;
+    for (i = 0; i <= N; i++) { var t = i / N; pts.push([x + w * t, y - amp * Math.sin(2 * Math.PI * cycles * t + (o.phase || 0))]); }
+    return D.curve(pts, { color: o.color || 'sim', w: o.w || 3 });
+  };
+  /** R9 복습 그림: 반원 물결 몇 겹 — 틈 (cx, cy) 에서 오른쪽으로 퍼지는 반원들(r0 + k·gap) */
+  D.ripples = function (cx, cy, r0, gap, n, o) {
+    o = o || {};
+    var out = '';
+    for (var k = 0; k < n; k++) { var r = r0 + k * gap; out += D.path('M' + n2(cx) + ' ' + n2(cy - r) + 'A' + r + ' ' + r + ' 0 0 1 ' + n2(cx) + ' ' + n2(cy + r), { color: o.color || 'sim', w: o.w || 2, dash: o.dash }); }
+    return out;
+  };
+  function n2(v) { return Math.round(v * 10) / 10; }
+  /** R9 복습 그림: 막대(에너지·움직임의 양) — 아래(y)에서 위로 h 만큼, 폭 w. o.fill = 색 이름, o.frame = 점선 틀 높이 */
+  D.bar = function (x, y, w, h, o) {
+    o = o || {};
+    var out = '';
+    if (o.frame) out += '<rect x="' + n2(x - 3) + '" y="' + n2(y - o.frame - 3) + '" width="' + n2(w + 6) + '" height="' + n2(o.frame + 6) + '" rx="4" style="fill:none;stroke:' + C.muted + ';stroke-width:1.5;stroke-dasharray:5 5"/>';
+    if (h > 0) out += '<rect x="' + n2(x) + '" y="' + n2(y - h) + '" width="' + n2(w) + '" height="' + n2(h) + '" rx="3" style="fill:' + col(o.fill, 'sim') + '"/>';
+    return out;
+  };
   global.SimDiagram = D;
 })(window);

@@ -10,6 +10,7 @@
    ===================================================================== */
 (function () {
   'use strict';
+  var SK0 = window.SimKit || {};
   var EARTH = 'fill:var(--color-primary-tint);stroke:var(--color-primary);stroke-width:2.5';
   var BODY = {   // 실험 화면 천체 칩 아이콘과 같은 색
     earth: ['--color-primary-tint', '--color-primary'], moon: ['--color-paper-sunk', '--color-line-strong'],
@@ -54,7 +55,7 @@
       { code: '12역학01-04', subj: '역학과 에너지', text: '인공위성·행성 운동(원운동에 한해 정량)' },
       { code: '12역학01-05', subj: '역학과 에너지', text: '행성마다 다른 탈출 속도' }
     ],
-    simple: ['goal', 'cannon', 'orbit-speed', 'escape', 'check'],
+    // R9: data.simple 은 장마다 levels 로 대체(초급 = goal · cannon · check, 앞에 복습 3장 · kepler-2 는 고급)
     terms: [
       { term: '만유인력 상수', sym: '$G$', unit: 'N·m²/kg²', mean: '6.67×10⁻¹¹ — 모든 물체 사이 중력의 세기를 정하는 상수' },
       { term: '중심 천체 질량', sym: '$M$', unit: 'kg', mean: '위성이 도는 천체(지구 5.97×10²⁴ kg)의 질량', where: 'body' },
@@ -72,14 +73,93 @@
       { term: '긴반지름', sym: '$a$', unit: 'AU', mean: '궤도의 긴반지름(원궤도에서는 $r$) — 케플러 자료' }
     ],
     chapters: [
-      /* 1장 */
-      { id: 'goal', type: 'goal', title: '위성은 왜 떨어지지 않을까?',
-        question: '얼마나 빨리 쏘면 포탄이 땅에 떨어지지 않고 지구를 돌까? 더 빨리 쏘면 어떻게 될까?',
+
+      /* ── R9 중학교에서 배운 것 (복습 1~3) — 원고 docs/교과설명/orbit-gravity_중학교.md · 성취기준 코드 없음 ── */
+      { id: 'mid-school-1', type: 'review', no: 1, of: 3, title: '중력, 질량과 무게',
+        source: '중학교 과학 「힘과 운동」 계열 단원 — 중력, 질량과 무게',
         body: [
-          '위성은 계속 떨어지면서 **옆으로 가는 속력** 덕분에 지구를 돌아요.'
+          '지구는 모든 물체를 지구 중심 쪽으로 끌어당겨요. 이 힘이 **중력**이에요. 지구에서 멀어지면 중력도 약해져요.',
+          '**질량**은 물체 속 물질의 양이라 어디서나 같고, **무게**는 중력의 세기라서 달에서는 지구의 약 6분의 1이에요.',
+          '우주에서 몸이 뜨는 것은 중력이 없어서가 아니에요 — 이유는 뒤에서 알아봐요.'
         ],
-        goals: ['위성은 계속 떨어지고 있다', '원궤도 속력 $v$ = √({{frac:$GM$|$r$}}), 탈출 속도', '$T^2$ 은 $a^3$ 에 비례한다'],
+        terms: ['중력', '질량', '무게'],
+        bridge: '중학교에서는 지구가 모든 물체를 끌어당긴다는 것까지 배웠어요. 이제 \'그 힘 때문에 떨어지는데 왜 위성은 안 떨어질까?\'를 생각해요.',
+        selfcheck: { q: '달에 가면 내 질량과 무게는 지구에서와 비교해 어떻게 될까요?', choices: ['둘 다 같아요', '질량은 같고 무게는 작아요', '둘 다 작아요'], answerIdx: 1, why: '질량은 어디서나 같고, 무게는 중력이 약한 달에서 작아져요.' },
+        teacherNote: ['성취기준 코드 미확인 — 단원명만 표기(학년·단원명 확인 필요 — 학생 화면에는 표시하지 않음). \'무중력\' 이라는 일상어는 일부러 쓰지 않았다(6장 weightless 에서 다룬다).'],
         svg: function (D) {
+          var k = [];
+          k.push(circle(210, 420, 150, EARTH)); k.push(D.label(210, 380, '지구', { anchor: 'middle', weight: 500, bg: false }));
+          k.push(D.ball(210, 236, 11, { color: 'warn' })); k.push(D.label(232, 226, '사과', { size: 20, anchor: 'start' }));
+          k.push(D.arrow(210, 252, 210, 330, { kind: 'f', label: '중력', lx: 226, ly: 292, anchor: 'start' }));
+          k.push(circle(600, 410, 70, 'fill:var(--color-paper-sunk);stroke:var(--color-line-strong);stroke-width:2.5')); k.push(D.label(600, 404, '달', { anchor: 'middle', weight: 500, bg: false }));
+          k.push(D.ball(600, 318, 11, { color: 'warn' }));
+          k.push(D.arrow(600, 334, 600, 348, { kind: 'f' }));
+          k.push(D.label(600, 150, '무게 1/6 · 질량은 같아요', { anchor: 'middle', weight: 500 }));
+          k.push(D.label(600, 190, '(화살표가 짧아요)', { anchor: 'middle', size: 20, color: 'muted' }));
+          return D.svg(k, { title: '지구와 달의 사과', how: '굵은 화살표 = 중력 — 달에서는 짧아서 무게가 작아요' });
+        } },
+      { id: 'mid-school-2', type: 'review', no: 2, of: 3, title: '행성의 공전',
+        source: '중학교 과학 「태양계」 계열 단원 — 행성의 공전',
+        body: [
+          '지구는 태양 둘레를 1년에 한 바퀴 돌아요(**공전**). 달은 지구 둘레를 약 한 달에 한 바퀴 돌아요.',
+          '태양에서 멀수록 행성의 1년(**공전 주기**)이 길어요. 돌게 만드는 것은 중력이에요.'
+        ],
+        terms: ['공전', '공전 주기', '궤도'],
+        bridge: '중학교에서는 행성이 태양을 돈다는 것까지 배웠어요. 이제 \'왜 안 떨어지고 도는지\'를 속력으로 설명해요.',
+        selfcheck: { q: '태양에서 먼 행성일수록 공전 주기는 어떨까요?', choices: ['짧아요', '길어요', '같아요'], answerIdx: 1, why: '멀수록 길어요. 수성은 0.24년, 지구는 1년, 화성은 1.88년이에요.' },
+        teacherNote: ['성취기준 코드 미확인 — 단원명만 표기. 주기 수치는 시뮬레이터 케플러 자료와 같다(수성 0.24 · 금성 0.62 · 지구 1 · 화성 1.88년).'],
+        svg: function (D) {
+          var k = [], cx = 220, cy = 235, rs = [45, 80, 115, 150], names = ['수성', '금성', '지구', '화성'], yrs = [0.24, 0.62, 1, 1.88], ang = [150, 80, 320, 30], i;
+          k.push(D.planet(cx, cy, 16, { label: '' })); k.push(D.label(cx, cy + 34, '태양', { anchor: 'middle', size: 20, bg: false }));
+          for (i = 0; i < 4; i++) {
+            k.push(orbit(cx, cy, rs[i], { color: 'var(--color-line-strong)', w: 2, dash: '5 6' }));
+            var a = ang[i] * Math.PI / 180;
+            k.push(D.ball(cx + rs[i] * Math.cos(a), cy - rs[i] * Math.sin(a), 8));
+          }
+          k.push(D.label(520, 100, '1년의 길이', { weight: 500, anchor: 'start' }));
+          for (i = 0; i < 4; i++) {
+            k.push(D.label(520, 160 + i * 62, names[i], { anchor: 'start', size: 22 }));
+            k.push(D.bar(570, 172 + i * 62, Math.max(8, yrs[i] * 70), 22, { fill: 'sim' }));
+            k.push(D.label(570 + yrs[i] * 70 + 10, 160 + i * 62, yrs[i] + '년', { anchor: 'start', size: 20, bg: false }));
+          }
+          return D.svg(k, { title: '태양과 행성 (모식도, 축척 아님)', how: '멀수록 궤도가 길고, 1년도 길어요' });
+        } },
+      { id: 'mid-school-3', type: 'review', no: 3, of: 3, title: '던진 물체는 휘어서 떨어진다',
+        source: '중학교 과학 「힘과 운동」 계열 단원 — \'아주 세게 던지면\' 은 중학교에서 보지 않았을 수 있어요',
+        body: [
+          '공을 옆으로 던지면 곡선을 그리며 떨어져요. 더 세게 던지면 더 멀리 가서 떨어져요.',
+          '아주 세게 던져서, 땅이 둥글게 휘어 멀어지는 만큼 계속 떨어진다면 어떻게 될까요? 이 생각이 위성의 출발점이에요.',
+          '속력은 km/s 로도 써요. 1 km/s = 1000 m/s.'
+        ],
+        terms: ['곡선 운동', 'km/s'],
+        bridge: '중학교에서는 던진 공이 중력 때문에 휘어 떨어지는 것까지 배웠어요. 이제 얼마나 빠르면 땅이 휘어 멀어지는 만큼만 떨어지는지 속력으로 말해요.',
+        selfcheck: { q: '위성은 중력이 없어서 떨어지지 않는 걸까요?', choices: ['그래요', '아니에요, 계속 떨어지면서 돌아요', '잘 모르겠어요'], answerIdx: 1, why: '중력은 있어요. 계속 떨어지고 있지만 땅이 휘어 멀어져서 닿지 않아요.' },
+        teacherNote: ['성취기준 코드 미확인. 맞히면 건너뛰기 안내. 위성 \'중력 없음\' 오개념은 중급 6장·오해 카드로 이어진다.'],
+        svg: function (D) {
+          var R = 500, CX = 400, CY = 700, top = 170, k1 = 0.0031, k2 = 0.001477, p1 = [], p2 = [], x;
+          for (x = 400; x <= 520; x += 6) p1.push([x, top + k1 * (x - 400) * (x - 400)]);
+          for (x = 400; x <= 680; x += 8) p2.push([x, top + k2 * (x - 400) * (x - 400)]);
+          return D.svg([
+            '<g data-dg-bleed="1">' + circle(CX, CY, R, EARTH) + D.curve(arcPts(CX, CY, CY - top, -10, 810), { color: 'sim', w: 4, dash: '10 7' }) + '</g>',
+            D.curve(p1, { color: 'warn', w: 3 }), D.curve(p2, { color: 'warn', w: 3 }),
+            D.ball(400, top, 8, { color: 'ink' }),
+            D.label(458, 262, '느리게', { anchor: 'middle' }), D.label(650, 322, '더 빠르게', { anchor: 'middle' }),
+            D.label(260, 110, '아주 빠르게?', { anchor: 'middle', color: 'sim', weight: 500 }),
+            D.label(260, 142, '땅이 휘어 멀어지는 만큼 떨어지면…', { anchor: 'middle', size: 20, color: 'muted' })
+          ], { title: '산꼭대기에서 쏜 공 세 개 (모식도, 축척 아님)', how: '느리면 가까이 떨어지고, 빠르면 더 멀리 떨어져요 — 아주 빠르면 지구를 한 바퀴 돌 수도 있어요' });
+        } },
+      /* 1장 */
+      { id: 'goal', type: 'goal', title: '위성은 왜 떨어지지 않을까?', levels: ['basic', 'mid', 'adv'],
+        question: { basic: '얼마나 빨리 쏘면 포탄이 땅에 떨어지지 않고 지구를 돌까?', mid: '얼마나 빨리 쏘면 포탄이 땅에 떨어지지 않고 지구를 돌까? 더 빨리 쏘면 어떻게 될까?' },
+        body: { basic: [
+          '포탄을 아주 세게 쏘면 땅에 떨어지지 않고 지구를 빙글빙글 돌 수 있어요. 인공위성이 바로 그래요.',
+          '위성은 **계속 떨어지면서** 옆으로 빨리 가기 때문에 땅에 닿지 않아요.'
+        ], mid: [
+          '위성은 계속 떨어지면서 **옆으로 가는 속력** 덕분에 지구를 돌아요.'
+        ] },
+        goals: { basic: ['느리게 쏘면 어디에 떨어지는지 보기', '얼마나 빨라야 지구를 도는지 알아보기'], mid: ['위성은 계속 떨어지고 있다', '원궤도 속력 $v$ = √({{frac:$GM$|$r$}}), 탈출 속도', '$T^2$ 은 $a^3$ 에 비례한다'] },
+        svg: function (D) {
+          var B = SK0.level && SK0.level() === 'basic';   // R9: 초급은 기호 없이 말만
           // R7-3(C1): r 라벨 = 점선 왼쪽 16 · F 라벨 = 구리 화살표 오른쪽(화살 반대쪽) · R 라벨 = 반지름 선 오른쪽 아래 · v 화살은 위성에서 8 띄움, 라벨은 끝 옆 12
           var cx = 400, cy = 262, Re = 110, ro = 172, sy = cy - ro;
           var ra = 215 * Math.PI / 180, ex = cx + Re * Math.cos(ra), ey = cy - Re * Math.sin(ra);
@@ -87,26 +167,31 @@
           return D.svg([
             circle(cx, cy, Re, EARTH), D.label(cx + 44, cy + 34, '지구', { anchor: 'middle', weight: 500, bg: false }),
             orbit(cx, cy, ro), D.label(cx + 186, cy - 120, '궤도', { color: 'sim' }),
-            D.line(cx, cy, cx, sy + 8, { color: 'muted', w: 1.8, dash: '6 5' }), D.label(cx - 16, cy - 138, '$r$', { anchor: 'end', italic: true, sym: 'r' }),
-            D.line(cx, cy, ex, ey, { color: 'ink', w: 2 }), D.label(mx + 12, my + 16, '$R$', { anchor: 'start', sym: 'R' }),
+            D.line(cx, cy, cx, sy + 8, { color: 'muted', w: 1.8, dash: '6 5' }), (B ? '' : D.label(cx - 16, cy - 138, '$r$', { anchor: 'end', italic: true, sym: 'r' })),
+            D.line(cx, cy, ex, ey, { color: 'ink', w: 2 }), (B ? '' : D.label(mx + 12, my + 16, '$R$', { anchor: 'start', sym: 'R' })),
             D.dots([[cx, cy]], { r: 4, color: 'ink' }),
             sat(cx, sy),
-            D.arrow(cx + 19, sy, cx + 95, sy, { kind: 'v', label: '$v$', lx: cx + 107, ly: sy, anchor: 'start', sym: 'v' }),
-            D.arrow(cx + 4, sy + 10, cx + 4, sy + 56, { kind: 'f', label: '$F$', lx: cx + 18, ly: sy + 30, anchor: 'start', sym: 'F' })
-          ], { title: '지구를 도는 위성 (모식도, 축척 아님)', how: '실선 화살표 $v$ = 옆으로 가는 속도 · 굵은 화살표 $F$ = 중력(지구 중심 쪽) · $R$ 천체 반지름, $r$ 중심에서 위성까지' });
+            D.arrow(cx + 19, sy, cx + 95, sy, { kind: 'v', label: B ? '옆으로' : '$v$', lx: cx + 107, ly: sy, anchor: 'start', sym: B ? null : 'v' }),
+            D.arrow(cx + 4, sy + 10, cx + 4, sy + 56, { kind: 'f', label: B ? '중력' : '$F$', lx: cx + 18, ly: sy + 30, anchor: 'start', sym: B ? null : 'F' })
+          ], B ? { title: '지구를 도는 위성 (모식도, 축척 아님)', how: '가는 화살표 = 옆으로 가는 빠르기 · 굵은 화살표 = 중력(지구 중심 쪽)' } : { title: '지구를 도는 위성 (모식도, 축척 아님)', how: '실선 화살표 $v$ = 옆으로 가는 속도 · 굵은 화살표 $F$ = 중력(지구 중심 쪽) · $R$ 천체 반지름, $r$ 중심에서 위성까지' });
         },
-        teacherNote: '1분. "우주에는 중력이 없다" 같은 예상을 받아 두었다가 10장(오해)에 써요.' },
+        teacherNote: '1분. "우주에는 중력이 없다" 같은 예상을 받아 두었다가 10장(오해)에 써요.\n초급에서는 inverse-square·orbit-speed·orbit-heights·weightless·escape·kepler·misc 를 건너뜁니다(식·에너지 부호가 중심이라 고등 단계). 속력 숫자는 m/s 도 함께 보여 줘요.' },
 
       /* 2장 */
-      { id: 'cannon', type: 'diagram', title: '뉴턴의 대포: 떨어지며 돌기',
-        body: [
+      { id: 'cannon', type: 'diagram', title: '뉴턴의 대포: 떨어지며 돌기', levels: ['basic', 'mid', 'adv'],
+        body: { basic: [
+          '포탄은 쏜 뒤에 중력만 받아 휘어지며 떨어져요. 빠를수록 멀리 떨어지고, 그사이 둥근 땅도 아래로 휘어요.',
+          '약 7.9 km/s(1초에 7900 m)로 쏘면 떨어지는 만큼 땅도 휘어서 땅에 닿지 않아요. 위성은 **계속 떨어지는 물체**예요.',
+          '속력이 약 11.2 km/s 를 넘으면 지구에서 멀리 날아가 버려요.'
+        ], mid: [
           '포탄은 쏜 뒤에 중력만 받아 휘어지며 떨어져요. 빠를수록 멀리 떨어지고, 그사이 둥근 땅도 아래로 휘어요.',
           '약 7.9 km/s 면 떨어지는 만큼 땅도 휘어서 땅에 닿지 않아요. 위성은 **계속 떨어지는 물체**예요.'
-        ],
-        condition: '공기 없음 · 높이 $h$ = 20 km 산에서 수평 발사($r$ = $R$ + $h$)',
-        try: { label: '실험 ① — $v_0$ 4 · 6 · 7.9 · 10 · 11.2 km/s 차례로', preset: 0 },
+        ] },
+        condition: { basic: '공기 없음 · 높은 산 위에서 옆으로 쏘아요', mid: '공기 없음 · 높이 $h$ = 20 km 산에서 수평 발사($r$ = $R$ + $h$)' },
+        try: { label: { basic: '실험 ① — 발사 속력 4 · 6 · 7.9 · 10 · 11.2 km/s 차례로', mid: '실험 ① — $v_0$ 4 · 6 · 7.9 · 10 · 11.2 km/s 차례로' }, preset: 0 },
         life: ['실험 결과: 4·6 km/s 추락 · 7.9 거의 원궤도 · 10 길쭉한 타원(모양만) · 11.2 km/s 이상 탈출.', '실제로는 산 위에서 쏘기 어려워, 로켓이 위로 올라간 뒤 옆으로 가속해 위성을 만들어요.', '로켓은 충돌 실험 ④(대포)와 같은 원리예요 — 가스를 뒤로 뿜어 앞으로 가요.'],
         svg: function (D) {
+          var B = SK0.level && SK0.level() === 'basic';
           var R = 500, CX = 400, CY = 700, top = 170;
           var k1 = 0.0031, k2 = 0.001477, p1 = [], p2 = [], x;
           for (x = 400; x <= 520; x += 6) p1.push([x, top + k1 * (x - 400) * (x - 400)]);
@@ -123,7 +208,7 @@
             D.curve(p1, { color: 'warn', w: 3 }), D.curve(p2, { color: 'warn', w: 3 }),
             '<path d="M386 200 L400 ' + top + ' L414 200 Z" style="fill:var(--color-paper-sunk);stroke:var(--color-line-strong);stroke-width:2"/>',
             D.ball(400, top, 7, { color: 'ink' }),
-            D.label(300, 120, '7.9 km/s: 떨어져도 땅에 닿지 않아요', { anchor: 'middle', color: 'sim', weight: 500 }),
+            D.label(290, 120, B ? '7.9 km/s(7900 m/s)면 땅에 닿지 않아요' : '7.9 km/s: 떨어져도 땅에 닿지 않아요', { anchor: 'middle', color: 'sim', weight: 500 }),   // 팀장 R9 결과(학생M): 오른쪽 위 상자(x 528~)에 가리지 않는 길이
             D.line(q1[0], q1[1], 458, 252, { color: 'muted', w: 1.5 }), D.dots([q1], { r: 4, color: 'muted' }), D.label(458, 268, '느리게', { anchor: 'middle' }),
             D.line(q2[0], q2[1], 646, 300, { color: 'muted', w: 1.5 }), D.dots([q2], { r: 4, color: 'muted' }), D.label(646, 316, '조금 더 빠르게', { anchor: 'middle' }),
             D.label(700, 200, '더 빠르게', { anchor: 'middle', color: 'muted' }),
@@ -131,8 +216,8 @@
             '<path d="M' + (bx + 14) + ' ' + (by + 108) + ' Q' + (bx + 130) + ' ' + (by + 96) + ' ' + (bx + 246) + ' ' + (by + 108) + '" style="fill:none;stroke:var(--color-primary);stroke-width:2.5"/>',
             '<path d="M' + (bx + 40) + ' ' + (by + 104) + ' L' + (bx + 64) + ' ' + (by + 52) + ' L' + (bx + 88) + ' ' + (by + 102) + '" style="fill:var(--color-paper-sunk);stroke:var(--color-line-strong);stroke-width:2"/>',
             D.dim(bx + 104, by + 101, bx + 104, by + 52, ''),
-            D.label(bx + 120, by + 78, '$h$ = 20 km', { size: 19, sym: 'h' }),
-            D.label(bx + 24, by + 26, '$r$ = $R$ + $h$ (과장)', { size: 18, sym: 'r' }),
+            D.label(bx + 120, by + 78, B ? '산' : '$h$ = 20 km', { size: 19, sym: B ? null : 'h' }),
+            D.label(bx + 24, by + 26, B ? '산 높이 (과장)' : '$r$ = $R$ + $h$ (과장)', { size: 18, sym: B ? null : 'r' }),
             D.line(470, 395, 520, 395, { color: 'warn', w: 3 }), D.label(530, 395, '추락', { size: 20 }),
             D.line(470, 425, 520, 425, { color: 'sim', w: 4, dash: '10 7' }), D.label(530, 425, '원궤도', { size: 20 }),
             D.line(620, 425, 670, 425, { color: 'muted', w: 2.5, dash: '14 6 3 6' }), D.label(680, 425, '타원', { size: 20 })
@@ -327,6 +412,23 @@
         },
         teacherNote: '실험 ⑤ "3 km/s로 쏘면?"에서 달만 탈출함을 확인해요. 정량 유도는 ½$mv^2$ = {{frac:$GMm$|$r$}} 한 줄로 충분해요. 더 해 보기: $v_0$ 를 √2 배(7.9 → 11.2 km/s)로.' },
 
+      /* ── R9 고급 전용 ── */
+      { id: 'derive-orbit', type: 'formula', levels: ['adv'], title: '궤도 속력 식 유도와 에너지 합',
+        body: [
+          '중력 = 구심력 에서 $v^2$ = {{frac:$GM$|$r$}}. 원궤도의 운동 에너지는 $E_k$ = ½$mv^2$ = {{frac:$GMm$|2$r$}} 이에요.',
+          '위치 에너지는 무한히 먼 곳을 0 으로 하면 $E_p$ = −{{frac:$GMm$|$r$}}. 합 $E$ = −{{frac:$GMm$|2$r$}} 는 음수라서 위성은 중력에 \'묶여\' 있어요.',
+          '탈출은 $E$ ≥ 0 일 때: ½$mv^2$ = {{frac:$GMm$|$r$}} → $v_{esc}$ = √2 $v$. 지표에서 7.9 → 11.2 km/s.'
+        ],
+        eq: [
+          { tex: '$v^2$ =', frac: ['$GM$', '$r$'], caption: '① 중력 = 구심력' },
+          { tex: '$E$ = $E_k$ + $E_p$ = −', frac: ['$GMm$', '2$r$'], caption: '② 원궤도의 역학적 에너지 (음수 = 묶여 있다)' },
+          { tex: '$E$ ≥ 0  →  $v_{esc}$ = √2 $v$', caption: '③ 탈출 조건' }
+        ],
+        symbols: [{ sym: '$v$', target: { sat: 'meter:v', cannon: 'v0' } }, { sym: '$M$', target: 'body' }, { sym: '$r$', target: 'alt' }],
+        condition: '원궤도 · 중력만 작용 · 무한히 먼 곳을 $E_p$ = 0 으로',
+        try: { label: '실험 ① — 7.9 → 11.2 km/s 로 쏘아 보기', preset: 0 },
+        teacherNote: '고급 전용. 에너지 합의 부호(−)가 \'묶여 있음\'을 뜻함을 말로 풀게 한다. 타원 궤도의 정량은 다루지 않는다(원운동 범위).' },
+
       /* 8장 */
       { id: 'kepler-1', type: 'diagram', title: '멀수록 1년이 더 길어요',
         body: [
@@ -360,7 +462,7 @@
         teacherNote: '[12역학01-04] 의 취지 — 관측(행성 자료) → 법칙(케플러) → 중력의 과학사(뉴턴)를 한 줄 곁들여요.' },
 
       /* 9장 */
-      { id: 'kepler-2', type: 'formula', title: '$T^2$ 과 $a^3$ 은 같은 비율',
+      { id: 'kepler-2', type: 'formula', levels: ['adv'], title: '$T^2$ 과 $a^3$ 은 같은 비율',
         body: [
           '$T^2$ 과 $a^3$ 을 계산하면 거의 같아요(케플러 제3법칙).',
           '그래서 $T^2$ – $a^3$ 그래프는 원점을 지나는 기울기 1 직선이에요(AU · 년). 예: 화성 $a^3$ ≈ $T^2$ ≈ 3.54.',
@@ -421,27 +523,38 @@
         ] },
 
       /* 11장 */
-      { id: 'check', type: 'check', title: '시뮬레이터에서 확인할 질문',
+      { id: 'check', type: 'check', levels: ['basic', 'mid', 'adv'], title: '시뮬레이터에서 확인할 질문',
         modes: [
           { key: 'mode', value: 'cannon', label: '뉴턴의 대포' },
           { key: 'mode', value: 'sat', label: '원궤도 위성' },
           { key: 'mode', value: 'kepler', label: '케플러 자료' }
         ],
         questions: [
-          { q: '산꼭대기에서 7.9 km/s 로 쏘면? (4 → 11.2 까지 차례로)', preset: 0, mode: 'cannon', set: { mode: 'cannon', v0: 7.9 }, chapter: 'cannon' },
+          { q: { basic: '산꼭대기에서 아주 빠르게(7.9 km/s) 쏘면 어떻게 될까?', mid: '산꼭대기에서 7.9 km/s 로 쏘면? (4 → 11.2 까지 차례로)' }, preset: 0, mode: 'cannon', set: { mode: 'cannon', v0: 7.9 }, chapter: 'cannon' },
           { q: '무거운 위성은 더 빨리 돌까? ($m$ 100 → 10,000 kg)', simple: false, preset: 1, mode: 'sat', set: { mass: 100 }, chapter: 'orbit-speed' },
           { q: '35,786 km 위성은 ISS 보다 빨리 돌까, 천천히 돌까? (고도 $h$)', simple: false, preset: 2, chapter: 'orbit-heights' },
           { q: '태양에서 멀수록 행성의 1년은? ($T^2$ – $a^3$)', simple: false, preset: 3, mode: 'kepler', chapter: 'kepler-2' },
-          { q: '3 km/s 로 쏘면 어느 천체에서 탈출할까?', preset: 4, set: { body: 'moon' }, chapter: 'escape' },
-          { q: '$v_0$ 를 √2 배(7.9 → 11.2 km/s) 하면?', simple: false, preset: 0, set: { v0: 11.2 }, predict: false, chapter: 'escape' }
+          { q: { basic: '3 km/s 로 쏘면 어느 천체에서 멀리 날아가 버릴까?', mid: '3 km/s 로 쏘면 어느 천체에서 탈출할까?' }, preset: 4, set: { body: 'moon' }, chapter: 'escape' },
+          { q: '$v_0$ 를 √2 배(7.9 → 11.2 km/s) 하면?', simple: false, preset: 0, set: { v0: 11.2 }, predict: false, chapter: 'escape' },
+          { q: '$r$ = 2$R$ (고도 6,371 km)의 원궤도 속력은? 식으로 먼저 구해 보세요.', levels: ['adv'], preset: 1, mode: 'sat', set: { mode: 'sat', alt: 6371 }, chapter: 'derive-orbit' }
         ],
-        teacherNote: '발문: ISS 안의 사람은 왜 뜨는가?(→ 6장) · 3 km/s 로 쏘면 달·화성·지구에서 각각? · 7.9 km/s 와 11.2 km/s 의 비는?(약 1.41 = √2)' },
+        teacherNote: '초급 질문은 ①⑤ 두 장면만(대포 갈래). 고급은 케플러 갈래를 기본으로 두고 $r$ = 2$R$ 질문을 더한다.\n발문: ISS 안의 사람은 왜 뜨는가?(→ 6장) · 3 km/s 로 쏘면 달·화성·지구에서 각각? · 7.9 km/s 와 11.2 km/s 의 비는?(약 1.41 = √2)' },
 
       /* 정리 모달 전용 (설명 순서에서는 빠진다) */
       { id: 'wrap', type: 'wrap', title: '실험 뒤 정리',
         summary: ['위성은 중력을 구심력 삼아 **계속 떨어지며 돌아요**. 그 속력은 위성 자신의 질량과는 무관하고, 중심 천체의 질량 $M$ 과 거리 $r$ 로 정해져요($v$ = √({{frac:$GM$|$r$}})).',
           '탈출하려면 천체마다 정해진 속력 $v_{esc}$ 이상이 필요해요. 자기 점검: "나는 ___ 를 이제 설명할 수 있어요 / 아직 헷갈려요."'],
         quiz: [
+          /* ── R9 초급 3문항 (levels:['basic']) — 중급 문항은 R8 그대로 ── */
+          { kind: 'concept', levels: ['basic'], q: '산꼭대기에서 포탄을 아주 느리게 쏘면 어떻게 될까?',
+            choices: ['곧 땅에 떨어져요', '지구를 돌아요', '우주로 날아가요'], answerIdx: 0,
+            why: '속력이 부족하면 중력에 끌려 가까운 곳에 곡선으로 떨어져요.', chapter: 'cannon', try: { preset: 0, set: { v0: 4 } } },
+          { kind: 'compare', levels: ['basic'], q: '약 7.9 km/s 로 쏘면 어떻게 될까?',
+            choices: ['바로 떨어져요', '떨어지는 만큼 땅이 휘어 멀어져서 지구를 계속 돌아요', '중력이 사라져요'], answerIdx: 1,
+            why: '계속 떨어지는 중이지만 땅에 닿지 않아요(공기 저항이 없을 때).', chapter: 'cannon', try: { preset: 0, set: { v0: 7.9 } } },
+          { kind: 'misconception', levels: ['basic'], q: '"우주 정거장에서 몸이 뜨는 것은 그곳에 중력이 없어서다." 이 말은?',
+            choices: ['맞아요', '아니에요, 중력은 있고 같이 떨어지며 돌아서 뜬 것처럼 느껴요', '공기가 없어서예요'], answerIdx: 1,
+            why: '400 km 높이에서도 중력은 지표의 약 89 % 예요.', chapter: 'cannon', try: { preset: 0 } },
           { kind: 'concept', q: '같은 400 km 높이의 원궤도를 도는 위성 두 대의 질량이 10배 차이 나요. 속력은?',
             choices: ['무거운 쪽이 더 빠르다', '가벼운 쪽이 더 빠르다', '두 위성의 속력이 같다'], answerIdx: 2,
             why: '$v$ = √({{frac:$GM$|$r$}}) 에 위성 질량 $m$ 이 없어요. 속력은 중심 천체 질량 $M$ 과 거리 $r$ 로만 정해져요.', chapter: 'orbit-speed', try: { preset: 1, set: { mass: 10000 } } },
@@ -469,6 +582,7 @@
             why: '$T^2$ ∝ $a^3$ 이라 $T^2$ = 4³ = 64, $T$ = 8년이에요.', chapter: 'kepler-2', try: { preset: 3 } }
         ],
         more: [
+          { levels: ['adv'], q: '$r$ = 2$R$ 에서 원궤도 속력은?', answer: '약 5.6 km/s', why: '$v$ = √({{frac:$GM$|$r$}}) 이라 $r$ 이 2배면 7.9 ÷ √2 ≈ 5.59 km/s.', chapter: 'derive-orbit' },
           { q: '같은 3 km/s 로 쏘면 달·화성·지구 중 어디서 탈출할까?', answer: '달', why: '탈출 속도 달 2.4 < 3 < 화성 5.0 · 지구 11.2 km/s.', chapter: 'escape' },
           { q: '7.9 km/s 와 11.2 km/s 의 비는?', answer: '약 1 : √2 (1 : 1.41)', why: '$v_{esc}$ = √2 $v$ (지표 부근).', chapter: 'escape' },
           { q: '더 높은 원궤도로 옮겨 가면 새 원궤도의 속력은 커질까, 작아질까?', answer: '작아진다', why: '$v$ ∝ {{frac:1|√$r$}} — 에너지는 더 들지만 높은 원궤도는 느려요.', chapter: 'orbit-heights' }

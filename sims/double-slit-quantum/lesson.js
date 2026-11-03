@@ -104,7 +104,7 @@
       { code: '12전자03-01', subj: '전자기와 양자', text: '이중 슬릿으로 입자-파동 이중성(정성)' },
       { code: '12물리03-03', subj: '물리학', text: '연계: 이중성의 기술 활용' }
     ],
-    simple: ['goal', 'wave-words', 'path-diff', 'dy', 'matter-wave', 'check'],
+    // R9: data.simple 은 장마다 levels 로 대체(초급 = goal · wave-words · dy-see · check, 앞에 복습 3장 · 고급 전용 derive·limits)
     /* R7-2: 용어·기호 사전 — 결과 해설·정리 문항·식 팝업이 같은 말을 쓴다 (where = 실험 화면에서 강조할 곳) */
     terms: [
       { term: '슬릿', mean: '빛이나 전자가 지나가는 아주 좁은 틈. 이중 슬릿 = 틈 두 개' },
@@ -121,15 +121,92 @@
       { term: '모형 눈금', mean: '전자 실험의 $d$·$L$·줄 간격은 화면에 보이게 키운 눈금 — 실제 간격은 훨씬 좁아요' }
     ],
     chapters: [
-      /* 1장 */
-      { id: 'goal', type: 'goal', title: '빛과 전자는 두 틈을 지나 무엇을 만들까?',
-        question: '전자를 한 개씩 보내도 무늬가 생길까?',
+
+      /* ── R9 중학교에서 배운 것 (복습 1~3) — 원고 docs/교과설명/double-slit-quantum_중학교.md · 성취기준 코드 없음 ──
+         3장의 '물결 겹침' 은 중학교에서 정식으로 배우지 않았을 수 있어 '물결에서 본 것' 으로 쓴다(정직성) */
+      { id: 'mid-school-1', type: 'review', no: 1, of: 3, title: '파동은 무엇을 옮길까?',
+        source: '중학교 과학 「빛과 파동」 계열 단원',
         body: [
+          '물 위에 나뭇잎을 띄우고 물결을 만들면, 잎은 제자리에서 위아래로만 움직여요. 물결 모양은 멀리 퍼져 가는데도요. 그래서 파동은 물질이 이사 가는 것이 아니라 **흔들림**이 옮겨 가는 것이에요.',
+          '가장 높은 곳이 **마루**, 가장 낮은 곳이 **골**이에요. 마루에서 다음 마루까지 거리가 **파장**(물결 한 칸의 길이), 가만히 있을 때 높이에서 마루까지가 **진폭**이에요.',
+          '1초에 몇 번 흔들리는지가 **진동수**(Hz), 한 번 흔들리는 데 걸리는 시간이 **주기**예요. 주기 = 1 ÷ 진동수.'
+        ],
+        terms: ['마루', '골', '파장', '진폭', '진동수', '주기'],
+        bridge: '이 단원에서는 \'파장\'이라는 말만 기억하면 돼요. 파장이 길고 짧음이 줄무늬 간격을 바꿔요.',
+        selfcheck: { q: '파동이 지나갈 때 물 위의 나뭇잎은 어떻게 움직일까요?', choices: ['제자리에서 위아래로 움직여요', '파동을 따라 멀리 가요', '가만히 있어요'], answerIdx: 0, why: '흔들림만 전해지고 물은 이동하지 않아요.' },
+        teacherNote: ['성취기준 코드 미확인 — 단원명만 표기(학년·단원명 확인 필요 — 학생 화면에는 표시하지 않음). \'파동의 속력 = 진동수 × 파장\' 은 중학교 범위가 불확실해 쓰지 않았다.'],
+        svg: function (D) {
+          var k = [], x0 = 70, w = 660, lam = w / 3, cx1 = x0 + lam / 4, cx2 = cx1 + lam, y = 210, A = 44;
+          k.push(D.line(x0, y, x0 + w, y, { color: 'muted', w: 1.5, dash: '6 6' }));
+          k.push(D.wave(x0, y, w, A, 3, { color: 'sim', w: 3.5, phase: 0 }));
+          k.push(D.dots([[cx1, y - A], [cx2, y - A]], { r: 7, color: 'warn' }));
+          k.push(D.dim(cx1, y - A - 34, cx2, y - A - 34, '파장', { off: -22 }));
+          k.push(D.dim(cx1 - 30, y, cx1 - 30, y - A, '', {})); k.push(D.label(cx1 - 42, y - A / 2, '진폭', { anchor: 'end', size: 20 }));
+          k.push(D.ball(560, y + 120, 11, { color: 'warn' })); k.push(D.arrow(560, y + 104, 560, y + 62, { color: 'muted' })); k.push(D.arrow(560, y + 136, 560, y + 178, { color: 'muted' }));
+          k.push(D.label(580, y + 120, '나뭇잎: 위아래로만', { anchor: 'start', size: 20 }));
+          return D.svg(k, { title: '물결(파동)의 모양', how: '물결은 옆으로 퍼져 가지만 나뭇잎은 제자리에서 위아래로만 움직여요' });
+        } },
+      { id: 'mid-school-2', type: 'review', no: 2, of: 3, title: '빛도 파동이에요, 색마다 파장이 달라요',
+        source: '중학교 과학 「빛과 파동」 계열 단원 — 직진·반사·굴절·프리즘',
+        body: [
+          '빛은 곧게 나아가고(직진), 거울에서 튕기고(반사), 물이나 유리에서 꺾여요(굴절). 햇빛이 프리즘을 지나면 빨주노초파남보로 갈라져요. 색마다 꺾이는 정도가 달라서예요.',
+          '색의 차이는 **파장**(물결 한 칸의 길이, 복습 1)의 차이예요. 빨간빛은 파장이 길어서 약 650 nm, 파란빛은 짧아서 약 450 nm 예요.',
+          '1 nm 는 10억 분의 1 m 예요. 빨간빛의 파장 650 nm 는 머리카락 굵기(약 0.07 mm)의 100분의 1쯤 — 아주 짧아요.'
+        ],
+        terms: ['직진', '반사', '굴절', '색(파장)', 'nm'],
+        bridge: '중학교에서는 빛 하나가 꺾이는 것까지 배웠어요. 이제 빛 두 줄기가 한곳에서 만나면 어떻게 되는지를 더해요.',
+        selfcheck: { q: '빨간빛과 파란빛 중 파장이 더 긴 빛은?', choices: ['빨간빛', '파란빛', '같아요'], answerIdx: 0, why: '빨강 약 650 nm, 파랑 약 450 nm 예요.' },
+        teacherNote: ['성취기준 코드 미확인 — 단원명만 표기. 빛을 파동이라 부르는 표현의 중학교 사용 범위는 (확인 필요). 수정(교사P): 0.07 mm ÷ 650 nm ≈ 108 이므로 100분의 1 은 650 nm 파장에 대한 비율이다(1 nm 는 머리카락의 약 7만분의 1). 본문을 그렇게 고쳤다.'],
+        svg: function (D) {
+          var k = [], cols = ['#C0392B', '#D9822B', '#C9A227', '#2E8B57', '#2F6DB5', '#5B5F97'];
+          // 팀장 R9 결과(교사P): 빛은 프리즘 밑변 쪽(아래)으로 꺾인다 — 왼쪽 면(x 210)에서 들어가 오른쪽 면(x 298)에서 나와 아래로 퍼짐, 빨강이 가장 덜 꺾임
+          k.push(D.path('M250 70 L330 230 L170 230 Z', { color: 'ink', w: 2.5, fill: 'tint' }));
+          k.push(D.line(60, 150, 210, 150, { color: 'ink', w: 5 }));
+          k.push(D.line(210, 150, 298, 166, { color: 'ink', w: 3 }));
+          cols.forEach(function (c, i) { k.push('<line x1="298" y1="166" x2="720" y2="' + (186 + i * 22) + '" style="stroke:' + c + ';stroke-width:4;stroke-linecap:round"/>'); });
+          k.push(D.label(60, 120, '햇빛', { anchor: 'start', size: 20 })); k.push(D.label(250, 258, '프리즘', { anchor: 'middle', size: 20 }));
+          k.push(D.bar(110, 380, 580, 22, { fill: '#2E8B57' }));
+          k.push(D.wave(120, 330, 150, 16, 1.5, { color: '#5B5F97', w: 3 })); k.push(D.wave(540, 330, 150, 16, 4.5, { color: '#C0392B', w: 3 }));
+          k.push(D.label(110, 410, '400 nm 보라', { anchor: 'start', size: 20, bg: false })); k.push(D.label(690, 410, '700 nm 빨강', { anchor: 'end', size: 20, bg: false })); k.push(D.label(400, 410, '550 초록', { anchor: 'middle', size: 20, bg: false }));
+          return D.svg(k, { title: '프리즘과 파장', how: '빛은 색마다 파장이 달라요 — 파장이 길수록 빨강 쪽' });
+        } },
+      { id: 'mid-school-3', type: 'review', no: 3, of: 3, title: '물결에서 본 것: 틈을 지나 퍼지고, 두 물결이 만나면',
+        source: '물결의 퍼짐(회절)·겹침은 중학교에서 정식으로 배우지 않았을 수 있어요 — \'물결 놀이에서 본 것\' 으로 소개해요',
+        body: [
+          '물결이 좁은 틈을 지나면 틈 뒤에서 동그랗게 퍼져 나가요. 틈이 좁을수록 더 동그랗게 퍼져요.',
+          '틈이 두 개면 두 곳에서 동그란 물결이 나와요. 두 물결이 만나는 곳에서는 어떤 곳은 크게 출렁이고, 어떤 곳은 거의 잔잔해요.',
+          '크게 출렁이는 곳은 마루와 마루(또는 골과 골)가 만난 곳, 잔잔한 곳은 마루와 골이 만난 곳이에요.'
+        ],
+        terms: ['퍼짐', '겹침'],
+        bridge: '중학교에서는 파동 하나를 봤어요. 이제 두 파동이 만나면 더해진다는 것을 더해요. 빛도 두 틈을 지나면 이렇게 겹쳐서 밝은 줄과 어두운 줄을 만들어요.',
+        selfcheck: { q: '두 물결이 만나 잔잔해진 곳에서는 어떤 모양이 만난 걸까요?', choices: ['마루와 골', '마루와 마루', '골과 골'], answerIdx: 0, why: '올라가려는 것과 내려가려는 것이 서로 지워요.' },
+        teacherNote: ['성취기준 코드 미확인. 두 물결의 겹침은 중학교 정식 내용이 아닐 수 있다 — \'본 것\' 으로 라벨(정직성). 맞히면 건너뛰기 안내.'],
+        svg: function (D) {
+          var k = [];
+          k.push(D.slit(200, 235, 330, { gap: 22, sep: 90 }));
+          k.push(D.ripples(206, 190, 22, 28, 5, { color: 'sim', w: 2 })); k.push(D.ripples(206, 280, 22, 28, 5, { color: 'sim', w: 2 }));   // 팀장 R9 결과(학생M): 제목 줄(y 34)과 겹치지 않는 크기
+          k.push(D.line(350, 90, 350, 380, { color: 'muted', w: 1.2, dash: '4 6' }));
+          [[350, 235], [350, 176], [350, 294]].forEach(function (c) { k.push(D.dots([c], { r: 9, color: 'warn' })); });
+          [[350, 205], [350, 265]].forEach(function (c) { k.push(D.dots([c], { r: 9, color: 'ink', hollow: true })); });
+          k.push(D.dots([[520, 160]], { r: 9, color: 'warn' })); k.push(D.label(540, 160, '크게 출렁', { anchor: 'start', size: 22 }));
+          k.push(D.dots([[520, 210]], { r: 9, color: 'ink', hollow: true })); k.push(D.label(540, 210, '거의 잔잔', { anchor: 'start', size: 22 }));
+          k.push(D.label(540, 258, '마루+마루 → 크게', { anchor: 'start', size: 20, color: 'muted' })); k.push(D.label(540, 288, '마루+골 → 잔잔', { anchor: 'start', size: 20, color: 'muted' }));
+          k.push(D.label(190, 428, '틈 두 개(위에서 본 수조)', { anchor: 'middle', size: 20, color: 'muted' }));   // 팀장 R9 결과: 틈 막대 끝(y 400) 아래
+          return D.svg(k, { title: '두 틈에서 퍼지는 물결', how: '반원 = 퍼져 가는 물결 · 두 물결이 만나는 곳이 크게 출렁이거나(●) 잔잔해요(○)' });
+        } },
+      /* 1장 */
+      { id: 'goal', type: 'goal', title: '빛과 전자는 두 틈을 지나 무엇을 만들까?', levels: ['basic', 'mid', 'adv'],
+        question: { basic: '빛이 두 틈을 지나면 스크린에 무엇이 생길까?', mid: '전자를 한 개씩 보내도 무늬가 생길까?' },
+        body: { basic: [
+          '빛이 두 개의 좁은 틈을 지나면 스크린에 밝은 줄과 어두운 줄이 번갈아 생겨요. 이것이 **줄무늬**(간섭 무늬)예요.',
+          '이 장면으로 빛이 파동임을 확인하고, 색(파장)이나 틈 사이 거리를 바꾸면 밝은 줄 사이가 어떻게 달라지는지 알아봐요.'
+        ], mid: [
           '빛이 두 개의 좁은 틈({{슬릿}})을 지나면 스크린에 밝은 줄과 어두운 줄이 번갈아 생겨요. 이것이 **간섭 무늬**예요.',
           '이 장면으로 빛이 파동임을 확인하고, 무늬 간격이 무엇에 달려 있는지 알아봐요. 마지막에는 전자와 {{광자}}를 한 개씩 보내도 무늬가 생기는지 확인해요.'
-        ],
-        goals: ['간섭 무늬가 생기는 까닭', '무늬 간격 $Δy$ 는 $λ$·$L$ 에 비례, $d$ 에 반비례', '하나씩 보낸 전자·광자가 만드는 무늬'],
+        ] },
+        goals: { basic: ['줄무늬가 왜 생길까', '색과 틈을 바꾸면 줄 사이가 어떻게 변할까'], mid: ['간섭 무늬가 생기는 까닭', '무늬 간격 $Δy$ 는 $λ$·$L$ 에 비례, $d$ 에 반비례', '하나씩 보낸 전자·광자가 만드는 무늬'] },
         svg: function (D) {
+          var B = SK.level && SK.level() === 'basic';
           var bars = [[225, 22], [185, 14], [265, 14], [145, 8], [305, 8]];
           return D.svg([
             source(D, 50, 225, 'light'),
@@ -138,34 +215,38 @@
             ripples(D, 386, 200, [40, 85, 130]), ripples(D, 386, 250, [40, 85, 130]),
             screenSide(668, 225, 34, 300, bars),
             D.label(95, 285, '레이저', { anchor: 'middle', weight: 500 }),
-            D.label(380, 384, '이중 슬릿', { anchor: 'middle', weight: 500 }),
+            D.label(380, 384, B ? '두 개의 틈' : '이중 슬릿', { anchor: 'middle', weight: 500 }),
             D.label(685, 400, '스크린', { anchor: 'middle', weight: 500 }),
             D.label(714, 225, '밝은 줄', { size: 18, color: 'muted' }),
             D.label(685, 54, '옆에서 본 모습', { anchor: 'middle', size: 18, color: 'muted', bg: true })   // R7-3(B1): 6장 '정면' 그림과 이어 읽기
           ], { title: '레이저 — 이중 슬릿 — 스크린', how: '밝은 막대 = 빛이 모여 밝은 줄 · 가운데 줄이 가장 밝아요' });
         },
-        teacherNote: '설명 10분 + 실험 20분 + 정리 10분 흐름. 레이저를 눈에 직접 비추지 않기를 한 줄 환기해요.' },
+        teacherNote: '설명 10분 + 실험 20분 + 정리 10분 흐름. 레이저를 눈에 직접 비추지 않기를 한 줄 환기해요.\n초급에서는 path-diff·dy·dy-calc·photon·matter-wave·which-way·life·misc 를 건너뜁니다(식·위상 차·물질파가 고등 단계). 대신 dy-see 장이 \'표 한 개\'로 규칙만 보여 줘요.' },
 
       /* 2장 */
-      { id: 'wave-words', type: 'concept', title: '두 파동이 만나면?',
-        body: [
+      { id: 'wave-words', type: 'concept', title: '두 파동이 만나면?', levels: ['basic', 'mid', 'adv'],
+        body: { basic: [
+          '파동에서 마루와 마루가 만나면 더 커지고(밝아져요), 마루와 골이 만나면 지워져요(어두워져요).',
+          '빛도 두 갈래가 스크린에서 만나면 이렇게 더해져요. 마루끼리 만나는 곳은 밝은 줄, 마루와 골이 만나는 곳은 어두운 줄이에요.'
+        ], mid: [
           '{{파장}} $λ$ 는 마루에서 다음 마루까지 거리예요. 빨간빛은 약 650 nm, 파란빛은 약 450 nm 예요. (1 nm = 10⁻⁹ m)',
           '두 파동이 만나면 더해져요(**중첩**). 마루끼리 만나 더 커지는 것이 **보강 간섭**, 마루와 골이 만나 지워지는 것이 **상쇄 간섭**이에요.',
           '두 파동의 마루·골이 어긋난 정도를 **위상 차**라고 해요. 두 파동의 경로차가 파장 $λ$ 의 정수배(1배, 2배, 3배 …)이면 마루끼리 만나 보강돼요.'
-        ],
+        ] },
         svg: function (D) {
+          var B = SK.level && SK.level() === 'basic';
           var x0 = 170, x1 = 770, lam = 200;
           return D.svg([
-            D.label(30, 120, '보강', { weight: 500, size: 24 }), D.label(30, 148, '마루 + 마루', { size: 18, color: 'muted' }),
+            D.label(30, 120, B ? '밝아져요' : '보강', { weight: 500, size: 24 }), D.label(30, 148, '마루 + 마루', { size: 18, color: 'muted' }),
             D.path(sine(x0, x1, 130, 34, lam, 0), { color: 'muted', w: 1.5, dash: '7 6' }),
             D.path(sine(x0, x1, 130, 68, lam, 0), { color: 'sim', w: 4 }),
-            D.dim(220, 46, 420, 46, ''), D.label(320, 28, '$λ$', { anchor: 'middle', size: 22, sym: 'λ' }),
-            D.label(30, 320, '상쇄', { weight: 500, size: 24 }), D.label(30, 348, '마루 + 골', { size: 18, color: 'muted' }),
+            D.dim(220, 46, 420, 46, ''), D.label(320, 28, B ? '파장' : '$λ$', { anchor: 'middle', size: 22, sym: B ? null : 'λ' }),
+            D.label(30, 320, B ? '어두워져요' : '상쇄', { weight: 500, size: 24 }), D.label(30, 348, '마루 + 골', { size: 18, color: 'muted' }),
             D.path(sine(x0, x1, 330, 34, lam, 0), { color: 'muted', w: 1.5 }),
             D.path(sine(x0, x1, 330, 34, lam, Math.PI), { color: 'muted', w: 1.5, dash: '7 6' }),
             D.line(x0, 330, x1, 330, { color: 'sim', w: 4 }),
-            D.label(770, 214, '합친 파동: 진폭 2배', { anchor: 'end', size: 18, color: 'sim', bg: true }),
-            D.label(770, 400, '합친 파동: 평평(지워짐)', { anchor: 'end', size: 18, color: 'sim', bg: true })
+            D.label(770, 214, B ? '합치면 2배 커져요' : '합친 파동: 진폭 2배', { anchor: 'end', size: 18, color: 'sim', bg: true }),
+            D.label(770, 400, B ? '합치면 지워져요' : '합친 파동: 평평(지워짐)', { anchor: 'end', size: 18, color: 'sim', bg: true })
           ], { title: '두 파동이 만날 때', how: '가는 선 = 만나는 두 파동 · 굵은 선 = 더한 결과' });
         },
         life: ['소음 제거 이어폰은 소리와 반대 위상의 소리를 내어 상쇄시켜요.', '수조에서 두 물결이 겹치면 크게 출렁이는 곳과 잔잔한 곳이 생겨요.'] },
@@ -203,6 +284,27 @@
         },
         life: ['비누막의 무지갯빛은 얇은 막 앞뒤에서 반사한 빛이 간섭해서 생겨요.'],
         teacherNote: '"가운데는 왜 늘 밝을까?" → 두 길의 길이가 같아 경로차가 0이기 때문이에요.' },
+
+      /* ── R9 초급 신설: 식 없이 규칙만 (표 한 개) ── */
+      { id: 'dy-see', type: 'concept', levels: ['basic'], title: '줄 사이는 무엇에 따라 달라질까?',
+        body: [
+          '색(파장)이나 틈 사이 거리를 바꾸면 밝은 줄 사이가 달라져요. 아래 표처럼 색이 짧을수록(파랑 쪽), 두 틈이 멀수록 줄이 촘촘해져요.',
+          '직접 실험으로 바꿔 보고, 표와 같은지 확인해요.'
+        ],
+        eq: { basic: [{ tex: '색이 짧을수록 · 틈이 멀수록 → 줄이 촘촘해요' }], mid: [] },
+        table: { head: ['바꾼 것', '밝은 줄 사이'], rows: [['색을 빨강 → 파랑 (파장이 짧아져요)', '좁아져요 (촘촘)'], ['두 틈 사이를 넓히면', '좁아져요 (촘촘)'], ['틈을 하나만 열면', '줄무늬가 사라지고 넓은 띠 하나']] },
+        try: { label: '실험 ② 빨강을 파랑으로 바꿔 보기', mode: 'physics', card: 1 },
+        teacherNote: '초급 전용(식 없음). 규칙 표 3줄 = 카드 ②③④. 첫 기록에는 비교 대상이 없으니 색이나 틈을 바꿔 한 번 더 하게 한다.',
+        svg: function (D) {
+          var k = [];
+          [['빨강', 150, 40], ['파랑', 300, 24]].forEach(function (r, i) {
+            k.push(D.label(40, r[1], r[0], { anchor: 'start', weight: 500 }));
+            for (var j = -3; j <= 3; j++) k.push(D.bar(300 + j * r[2] * 3.4 - 6, r[1] + 20, 12, 40, { fill: i ? '#2F6DB5' : '#C0392B' }));
+            k.push(D.label(560, r[1], i ? '촘촘' : '넓어요', { anchor: 'start', size: 22, color: 'muted' }));
+          });
+          k.push(D.label(400, 390, '밝은 줄이 나란히 — 사이가 달라져요', { anchor: 'middle', size: 22, bg: false }));
+          return D.svg(k, { title: '색에 따라 달라지는 밝은 줄 사이', how: '파장이 짧은 파랑은 밝은 줄 사이가 더 좁아요(그림은 모양만)' });
+        } },
 
       /* 4장 */
       { id: 'dy', type: 'formula', title: '무늬 간격은 무엇에 달려 있을까?',
@@ -352,6 +454,30 @@
         life: ['어느 길인지 정보가 남으면 간섭이 사라지는 성질은 양자 기술의 바탕이에요. (연계 [12전자03-02])'],
         teacherNote: '시간이 부족하면 건너뛰고 실험 ④ 측정기를 켜면?에서 직접 보여 줘도 돼요.' },
 
+      /* ── R9 고급 전용 ── */
+      { id: 'derive', type: 'formula', levels: ['adv'], title: '무늬 간격 식을 직접 유도해요',
+        body: [
+          '두 틈에서 스크린 위 높이 $y$ 인 점까지 경로차는 $δ$ = $d$ sin $θ$ 예요. 밝은 줄 조건 $δ$ = $mλ$ 에서 $d$ sin $θ$ = $mλ$.',
+          '$θ$ 가 아주 작으면 sin $θ$ ≈ tan $θ$ = {{frac:$y$|$L$}}. 그래서 $y_m$ = {{frac:$mλL$|$d$}}, 이웃한 줄 사이는 $Δy$ = {{frac:$λL$|$d$}} 예요.'
+        ],
+        eq: [
+          { tex: '$δ$ = $d$ sin $θ$ = $mλ$', caption: '① 경로차 = 파장의 정수배' },
+          { tex: '$y_m$ =', frac: ['$mλL$', '$d$'], caption: '② $y$ = $L$ tan $θ$ ≈ $L$ sin $θ$' },
+          { tex: '$Δy$ =', frac: ['$λL$', '$d$'], caption: '③ $y_{m+1}$ − $y_m$' }
+        ],
+        symbols: [{ sym: '$λ$', name: '파장', unit: 'm', target: LAM }, { sym: '$L$', name: '스크린 거리', unit: 'm', target: LL }, { sym: '$d$', name: '슬릿 간격', unit: 'm', target: DD }],
+        condition: '$d$ ≪ $L$ · 줄이 가운데 가까이($θ$ 작음)',
+        try: { label: '실험 ① 로 $Δy$ 재 보기', mode: 'physics', card: 0 },
+        teacherNote: '고급 전용. 줄 11개의 양 끝 거리를 재면 간격은 10칸임을 짚는다(예: 49.5 mm → 4.95 mm). 이론값과 측정값의 차이는 줄 가운데를 고르는 눈 오차.' },
+      { id: 'limits', type: 'concept', levels: ['adv'], title: '식이 맞는 범위와 한계',
+        body: [
+          '$Δy$ = {{frac:$λL$|$d$}} 는 $d$ ≪ $L$ 이고 $y$ ≪ $L$ 일 때 쓰는 근사식이에요. $L$ = 2.0 m, $y$ = 26 mm 면 tan $θ$ 와 sin $θ$ 의 차는 약 0.01 % 미만이라 충분히 정확해요.',
+          '슬릿 한 개의 폭 $a$ 는 줄 사이가 아니라 바깥쪽 줄의 **밝기 윤곽**(회절 띠)을 정해요. $d$ = 0.25 mm, $a$ = 0.05 mm 이면 5, 10, … 번째 밝은 줄이 사라져요.',
+          '전자 실험의 $d$·$L$·줄 사이는 화면에 보이게 키운 **모형 눈금**이에요. 실제 값이 아니에요.'
+        ],
+        condition: '$d$ ≪ $L$ · 모형 눈금은 화면용',
+        teacherNote: '고급 전용. ⚙ 더 많은 설정의 슬릿 폭 $a$ 를 0.05 → 0.10 mm 로 바꿔 바깥쪽 줄이 빨리 어두워지는 것을 보여 준다.' },
+
       /* 9장 */
       { id: 'life', type: 'life', title: '우리 둘레의 간섭과 이중성',
         body: [
@@ -402,24 +528,25 @@
         teacherNote: '보조 오개념: "빛은 파동이라서 입자성은 없다"(→ 6장, 실험 ② 광자 하나씩) · "측정기를 켜면 사람이 봐서 사라진다"(→ 정보가 남아서) · "슬릿 하나만 열면 줄 수가 반"(→ 넓은 띠 하나, 빛 실험 ⑤) · "무늬 간격은 슬릿 하나의 폭이 정한다"(→ 간격은 $d$, 폭 $a$ 는 바깥 윤곽 — ⚙ 더 많은 설정의 슬릿 폭).' },
 
       /* 11장 — 빛 탭 / 전자 탭 (탭당 5개, 라벨 '실험 ①') */
-      { id: 'check', type: 'check', title: '시뮬레이터에서 확인할 질문',
+      { id: 'check', type: 'check', levels: ['basic', 'mid', 'adv'], title: '시뮬레이터에서 확인할 질문',
         tabs: [
           { id: 'light', label: '빛으로 해 보기', mode: { key: 'entry', value: 'physics' } },
-          { id: 'electron', label: '전자로 해 보기', mode: { key: 'entry', value: 'quantum' } }
+          { id: 'electron', label: '전자로 해 보기', levels: ['mid', 'adv'], mode: { key: 'entry', value: 'quantum' } }   // R9: 초급은 '다른 갈래 보기 ▸' 로 접음
         ],
         questions: [
-          { tab: 'light', q: '빛이 두 틈을 지나면 어떤 무늬가 생기고, 줄 간격은 얼마일까?', mode: 'physics', card: 0, cardName: '밝은 줄 간격 재기', chapter: 'dy-calc' },
-          { tab: 'light', q: '빨강을 파랑으로 바꾸면 간격은 어떻게 될까?', mode: 'physics', card: 1, cardName: '빨강과 파랑', chapter: 'dy' },
-          { tab: 'light', q: '슬릿 간격을 두 배로 하면?', mode: 'physics', card: 2, cardName: '슬릿 간격 2배', chapter: 'dy' },
-          { tab: 'light', q: '스크린을 더 멀리 두면?', mode: 'physics', card: 3, cardName: '스크린을 멀리', chapter: 'dy' },
-          { tab: 'light', q: '슬릿을 하나만 열면 줄무늬가 반이 될까?', mode: 'physics', card: 4, cardName: '슬릿 하나만?', chapter: 'path-diff' },
-          { tab: 'electron', q: '전자를 한 개씩 보내면 처음 점은? 쌓이면?', mode: 'quantum', card: 0, cardName: '전자 하나씩', chapter: 'matter-wave' },
-          { tab: 'electron', q: '광자를 하나씩 보내도 같을까?', mode: 'quantum', card: 1, cardName: '광자 하나씩', chapter: 'photon' },
-          { tab: 'electron', q: '아주 작은 구슬을 보내면?', mode: 'quantum', card: 2, cardName: '작은 구슬이면?', chapter: 'matter-wave' },
-          { tab: 'electron', q: '어느 슬릿인지 알아내는 측정기를 켜면?', mode: 'quantum', card: 3, cardName: '측정기를 켜면?', chapter: 'which-way' },
-          { tab: 'electron', q: '가속 전압 $V$ 를 4배(4000 V)로 하면 무늬 간격은?', mode: 'quantum', card: 0, cardName: '전자 하나씩 · 4000 V', set: { V: 4000 }, predict: false, chapter: 'matter-wave' }
+          { tab: 'light', q: { basic: '빨간 빛이 두 틈을 지나면 스크린에 무엇이 생길까?', mid: '빛이 두 틈을 지나면 어떤 무늬가 생기고, 줄 간격은 얼마일까?' }, mode: 'physics', card: 0, cardName: { basic: '빨간 빛 보기', mid: '밝은 줄 간격 재기' }, chapter: 'dy-calc' },
+          { tab: 'light', q: { basic: '빨간 빛 대신 파란 빛을 비추면 밝은 줄 사이는?', mid: '빨강을 파랑으로 바꾸면 간격은 어떻게 될까?' }, mode: 'physics', card: 1, cardName: '빨강과 파랑', chapter: 'dy' },
+          { tab: 'light', q: { basic: '두 틈 사이를 더 넓히면 밝은 줄 사이는?', mid: '슬릿 간격을 두 배로 하면?' }, mode: 'physics', card: 2, cardName: { basic: '두 틈 사이 넓히기', mid: '슬릿 간격 2배' }, chapter: 'dy' },
+          { tab: 'light', q: '스크린을 더 멀리 두면?', levels: ['mid', 'adv'], mode: 'physics', card: 3, cardName: '스크린을 멀리', chapter: 'dy' },
+          { tab: 'light', q: { basic: '틈을 하나만 열면 줄무늬는 어떻게 될까?', mid: '슬릿을 하나만 열면 줄무늬가 반이 될까?' }, mode: 'physics', card: 4, cardName: '슬릿 하나만?', chapter: 'path-diff' },
+          { tab: 'light', q: '$λ$ 550 nm, $d$ 0.20 mm, $L$ 1.8 m 일 때 $Δy$ 를 먼저 계산하고 실험 값과 비교해 보세요.', levels: ['adv'], mode: 'physics', card: 0, cardName: '밝은 줄 간격 · 계산과 비교', set: { lam: 550, d: 0.2, L: 1.8 }, predict: false, chapter: 'derive' },
+          { tab: 'electron', q: { basic: '전자를 한 개씩 보내면 처음 점은? 쌓이면?', mid: '전자를 한 개씩 보내면 처음 점은? 쌓이면?' }, mode: 'quantum', card: 0, cardName: '전자 하나씩', chapter: 'matter-wave' },
+          { tab: 'electron', q: '광자를 하나씩 보내도 같을까?', levels: ['mid', 'adv'], mode: 'quantum', card: 1, cardName: '광자 하나씩', chapter: 'photon' },
+          { tab: 'electron', q: '아주 작은 구슬을 보내면?', levels: ['mid', 'adv'], mode: 'quantum', card: 2, cardName: '작은 구슬이면?', chapter: 'matter-wave' },
+          { tab: 'electron', q: '어느 슬릿인지 알아내는 측정기를 켜면?', levels: ['mid', 'adv'], mode: 'quantum', card: 3, cardName: '측정기를 켜면?', chapter: 'which-way' },
+          { tab: 'electron', q: '가속 전압 $V$ 를 4배(4000 V)로 하면 무늬 간격은?', levels: ['mid', 'adv'], mode: 'quantum', card: 0, cardName: '전자 하나씩 · 4000 V', set: { V: 4000 }, predict: false, chapter: 'matter-wave' }
         ],
-        teacherNote: '전자 실험 ⑤ 슬릿 하나만?은 [실험 고르기 ▾]에서 바로 고를 수 있어요(빛 ⑤ 와 같은 결론).' },
+        teacherNote: '초급 질문은 빛 갈래 ①②③④(전자는 "다른 갈래 보기 ▸" 로 접음). 고급은 이론값 계산 → 측정 비교 질문을 더한다.\n전자 실험 ⑤ 슬릿 하나만?은 [실험 고르기 ▾]에서 바로 고를 수 있어요(빛 ⑤ 와 같은 결론).' },
 
       /* 정리 — 설명 순서에서 빠지고 정리 모달(형성평가 3문항 + 교사 [정답 공개])에서만 */
       { id: 'wrap', type: 'wrap', title: '실험 뒤 정리',
@@ -429,6 +556,16 @@
           '어느 길인지 정보가 남으면 무늬가 사라져요.'
         ],
         quiz: [
+          /* ── R9 초급 3문항 (levels:['basic']) — 중급 문항은 R8 그대로 ── */
+          { kind: 'concept', levels: ['basic'], q: '빛이 두 틈을 지나면 스크린에 밝은 줄과 어두운 줄이 번갈아 생기는 까닭은?',
+            choices: ['두 틈에서 온 빛이 만나 더해지거나 지워져서', '틈이 빛을 색깔별로 나눠서', '스크린이 빛을 흡수해서'], answerIdx: 0,
+            why: '마루와 마루가 만나면 밝아지고 마루와 골이 만나면 지워져요.', chapter: 'wave-words', try: { mode: 'physics', card: 0 } },
+          { kind: 'compare', levels: ['basic'], q: '빨간빛 대신 파란빛으로 바꾸면 밝은 줄 사이는?',
+            choices: ['좁아져요', '넓어져요', '같아요'], answerIdx: 0,
+            why: '파란빛은 파장이 짧아요(약 450 nm < 650 nm).', chapter: 'dy-see', try: { mode: 'physics', card: 1 } },
+          { kind: 'misconception', levels: ['basic'], q: '"두 틈 사이를 넓히면 밝은 줄 사이도 넓어진다." 이 말은?',
+            choices: ['아니에요, 오히려 좁아져요', '맞아요', '알 수 없어요'], answerIdx: 0,
+            why: '틈이 멀어질수록 줄이 촘촘해져요.', chapter: 'dy-see', try: { mode: 'physics', card: 2 } },
           { kind: 'concept', q: '$λ$·$L$ 은 그대로 두고 슬릿 간격 $d$ 를 0.25 mm 에서 0.50 mm 로 두 배로 하면 무늬 간격 $Δy$ 는?',
             choices: ['반(½)이 된다', '두 배가 된다', '그대로다'], answerIdx: 0,
             why: '$Δy$ = {{frac:$λL$|$d$}} 에서 $d$ 가 분모라 두 배면 ½ 이에요. 5.2 → 2.6 mm.', chapter: 'dy',
@@ -457,6 +594,9 @@
             try: { mode: 'quantum', card: 0 } }
         ],
         more: [
+          { levels: ['adv'], q: '(계산) $λ$ 550 nm, $d$ 0.20 mm, $L$ 1.8 m 일 때 $Δy$ 는?', answer: '약 4.95 mm', why: '$Δy$ = {{frac:550×10⁻⁹ × 1.8|0.20×10⁻³}} = 4.95×10⁻³ m.', chapter: 'derive' },
+          { levels: ['adv'], q: '(측정) 밝은 줄 11개의 양 끝 거리를 쟀더니 49.5 mm 예요. 줄 사이는?', answer: '4.95 mm (간격은 10칸)', why: '칸 수는 줄 수보다 1 적어요. 49.5 ÷ 10 = 4.95 mm.', chapter: 'derive' },
+          { levels: ['adv'], q: '(근사) $L$ = 2.0 m, $y$ = 26 mm 에서 tan $θ$ ≈ sin $θ$ 근사의 오차는?', answer: '약 0.01 % 미만 — 충분히 정확', why: '$θ$ ≈ 0.013 rad, 상대 오차 ≈ {{frac:$θ^2$|2}} ≈ 8×10⁻⁵.', chapter: 'limits' },
           { q: '$d$ = 0.30 mm, $λ$ 600 nm, $L$ 2.5 m 이면 $Δy$ 는? 이때도 근사 $d$ ≪ $L$ 이 잘 맞을까?', answer: '5.0 mm — $d$ 가 $L$ 보다 약 8천 배 작아 잘 맞아요.',
             why: '$Δy$ = {{frac:600×10⁻⁹ × 2.5|0.30×10⁻³}} = 5.0×10⁻³ m. 줄이 가운데 가까이 있어 $θ$ 가 아주 작아요.', chapter: 'dy' },
           { q: '전자의 가속 전압 $V$ 를 4배로 하면 물질파 파장은?', answer: '½ 배',

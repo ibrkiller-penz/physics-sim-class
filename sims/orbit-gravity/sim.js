@@ -439,12 +439,12 @@
     SK.records = s.records; SK.ghost = s.ghost;
     curMode = newM;
     if (oldM && oldM !== newM) lastSwitchAt = Date.now();
-    // R6(C1): 심플은 대포 모드 전용. 숫자 키(카드 ②~④) 등으로 위성·케플러가 되면 자세히 모드로 넘겨 준다
-    if (newM !== 'cannon' && SK.isSimple && SK.isSimple()) setTimeout(function () {
+    // R6(C1)·R9: 초급은 대포 갈래 전용. 초급인 채 위성·케플러로 바뀌면(주소 ?preset= 등) 중급으로 넘겨 준다
+    //   (초급으로 '내릴' 때는 갈래를 그대로 두고 안내만 — 아래 onLevel)
+    if (newM !== 'cannon' && oldM && oldM !== newM && SK.isSimple && SK.isSimple()) setTimeout(function () {
       if (!SK.isSimple() || curMode === 'cannon') return;
-      preSimpleMode = null;
-      SK.setSimple(false, { save: true });
-      SK.notice(MODES[curMode].label + '은(는) 자세히 모드에서 봐요', 'info');
+      SK.setLevel('mid', { silent: true });
+      SK.notice(MODES[curMode].label + ' 갈래라서 중급으로 바꿨어요', 'info');
     }, 0);
     if (modeCtl && modeCtl.sync) modeCtl.sync(newM);
     if (seq && seq.mode !== newM) seq = null;
@@ -481,6 +481,7 @@
     // 정리 질문: think({when}) 이 이 모드 것만 보이게 한다
     if (SK.refreshThinks) SK.refreshThinks();
     updateSeq(true);
+    syncAdv();
     SK.requestRender();
   }
 
@@ -501,14 +502,22 @@
     presetModesLabel: '모드',
     // R7 학생점검(A3): 식 탭 기본 장(현재 실험이 없을 때)
     formulaDefault: 'orbit-speed',
-    // R6(C1) 심플 모드: 대포 모드 고정 · 발사 속력 하나 + 천체 칩 · 결과/지금 속력 + 속력 띠(넓은 칸) · 카드 ①·⑤
-    simple: {
-      task: '발사 속력을 바꿔 쏴요 — 몇 km/s부터 떨어지지 않고 돌까요?',
-      params: ['v0'],
-      situation: ['body'],
-      meters: ['sres', 'sv', { key: 'vband', label: '발사 속력 v₀', unit: '' }],
-      presets: [0, 4],
-      predict: { preset: 0 }   // R8(A4): 카드 ① 예측(7.9 km/s)을 명시 — 공통 틀 폴백이 카드 ① 값을 맞춘다
+    // R9(§4-4) 단계 — 예전 cfg.simple(R6: 발사 속력 + 천체 칩)은 basic 으로 바뀜(?simple=1 = basic)
+    //   초급 = 대포 갈래만(위성·케플러는 시트의 '다른 갈래 보기 ▸'), 발사 속력 하나, 천체는 지구(숨은 값은 그대로 — 카드 ⑤는 순서 칩 달·화성·지구로)
+    //          측정 = 상태 · 지금 속력(보조 글 '= 7,900 m/s') · 속력 띠, 카드 ①·⑤
+    //   중급 = R8 그대로(카드 ①②③⑤ — 케플러 ④는 시트의 '케플러 자료' 모드 단추로) · 고급 = 카드 전부 + 배속·그래프 범위를 패널로, 천체 비교 표·에너지 막대 펼침
+    levels: {
+      basic: {
+        task: '발사 속력을 바꿔 쏴요 — 몇 km/s부터 떨어지지 않고 돌까요?',
+        params: ['v0'],
+        situation: [],
+        meters: ['sres', 'sv', { key: 'vband', label: '발사 속력', unit: '' }],
+        presets: [0, 4],
+        modes: ['cannon'],
+        predict: { preset: 0 }   // R8(A4): 카드 ① 예측(7.9 km/s)을 명시 — 공통 틀 폴백이 카드 ① 값을 맞춘다
+      },
+      mid: { presets: [0, 1, 2, 4] },
+      adv: { expose: ['tscale', 'kzoom'] }
     },
     // R8(A7): 기록 2개째 한 줄 비교(공통 틀이 무대 아래에 띄움)
     compareLine: function (r1, r2) { return compareLine(r1, r2); },
@@ -689,7 +698,7 @@
     onChange: function (v) {
       if (v === 'jupiter') { SK.notice('목성은 발사 속력 범위 밖이에요', 'warn'); showCompare(); }
       else if (!seq || seq.key !== 'body') autoView();
-      updateSeq(true);
+      updateSeq(true); syncAdv();
     }
   });
   bodyCtl.el.classList.add('og-bodies');
@@ -765,7 +774,7 @@
   SK.controls.cview.el.classList.add('og-always-hide');   // 실험 화면 오른쪽 아래 버튼으로 바꿈
   SK.addToggle('tools', { key: 'hudMore', label: '흐른 시간·화면 크기 보기', value: false, apply: 'live', record: false });   // R7-3(C2)
   SK.addChoice('tools', {
-    key: 'tscale', label: '빨리 감기(1초 = ?)', apply: 'live', value: 0.5, record: false,   // R8(E5): 화면 1초에 흐르는 실제 시간 — 양끝 천천히 ↔ 빠르게
+    key: 'tscale', label: '빨리 감기 (화면 1초 = 실제 시간)', apply: 'live', value: 0.5, record: false,   // R8(E5): 화면 1초에 흐르는 실제 시간 — 양끝 천천히 ↔ 빠르게
     hint: '천천히 ↔ 빠르게 · {{시간 배속}}이라고도 해요',
     options: [{ value: 0.5, label: '30초', title: '천천히' }, { value: 2, label: '2분' }, { value: 10, label: '10분' }, { value: 30, label: '30분', title: '빠르게' }]
   });
@@ -979,7 +988,9 @@
         res: jup ? '범위 밖' : resWord(cn.res)
       });
       var sr = jup ? ['범위 밖', 'out', '상태'] : simpleRes(p);
-      meterSets.cannon.update({ sres: sr[0], sv: (jup || hideResults()) ? null : (landed && cn.vImp !== null ? cn.vImp : Math.sqrt(cn.vx * cn.vx + cn.vy * cn.vy) / 1000) });
+      var svNow = (jup || hideResults()) ? null : (landed && cn.vImp !== null ? cn.vImp : Math.sqrt(cn.vx * cn.vx + cn.vy * cn.vy) / 1000);
+      meterSets.cannon.update({ sres: sr[0], sv: svNow });
+      paintSvSub(svNow);
       paintSimpleRes(sr);
       updateEnergy(p);
     } else if (curMode === 'sat' && sat) {
@@ -1007,6 +1018,15 @@
     }
     var r = cn.res === '추락' ? 'fall' : cn.res === '탈출' ? 'escape' : 'orbit';
     return [resWord(cn.res), r, '상태'];
+  }
+  /** R9(§4-4): 초급 '지금 속력' 칸 보조 글 — 같은 값을 m/s 로(= 7,900 m/s). 환산 표시만, 숨긴 동안(예측 중·첫 실행 전)은 비움 */
+  var svSub = null;
+  function paintSvSub(v) {
+    var cell = SK.isSimple() ? SK.el.slide.querySelector('.simple-meter[data-key="sv"]') : null;
+    if (!cell) return;
+    if (!svSub || svSub.parentNode !== cell) { svSub = h('span', { class: 'og-sv-ms' }); cell.appendChild(svSub); }
+    var t = v === null || v === undefined ? '' : '= ' + comma(Math.round(v * 100) * 10) + ' m/s';
+    if (svSub.textContent !== t) svSub.textContent = t;
   }
   var resCell = null, resSig = '';
   function paintSimpleRes(sr) {
@@ -1882,6 +1902,9 @@
     if (!force && key === seqKey && seqEl.parentNode) return;
     seqKey = key;
     var host = SK.controls[seq.key] && SK.controls[seq.key].el;
+    // R9: 초급은 천체 칩이 숨어 있으므로 카드 ⑤(달 → 화성 → 지구) 순서 칩은 레일의 발사 속력 칸 아래에
+    if (seq.key === 'body' && SK.isSimple() && SK.controls.v0) host = SK.controls.v0.el;
+    seqEl.classList.toggle('og-seq--body', seq.key === 'body');
     if (host && seqEl.parentNode !== host) host.appendChild(seqEl);
     seqEl.hidden = false; seqEl.innerHTML = '';
     var row = h('div', { class: 'og-seq__row' });
@@ -2096,6 +2119,12 @@
       return { line: line, more: 'r = 지구 반지름 6,371 km + 고도 = ' + comma(6371 + p.alt) + ' km. 높을수록 중력이 약해 느리게 돌고, 돌 길도 길어져 주기가 길어요.', lesson: 'orbit-heights' };
     }
     if (!cn || !cn.res) return null;
+    var tk = cannonTake(p);
+    // R9(§4-4) 고급: 이론값 한 줄(중급 문구는 그대로)
+    if (tk && SK.level && SK.level() === 'adv') tk.more += SK.atLevel({ mid: '', adv: ' 이론값: 원 궤도 v = √(GM/r) = ' + SK.fmt(cn.b.vCirc, 2) + ' km/s, 탈출 √(2GM/r) = ' + SK.fmt(cn.b.vEsc, 2) + ' km/s (r = ' + cn.b.name + ' 반지름).' });
+    return tk;
+  });
+  function cannonTake(p) {
     var b = cn.b, v0 = SK.fmt(p.v0, 1) + ' km/s', vc = SK.fmt(b.vCirc, 1) + ' km/s', ve = SK.fmt(b.vEsc, 1) + ' km/s';
     var where = b.key === 'earth' ? '' : ' (' + b.name + ')';
     if (cn.res === '추락') return { line: '발사 속력 ' + v0 + ' — 원 궤도 속력 ' + vc + '보다 느려요' + where,
@@ -2105,9 +2134,9 @@
     if (cn.res === '타원 궤도') return { line: '발사 속력 ' + v0 + ' — 원 궤도 속력보다 빠르고 탈출 속도(' + ve + ')보다 느려요',
       more: '멀리 올라갔다가 다시 돌아오는 타원 궤도예요. 쏜 곳이 궤도에서 가장 낮은 곳이 돼요.', lesson: 'cannon' };
     if (cn.res === '탈출') return { line: '발사 속력 ' + v0 + ' — 탈출 속도 ' + ve + ' 이상이에요' + where,
-      more: '중력이 속력을 줄이지만 0까지 줄이지 못해 돌아오지 않아요. 탈출 속도는 원 궤도 속력의 √2 ≈ 1.41배예요.', lesson: 'escape' };
+      more: SK.atLevel({ basic: '중력이 속력을 줄이지만 0까지 줄이지 못해 돌아오지 않아요. 한 바퀴 도는 속력의 1.4배쯤이면 탈출해요.', mid: '중력이 속력을 줄이지만 0까지 줄이지 못해 돌아오지 않아요. 탈출 속도는 원 궤도 속력의 √2 ≈ 1.41배예요.' }), lesson: 'escape' };
     return { line: '발사 속력 ' + v0 + ' — 탈출 속도 ' + ve + '보다 조금 느려요', more: '아주 멀리 갔다가 언젠가 돌아오는 긴 타원이에요. 조금만 더 빠르면 탈출해요.', lesson: 'escape' };
-  });
+  }
 
   /* 정리 질문 (모드별: when) — 보기형은 답을 누르면 이유가 바로, 서술형은 힌트 → 모범 답 */
   function inMode() { var ms = Array.prototype.slice.call(arguments); return function (p) { return ms.indexOf((p && p.mode) || curMode) >= 0; }; }
@@ -2244,21 +2273,99 @@
      20. R6 심플 모드 — 대포 모드 고정(위성·케플러는 자세히 전용). 들어갈 때 모드를 기억했다가 자세히로 돌아오면 되돌린다.
          속력 띠는 측정 줄의 넓은 칸으로 옮긴다(placeBand). 같은 값·기록 그대로(노드 이동)
      ------------------------------------------------------------------ */
-  function onSimple(on) {
-    if (on) {
-      var m = SK.get('mode');
-      if (m !== 'cannon') { preSimpleMode = m; SK.set('mode', 'cannon'); }
-    } else if (preSimpleMode) {
-      var pm = preSimpleMode; preSimpleMode = null;
-      if (SK.get('mode') === 'cannon') SK.set('mode', pm);
+  /* R9(§1-6·§4-4): 단계가 바뀔 때(처음 한 번 prev=null 포함) — 값·기록·갈래는 그대로, 화면만 맞춘다
+       초급: 천체 칩 숨김(값 보존 — '상황 바꾸기' 묶음째 더 보기에서 숨김), 첫 실행 전 결과 숨김(simpleFresh), 속력 띠를 측정 칸으로
+             위성·케플러 갈래인 채 내려오면 갈래는 두고 안내 + [대포로 돌아가기](자동 전환 없음)
+       고급: 패널 아래 '고급' 묶음(천체 비교 표 + 에너지 막대) — 대포 갈래에서만 */
+  function onLevelOrbit(lv, prev) {
+    var basic = SK.isSimple();
+    if (basic && prev !== 'basic') simpleFresh = !SK.records.length;
+    if (!basic) simpleFresh = false;
+    resCell = null; predCls = null;
+    // 더 보기 시트: 레일로 옮긴 값(발사 속력)만 있던 '수치 바꾸기' 묶음 · 천체 칩만 있는 '상황 바꾸기' 묶음은 숨김
+    [SK.panel('values'), SK.panel('situation')].forEach(function (pn) { if (pn && pn.parentNode) pn.parentNode.classList.toggle('og-simple-empty', basic); });
+    if (basic && curMode !== 'cannon') {
+      var lab = MODES[curMode].label, tries = 0;
+      (function tell() {
+        if (!SK.isSimple() || curMode === 'cannon') return;
+        // 예측 띠가 떠 있는 동안은 토스트가 가려지므로(공통 .is-modal) 띠가 닫힌 뒤에 — 최대 30초
+        if (SK.predicting && SK.predicting() && ++tries < 60) { setTimeout(tell, 500); return; }
+        SK.notice(lab + ' — 이 갈래는 중급부터 나와요', 'info', 6000, { label: '대포로 돌아가기', onClick: function () { SK.set('mode', 'cannon'); } });
+      })();
     }
-    resCell = null;
-    // 더 보기 시트: 레일로 옮긴 값(발사 속력·천체)만 있던 '수치 바꾸기'·'상황 바꾸기' 묶음은 빈 머리만 남으므로 숨김
-    [SK.panel('values'), SK.panel('situation')].forEach(function (pn) { if (pn && pn.parentNode) pn.parentNode.classList.toggle('og-simple-empty', !!on); });
+    syncAdv();
     placeBand(); drawBand();
     if (curMode === 'cannon' && cn) updateMeters(SK.params);
+    updateSeq(true);
+    syncKNote();
     SK.requestRender();
   }
-  SK.onMode(onSimple);
-  setTimeout(function () { if (SK.isSimple()) onSimple(true); }, 0);   // 처음부터 심플(?simple=1·저장값)이면 — 공통 틀의 enterSimple·chooseMode 뒤
+  SK.onLevel(onLevelOrbit);
+
+  /* R9(§0-2 #12): 초급 실험 고르기 시트 — 모드 줄에는 대포만(공통 틀이 거름). 끝에 접힌 '다른 갈래 보기 ▸' → 위성·케플러(누르면 중급으로) */
+  (function otherBranches() {
+    var row = SK.el.presetModes; if (!row || typeof MutationObserver !== 'function') return;
+    var open = false;
+    function add() {
+      if (!SK.isSimple() || row.querySelector('.og-branch-more')) return;
+      var box = h('span', { class: 'og-branch-more' });
+      var tg = h('button', { class: 'og-branch-more__btn', type: 'button', 'aria-expanded': String(open), title: '위성·케플러 갈래는 중급 단계에서 해요' }, '다른 갈래 보기 ▸');
+      SK.iconify(tg);
+      box.appendChild(tg);
+      ['sat', 'kepler'].forEach(function (k) {
+        var b = h('button', { class: 'preset-mode og-branch-more__opt', type: 'button', hidden: !open, title: MODES[k].today + ' (중급으로 바뀌어요)' }, [h('span', { class: 'preset-mode__label', text: MODES[k].label }), h('span', { class: 'og-branch-more__lv', text: ' · 중급' })]);
+        b.addEventListener('click', function (e) {
+          if (e.detail) b.blur();
+          if (SK.pop && SK.pop.close) SK.pop.close();
+          SK.setLevel('mid');
+          if (SK.get('mode') !== k) SK.set('mode', k);
+          if (MODES[k].preset !== undefined) SK.applyPreset(MODES[k].preset, { noConfirm: true });
+        });
+        box.appendChild(b);
+      });
+      tg.addEventListener('click', function (e) {
+        if (e.detail) tg.blur();
+        open = !open; tg.setAttribute('aria-expanded', String(open));
+        Array.prototype.forEach.call(box.querySelectorAll('.og-branch-more__opt'), function (o) { o.hidden = !open; });
+      });
+      row.appendChild(box);
+    }
+    new MutationObserver(add).observe(row, { childList: true });
+    add();
+  })();
+
+  /* R9(§4-4) 고급: 패널 아래 '고급 — 비교와 에너지' 묶음 — 천체 비교 표(펼친 채) + R8(G1) 발사 순간 에너지 막대(수치 더 보기에서 옮겨 옴) */
+  var advEl = null, advTable = null, advBody = '';
+  (function makeAdv() {
+    advTable = h('div', { class: 'og-adv__table' });
+    advEl = h('section', { class: 'og-adv', hidden: true, 'aria-label': '고급 — 천체 비교와 에너지' }, [
+      h('p', { class: 'og-adv__t', text: '천체 비교 (km/s)' }), advTable
+    ]);
+    SK.el.panel.appendChild(advEl);
+  })();
+  function syncAdv() {
+    if (!advEl) return;
+    var on = SK.level && SK.level() === 'adv' && curMode === 'cannon';
+    if (advEl.hidden === on) advEl.hidden = !on;
+    // 에너지 막대: 고급 = 이 묶음 안(늘 보임) · 그 밖 = [수치 더 보기] 안(R8 그대로)
+    var home = meterSets.cannon && meterSets.cannon.moreEl;
+    if (energyEl) {
+      var want = on ? advEl : home;
+      if (want && energyEl.parentNode !== want) want.appendChild(energyEl);
+    }
+    if (!on) return;
+    var cur = SK.get('body'), sig = cur;
+    if (sig === advBody) return;
+    advBody = sig;
+    var rows = BODY_ORDER.map(function (k) {
+      var b = BODIES[k];
+      return h('tr', { class: k === cur ? 'is-now' : null }, [h('td', { text: b.name }), h('td', { class: 'num', text: SK.fmt(b.vCirc, 2) }), h('td', { class: 'num', text: SK.fmt(b.vEsc, 1) })]);
+    });
+    advTable.innerHTML = '';
+    advTable.appendChild(h('table', { class: 'guide-table og-compare og-compare--mini' }, [
+      h('thead', null, h('tr', null, [h('th', { text: '천체' }), h('th', { text: '원 궤도' }), h('th', { text: '탈출' })])),
+      h('tbody', null, rows)
+    ]));
+    advTable.appendChild(h('p', { class: 'og-adv__note' }, SK.mathNodes('표면에서 $v$ = √($GM$/$R$), 탈출 = √2 배 · 자세한 표는 ‘천체 비교 표 ▸’')));
+  }
 })();

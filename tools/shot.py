@@ -5,6 +5,9 @@
 
   <페이지>  프로젝트 기준 상대경로(예: sims/convex-lens/index.html) 또는 http 주소
             쿼리도 됨(R2 G4): sims/orbit-gravity/index.html?mode=kepler  index.html?teacher=1
+            R9 단계: ?level=basic|mid|adv (별칭 1|2|3) — 예) sims/projectile-energy/index.html?level=basic
+                     sims/projectile-energy/index.html?view=sim&level=adv · ?view=explain&level=mid
+                     &keep=0 = 이번만(저장 안 함) · 옛 ?simple=1 / ?simple=0 = 초급 / 중급으로 열림
   동작      순서대로 실행한다.
               key:ArrowRight      키 누르기 (Space, KeyS, Digit1 ...)
               click:CSS선택자     요소 클릭

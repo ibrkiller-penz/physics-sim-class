@@ -1,9 +1,126 @@
-# SimKit — 공통 틀 사용 설명서 (개발자용, R2 고도화 2차 + R3 디테일 + R4 태블릿·글꼴·아이콘 + R5 세로 배치·예측 창·교사 발표 + R6 심플 모드 + R7 교과 설명·팝업 틀 + R7-2 예측 띠·식 팝업·형성평가 + R7-3 실험 고르기 한 곳·무대 칩 1개·띠 흐름 배치·점검 도구)
+# SimKit — 공통 틀 사용 설명서 (개발자용, R2 고도화 2차 + R3 디테일 + R4 태블릿·글꼴·아이콘 + R5 세로 배치·예측 창·교사 발표 + R6 심플 모드 + R7 교과 설명·팝업 틀 + R7-2 예측 띠·식 팝업·형성평가 + R7-3 실험 고르기 한 곳·무대 칩 1개·띠 흐름 배치·점검 도구 + R9 단계 초급·중급·고급)
 
 > 작성: 에듀테크1(디자인 리드) · 2026-10-28
 > 근거: `docs/개선/R1_계획.md` §2(디자인 방향)·§3(A1~A18, H1~H2) · 이전 판: `docs/04_팀장결정서.md`
 > 다섯 시뮬레이터는 이 틀 **위에서만** 만든다. `shared/` 를 고칠 일이 생기면 디자인 리드에게 요청한다.
 > 바로 동작하는 예제: `sims/_template/index.html` (= `shared/TEMPLATE.html`) — R2 새 API 를 모두 씀.
+
+---
+
+## 0R9. R9 에서 바뀐 것 (2026-11-01, UI팀1) — 단계(초급·중급·고급) · 먼저 읽기 · UI팀2·3·디자인팀은 여기부터
+
+근거 `docs/개선/R9_중학교연계_난이도.md` §1·§2. [심플|자세히]는 **단계 하나로 합쳤다** — 초급 = 예전 심플 배치(`html.is-simple`), 중급 = 예전 자세히(R8 화면 그대로), 고급 = 자세히 + 숨은 설정을 패널로·카드 추가. 교사 모드는 단계와 **독립**.
+설명 층(lesson) 데이터 형식 — 장 `levels`, 복습 장 `type:'review'`, 문구 변형 `{basic, mid}` — 은 [`docs/교과설명/_난이도체계.md` '구현 형식' 절](교과설명/_난이도체계.md)을 따른다(디자인팀 관리).
+
+### 0R9-1. API (`shared/sim.js` — 이름 고정)
+| 이름 | 하는 일 · 예 |
+|---|---|
+| `SK.LEVELS` | `[{id:'basic', n:1, label:'초급', desc:'중학교 수준 · 관찰과 비교'}, {id:'mid', n:2, label:'중급', desc:'고교 기본 · 핵심 식'}, {id:'adv', n:3, label:'고급', desc:'식 유도 · 한계 조건 · 정량 비교'}]` |
+| `SK.level()` · `SK.levelN()` · `SK.levelLabel(lv?)` | `'mid'` · `2` · `'중급'` |
+| `SK.setLevel(lv, {save:true, silent:false, source})` | `lv` = `'basic'\|'mid'\|'adv'` 또는 `1\|2\|3`. `save:false` 면 저장·주소를 건드리지 않음. `silent:true` 면 토스트 없음. source = `'chip'\|'key'\|'settings'\|'sim'…`(기록용) |
+| `SK.onLevel(fn(lv, prev))` | `setLevel` 뒤(enter/leaveSimple·고급 expose·카드 다시 그리기가 끝난 뒤) 부른다. **처음 한 번**(init 직후, 컨트롤이 다 놓인 뒤)도 `fn(lv, null)` 로 부른다 — sim 은 여기서 자기 화면(갈래 칩 숨김·계기 이동)만 맞춘다 |
+| `SK.levelCfg(lv?)` | 지금 단계의 `cfg.levels[lv]` (basic 은 `cfg.simple` 위에 `cfg.levels.basic` 을 덮은 것). 없으면 `{}` |
+| `SK.atLevel(x)` | `x` 가 `{basic:…, mid:…, adv:…}`(이 세 키만 가진 객체)면 지금 단계 값 — 빠진 키는 basic→mid→adv / mid→adv→basic / adv→mid→basic 순으로 대신. 아니면 `x` 그대로. 예: `SK.atLevel({basic:'공이 어디로?', mid:'사거리 R 은?'})` |
+| `SK.levelAllows(levels)` | `levels`(없으면 `['mid','adv']`)에 지금 단계가 있는지 — lesson 장·질문 거르기 |
+| `SK.levelChipNode()` | 설명 층 머리줄에 끼울 **단계 칩**(같은 메뉴·같은 갱신). 여러 번 불러도 됨 |
+| `SK.openLevelMenu(anchor?)` | 단계 메뉴 열기(칩을 누른 것과 같음) |
+| `SK.presetView(p)` | 카드 단계 변형 병합(아래 0R9-3). 시트·예측 띠·해설·할 일 줄·수업 안내는 모두 이것을 거친 카드를 본다 |
+| `SK.presetAllowed(i, lv?)` · `SK.levelPresets(lv?)` | 카드 `i` 가 지금 단계 목록에 있나 · 단계 카드 인덱스 목록 |
+| `SK.modeAllowed(value, lv?)` | 갈래 값이 단계 `modes` 목록에 있나(없으면 전부 허용) |
+| `SK.exposeControl(key, on)` | 컨트롤 노드를 패널 '고급 설정' 묶음(`.panel-sec--adv`, `SK.panel('adv')`)으로 옮김/제자리로. 값·핸들러 그대로 |
+| 호환 `SK.isSimple()` · `SK.setSimple(on, o)` · `SK.onMode(fn(on))` | `isSimple()` = 초급 배치가 켜져 있나(`level==='basic'` 이고 basic 설정이 있을 때). `setSimple(on)` = `setLevel(on ? 'basic' : 'mid')`. `onMode` 는 **심플 배치가 바뀔 때만**(basic ↔ mid/adv) 부른다 — mid ↔ adv 는 `onLevel` 로 |
+| `SimLesson.quizMoreOpen()` (디자인팀) | 정리 모달이 열릴 때 sim.js 가 부른다 → true 면 '더 생각하기' 펼침(고급). 없으면 `level()==='adv'` |
+| `SK.pop({kind:'menu'})` | 짧은 고르기 메뉴 = 여는 단추 옆 popover(`pop--menu`, 무대와 겹쳐도 그 자리). 단계 메뉴 자체는 설명 층 위에서도 열려야 해서 body 위 고정 `.pop-menu.level-menu`(z 60)로 따로 띄운다 |
+
+화면 쪽(UI팀1 이 만든 것): 머리줄 제목 오른쪽 `.level-chip`('중급 ▾', `aria-haspopup=menu`) → 메뉴 3줄(이름·한 줄 설명·현재 ✓, ↑↓·1~3·Enter, Esc 로 닫고 칩으로 포커스). 교사 모드면 칩 옆 `.level-chip__time` '권장 5·10·20·10'. ⚙ 설정 '화면 구성' 첫 줄 `.mode-seg.level-seg` 3칸(`SK.el.levelSeg`, 예전 이름 `SK.el.modeSeg` 별칭). 키 **M** = 초급 → 중급 → 고급 순환(basic 설정이 없는 sim 에서도). 수업 안내(교사) 서랍 첫 줄 `.guide-level` '지금 단계: 중급 (권장 5·10·20·10)'. 초급 '더 보기' 시트 [중급으로 ▸].
+
+### 0R9-2. `cfg.levels` (sim 이 `SK.init` 에 넘김)
+```js
+levels: {
+  basic: { task, params:['v0','theta'] /* ≤2 */, situation:[] /* ≤1 */, meters:['x', {key:'energyBar', label:'에너지 막대', plain:true, node: () => el}] /* ≤2 */,
+           presets:[0, 1, 4], predict:'button', extras:[], modes:['physics'],
+           chips:[{ text: p => p.h > 0 ? '절벽 ' + p.h + ' m' : '땅에서 던져요' }] },   // 할 일 줄 옆 고정 칩 .simple-task__chip (문자열 · {text} · text 가 함수면 (params))
+  mid:   { presets:[0, 1, 2, 3, 4], modes:['physics', 'quantum'] },   // 없으면 전부
+  adv:   { presets:undefined /* 전부 */, expose:['air', 'gEarth'], openMore:true }
+}
+```
+- `basic` 이 없으면 예전 `cfg.simple` 을 그대로 basic 으로 쓴다(params 3개까지 — 경고만). 둘 다 있으면 `cfg.simple` 위에 `levels.basic` 을 덮는다. **둘 다 없으면** basic 도 자세히 배치로 열린다(단계 값만 basic — lesson 장 거르기는 됨).
+- `basic` 은 예전 심플 칸을 그대로 쓴다: `params`·`situation` 노드 → 레일, `meters` → 측정 칸, `presets` → 실험 시트, `predict` → [예측 ▸].
+- 계기 `{key, plain:true}` → `.simple-meter.is-plain`(값 칸 `hidden`, 숫자 안 씀). `{node}` 가 있으면 그 노드를 칸 안 `.simple-meter__bar` 에 둔다(막대·말 계기). `SK.meters` 항목의 `plain:true` 는 `.meter.is-plain`(숫자 비움).
+- 카드 필터: 단계 `presets` 밖의 카드는 실험 고르기 시트에서 숨김(`.preset-card[hidden]`). **카드 번호는 원래 번호 그대로**(초급 시트 ①②⑤), 숫자 키도 카드 번호 — 목록 밖이면 토스트 '이 카드는 중급부터 나와요'. 카드는 8개까지(고급 카드 ⑥⑦), 숫자 키 1~8.
+- 갈래 필터: 단계 `modes` 밖의 `cfg.presetModes` 단추는 시트에서 숨김. `chooseMode` 창·상황 칩 숨김은 sim 이 `SK.onLevel` 에서.
+- `adv.expose` 는 ⚙ '더 많은 설정'(또는 ⚙ 안 어디든)의 컨트롤을 패널 '고급 설정' 묶음으로 올린다. `adv.openMore` 는 ⚙ '더 많은 설정' 펼침(고급을 떠나면 닫음).
+
+### 0R9-3. 카드 단계 변형 `PRESETS[i].basic`
+```js
+{ name:'수평으로 던지기', values:{…}, predict:{question, choices, answer:3, why, judge},
+  basic: { name:'옆으로 던지기', q:'…누가 먼저 땅에 닿을까?', choices:['옆으로 던진 공','그냥 놓은 공','같이 닿아요'], why:'…' } }
+```
+- **basic 일 때만** 덮는다. 중급·고급은 원래 필드 그대로(**answer 불변**). `q`→`predict.question`, `choices`·`answer`·`why`·`afterHint`·`place`·`judge`(null = 판정 끔) → `predict`, `set` → `values` 위에 덮음, 그 밖(`name`·`changes`·`change`…)은 카드 자체에.
+- `SK.setPresets` 에 넘기는 객체에 `basic` 을 그대로 실어 보낸다(포물선은 `basic: pr.basic`).
+- 정답이 다른 초급 전용 질문이면 `answer` 와 `judge:null` 을 함께 준다(원래 judge 가 다른 보기 번호를 돌려주지 않게).
+
+### 0R9-4. 호환표 (§1-2)
+| 옛 것 | 지금 |
+|---|---|
+| `?simple=1` / `?simple=0` | 초급 / 중급으로 연다(단원 키에 저장). 주소는 그대로 두어도 되고, 단계를 바꾸면 `level=` 로 고쳐 쓴다(파일 주소에서 `history.replaceState` 가 막히면 그대로) |
+| `localStorage physsim.mode` 'simple'/'full' | **읽기만**(basic/mid). 쓰지 않고 지우지 않는다 |
+| `SK.isSimple()` · `SK.setSimple()` · `SK.onMode()` | 위 0R9-1 |
+| `cfg.simple` | `cfg.levels.basic` 이 없으면 그대로 basic |
+| `physsim.simpleToastShown` | `physsim.levelToastShown`(첫 안내 '단계는 머리줄 칩이나 M 키로 바꿔요') |
+| ⚙ [심플\|자세히] · 키 M 심플↔자세히 | ⚙ [초급\|중급\|고급] · 키 M 순환 |
+| 심플 시트 [자세히 모드로 ▸] | [중급으로 ▸] |
+| 토스트 'N번 카드는 자세히 모드에서 골라요' | '이 카드는 중급부터 나와요'(그 카드가 처음 나오는 단계 이름) |
+
+### 0R9-5. 주소·저장 우선순위 (§1-3) — 허브(index.html)는 같은 순서로 따로 구현
+`?level=` (basic\|mid\|adv\|1\|2\|3) > `?simple=` (1\|0) > `physsim.level.<slug>` > `physsim.level` > `physsim.mode` > 기본 **basic**
+- `?level`·`?simple` 로 온 값은 **단원 키** `physsim.level.<slug>` 에 저장. `&keep=0` 이면 어떤 키에도 저장 안 함(교사 시연 `?teacher=1&level=mid&keep=0`) — 그 뒤 칩·⚙·M 으로 바꾸면 그때는 저장.
+- 시뮬레이터 안 칩·⚙·M = 단원 키. 허브에서 고른 값 = 전역 `physsim.level`(허브가 단원 키들을 지운다).
+- `?teacher=1`, `?view=`, `?mode=`, `?ch=`, `?preset=` 는 단계와 독립.
+
+### 0R9-6. 단계 바꾸기 규칙과 토스트 (§1-6 — sim.js 한 곳에서)
+값·재생 위치·기록·예측 답·정리 입력은 그대로. 노드만 옮긴다(basic 로: 고급 expose 되돌림 → enterSimple / basic 에서: leaveSimple → expose). 토스트는 **한 번**:
+| 경우 | 문구 |
+|---|---|
+| 그냥 바꿈 | `중급으로 바꿨어요 — 값은 그대로` (3초) |
+| 지금 카드가 새 단계 목록 밖 | `초급 · 이 카드는 중급부터 나와요` (카드 유지, 자동 이동 없음) |
+| 지금 갈래가 새 단계 `modes` 밖 | `초급 · 이 갈래는 중급부터 나와요` (갈래 유지 — 상황 칩 숨김은 sim 의 onLevel) |
+| 화면에서 사라진 값 중 기본(카드를 골랐으면 그 카드 값)과 다른 것 | `이전에 바꾼 값이 있어요 — ⋯ 더 보기에서 확인` (초급) / `— ⚙ 설정에서 확인` (중급) · 5초, 되돌리지 않음 |
+안내가 둘 이상이면 둘째는 3.2초 뒤. 처음 한 번 `단계는 머리줄 칩이나 M 키로 바꿔요`(`physsim.levelToastShown`, 설명 층이 덮고 있으면 닫힌 뒤).
+
+### 0R9-7. CSS 클래스 약속 (§2-3 — JS 가 다는 것, 모양은 디자인팀 CSS)
+| 자리 | JS 가 다는 것 |
+|---|---|
+| html | `data-level="basic\|mid\|adv"`, `.is-simple`(basic + basic 설정 있음), `.has-simple`, `.is-level-adv` |
+| 머리줄 | `.chip.level-chip` > `.level-chip__t` + `.level-chip__chev`(▾) · 설명 층용 `.level-chip--lesson` · 교사 `.level-chip__time.teacher-only` · 메뉴 `.pop-menu.level-menu` > `.level-menu__item[role=menuitemradio][aria-checked]` > `.level-menu__name`·`.level-menu__desc` |
+| ⚙ 설정 | `.mode-seg.level-seg` > `.mode-seg__opt[data-level][aria-pressed]` |
+| 패널 | `.panel-sec.panel-sec--adv[data-sec=adv]`(비면 hidden) · 올라온 컨트롤 `.is-exposed` |
+| 계기 | `.meter.is-plain`, `.simple-meter.is-plain`(값 칸 hidden), `.simple-meter__bar` |
+| 할 일 줄 | `.chip.simple-task__chip` |
+| 식 팝업 | 초급 첫 줄 `.formula__lead` '이 실험에서 쓰는 식은 이것 하나예요' · 단추 글자만 '공식 보기' |
+| 수업 안내 | `.guide-level` |
+
+### 0R9-8. 복습 장('중학교에서 배운 것') 작성 규칙 — 데이터 형식은 `_난이도체계.md` '구현 형식'
+- 성취기준 코드를 **쓰지 않는다**(중학교 코드 미확인). 표기는 `중학교 과학 ○○ 단원 (학년·단원명 확인 필요)`. teacherNote 첫 줄도 같은 문구. 점검: `python tools/audit.py --r9` (e) — `[9과`·`[중`(‘[중학교…’ 띠 이름 제외) 패턴 0.
+- 교과서 문장을 베끼지 않는다(쉬운 말로 새로 쓴다). 고등 기호(`v_x`, `Δy`, F·2F, `p`)·초급 금지어(벡터·성분·구심력·위상 차·경로차·충격량·반발 계수·실상·허상·2F·물질파·광자)를 쓰지 않는다 — (d) 가 초급 DOM 을 본다.
+- 식은 '속력 = 거리 ÷ 시간', '주기 = 1 ÷ 진동수' 수준만. 그림은 `shared/diagram.js` 기존 도형으로.
+- 디자인팀이 diagram.js 에 더한 도형(이름·용도, 2026-11-01 디자인팀 → 팀장 옮겨 적음): `D.wave(x, y, w, amp, cycles, {color, w, phase})` — 가로 사인 물결(파장·진폭 그림) · `D.ripples(cx, cy, r0, gap, n, {color, w})` — 한 점에서 퍼지는 반원 물결 n 겹(틈 뒤 퍼짐·두 물결 겹침) · `D.bar(x, y, w, h, {fill})` — 가로 막대(공전 주기·파장 띠 같은 길이 비교).
+- 학년·단원 표기(팀장 R9 결과, 학생M): 학생 화면의 `source` 는 `중학교 과학 「○○」 계열 단원 — 소재` 까지만. **'(확인 필요)' 같은 제작 메모는 `teacherNote` 에만** 쓴다(교사 메모 ▸ 펼치기로만 보임).
+
+### 0R9-10. 팀장 마무리 (검수 뒤 공통 틀에 더한 것, 2026-11-01) — 결과는 `docs/개선/R9_중학교연계_난이도.md` §8
+| 자리 | 바뀐 것 |
+|---|---|
+| 심플(초급) '더 보기 › ④ 정리' 판 | **이 단계의 정리 문항**(`SimLesson.quiz()`, 자세히 모드 정리 모달과 같은 `SK.think` 카드·정답·해설·설명 링크·교사 [정답 공개])을 판 맨 위 `.think-quiz--simple` 에 그린다. 초급이면 sim 의 옛 `SK.think` 질문 카드(중급 수준 기호)는 숨김(교사 모드는 둘 다). 띠 [정리 질문 보기 ▸] 도 단계 문항만 있어도 보임 |
+| 심플 계기 이름 | 초급에서는 `symbol` 을 붙이지 않는다('수평 거리 x' → '수평 거리'). 변수 칸 기호 `.var__sym` 도 `html.is-simple` 에서 숨김(CSS) — 중급부터 기호 |
+| 시트 안 정리·기록 판 | `.sheet__body > .think-board/.rec-big` 는 `overflow:hidden`, 안의 `.side-body` 만 스크롤 — 판이 길어도 아래 도구 줄(뒤로·앞으로·기록하기)을 덮지 않음 |
+| 설명 '↓ 이어서' 띠 | 넘침 16 px 이상이면 띄움(예전 44) — 820 세로에서 체크 항목 한 줄이 잘리던 것 |
+| 중급 1장 복습 띠 | '중학교에서 배운 것 3장 다시 보기 · 기호가 낯설면 먼저 봐요'(`.lesson__review-strip__sub`, 1100px 미만 숨김) |
+| 실험 고르기 모드 단추 | `.preset-mode__label` 두 줄 허용(`white-space:normal`) — 1920 고급 서랍에서 '전자 하나씩 보내기' 가 칸 밖으로 나가던 것 |
+| sim 별 | 포물선 초급 무대: 절벽 안 '높이 20 m' 는 바닥 맞춤(위쪽 '떨어뜨릴 공' 이름표와 분리), 축 제목 '높이 (m)'·'거리 (m)'(기호 없음) · 렌즈 초급: 무대 칩 '초점거리 10 cm', 눈금 '초점 F', '상 거리' 글이 스크린 막대를 비킴 · 충돌 초급 그래프: 멈춘 수레도 이름은 0 선 왼쪽 + '멈춤 (0)', 두 줄 사이 점선 · 궤도 고급 '빨리 감기 (화면 1초 = 실제 시간)' |
+| 복습 장 물리(교사P) | 슬릿 복습 2: '650 nm 는 머리카락의 100분의 1쯤'(1 nm 가 아니라), 프리즘은 밑변 쪽으로 꺾임 · 포물선 복습 3 그림 제목 겹침 · 렌즈 복습 3 순서('앞 장의 초점') |
+
+### 0R9-9. 포물선(projectile-energy) 적용 예
+basic = v₀·θ 두 값(지구 고정 — 숨은 planet 값은 그대로 두고 토스트), 할 일 줄 칩 '절벽 20 m'(h 값 따라) + 무대 절벽 안 세로 글자 '높이 20 m', 측정 = 수평 거리 + 숫자 없는 에너지 막대(`.pe-ebar`), 카드 ①②⑤ 초급 변형(① 쉬운 말·정답 그대로, ② '세게 던지면 더 멀리?' 초급 전용 정답, ⑤ 쉬운 말·정답 그대로), 결과 해설 기호 없이, 무대 칩 '지구'만. mid = R8 그대로(카드 ①~⑤). adv = 공기 저항·지구 g 를 패널로, 시간 t 계기를 띠로, 카드 ⑥ '높이 있을 때 최적각'(h 40 · v₀ 20 · 30° 70.2 m vs 45° 65.7 m, 정답 30°). E(t) 그래프는 2차.
 
 ---
 
@@ -22,6 +139,9 @@
 | 결과 칩 | 라벨 `상태` (값: 쏘기 전 · 날아가는 중 · 궤도 유지 · 추락 · 탈출) |
 | 성취기준 칩 | `첫 코드 + [N개]` (예: `[12역학01-03] 외 2`가 아니라 `[12역학01-03] +2`) |
 | 렌즈 | `F`·`2F` 대문자 · 보기 `F 자리 · 2F 자리 · 렌즈 바로 뒤 · 아주 멀리` |
+| 식 단추(초급) · R9 | `공식 보기` (중급·고급은 `ƒ 식`·`식과 기호` 그대로) · 팝업 첫 줄 `이 실험에서 쓰는 식은 이것 하나예요` |
+| 단계 토스트 · R9 | `중급으로 바꿨어요 — 값은 그대로` · `이 카드는 중급부터 나와요` · `이 갈래는 중급부터 나와요` · `이전에 바꾼 값이 있어요 — ⋯ 더 보기에서 확인` · 첫 안내 `단계는 머리줄 칩이나 M 키로 바꿔요` (§0R9-6) |
+| 단계 이름 · R9 | `초급`·`중급`·`고급` (화면에 '심플'·'자세히' 를 쓰지 않는다) |
 
 ### 0R8-2. 5종 용어표 (한 낱말 한 뜻)
 | 낱말 | 뜻 | 쓰지 않는 것 |
@@ -103,7 +223,7 @@ python tools/check_dg.py <slug|all> [--size 1280x720] [--team UI팀2] [--no-teac
 python tools/audit.py [--team UI팀2] [--slug <slug>] [--size 1280x720] [--mode 자세히|심플|교사] [--no-shots]
 ```
 - `check_dg.py`: 설명 층 장마다 ① SVG 글자 겹침(같은 `<g>` — D.frac — 제외) ② 글자 viewBox 밖 ③ 도형(circle·path…) viewBox 밖(링 잘림) ④ `.lesson__text` 넘침(학생 + 교사) ⑤ 가로 넘침 → 표 출력 + `_review/R7/3차/<team>/dg_<slug>.txt`, 1건 이상이면 종료 코드 1. **일부러 밖으로 내보낸 도형**(지구 표면 큰 원 등)은 그 요소나 감싼 `<g>` 에 `data-dg-bleed="1"` → ②③ 에서 뺀다(D.group 은 속성을 안 받으니 `'<g data-dg-bleed="1">' + … + '</g>'` 로).
-- `audit.py`: 허브 + 5종 × 4크기 × {자세히·심플·교사} × ①설명 1장 ②마지막 장 ③실험 ④예측 띠 ⑤ƒ ⑥⚙ ⑦실험 고르기 ⑧⋯ ⑨정리 모달 ⑩기록 1 → `final/audit_log.json`(console.error·pageerror·`SimLesson(R7-2)` 경고·scrollWidth·44 px 미만 터치 대상 수) + `final/*.jpg`. 오류·넘침 경고·가로 넘침이 있으면 종료 코드 1(터치 대상 수는 보고만). 전체는 약 15분 — 자기 sim 만 `--slug` 로.
+- `audit.py`: 허브 + 5종 × 5크기(1920·1280·1180·1024·820 세로) × {초급·중급·고급·교사}(R9 — `--mode 심플|자세히` 는 옛 `?simple=` 주소 호환 확인용) × ①설명 1장 ②마지막 장 ③실험 ④예측 띠 ⑤ƒ ⑥⚙ ⑦실험 고르기 ⑧⋯ ⑨정리 모달 ⑩기록 1 → `final/audit_log.json`(console.error·pageerror·`SimLesson(R7-2)` 경고·scrollWidth·44 px 미만 터치 대상 수) + `final/*.jpg`. 오류·넘침 경고·가로 넘침이 있으면 종료 코드 1(터치 대상 수는 보고만). 전체는 약 25분 — 자기 sim 만 `--slug` 로. 단계 전용 검사는 `--r9`(호환·전환 뒤 값 유지·초급 금지어·성취기준 코드 패턴), 결과 `_review/R9/<팀>/audit_r9.json`.
 - 2026-10-31 UI팀1 기준 측정(1280, shared 반영 뒤, 각 sim 데이터는 아직 2차 그대로): `check_dg orbit-gravity` 11건(2·4·5·6장 ③ 잘림, 8장 ① 겹침, 교사 6·10·11장 ④ 넘침) — 계획 §2 C1 대상.
 
 ### 0R7-3-7. 허브 (S9)

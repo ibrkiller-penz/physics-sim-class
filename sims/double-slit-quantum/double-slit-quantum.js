@@ -792,7 +792,8 @@
     // R5: 양끝 채운 화살촉 치수선(SK.dim) · 라벨은 선 가운데(종이 바탕)
     var Ltxt = p.send === 'electron' ? '$L$ = ' + p.LR + ' 눈금' : '$L$ = ' + SK.fmt(p.L, 1) + ' m (그림은 줄임)';
     var lsc = (SK.view && SK.view.scale) || 1;   // R8(A12): 치수선 글자도 하한(보조 글자 '(그림은 줄임)' 은 화면 20px 이상)
-    SK.dim(ctx, sx + 4, yL, SCR_X - 4, yL, { label: Ltxt, size: Math.max(fsMin(FS), Math.ceil(20 / lsc)), side: 'center', weight: 400, lw: flashL ? 4 : 2, head: 12, ends: 10,
+    // R9(§4-2): 초급은 L 을 2.0 m 로 두고(값 보존) 치수선·'L = 2.0 m (그림은 줄임)' 을 그리지 않는다
+    if (!SIMPLE) SK.dim(ctx, sx + 4, yL, SCR_X - 4, yL, { label: Ltxt, size: Math.max(fsMin(FS), Math.ceil(20 / lsc)), side: 'center', weight: 400, lw: flashL ? 4 : 2, head: 12, ends: 10,
       color: lc, labelColor: flashL ? '--color-ok' : '--color-ink-muted', bg: '--color-paper-raised' });
     return { sx: sx, ys: ys };
   }
@@ -1031,6 +1032,7 @@
   }
   /** R6(B1·B2) 심플: 확대창 아래(측정 칸 자리)에 이론 무늬 간격 — 식 · 값 넣은 식 · 답 (28u 이상) */
   function drawSimpleFormula(ctx, p) {
+    if (SK.level && SK.level() === 'basic') return;   // R9(§4-2): 초급은 식·계산 줄('650 nm × 2.0 m / 0.25 mm = ?')을 그리지 않는다 — 말 계기 '밝은 줄 사이'로
     var g = cur.g, k = ML.k || 1, y = MY + Math.round(30 * k);   // R7(A8): 글자 하한만큼 줄 간격도 k 배
     // R8: 화면이 작아(예측 띠가 무대를 줄일 때) 눈금자 숫자('−20')가 넓어지면 식을 그만큼 오른쪽으로 — 겹침 방지
     var ZX = Math.max(ZX0, RUL_X + 17 + Math.ceil(measureW('−20', fsMin(FS))) + 12);
@@ -1134,6 +1136,28 @@
     if (cu && cu.textContent !== unitY(p)) cu.textContent = unitY(p);
     var cc = SK.el.slide.querySelector('.simple-meter[data-key="count"]');
     if (cc && cc.hidden !== (p.send === 'wave')) cc.hidden = p.send === 'wave';
+    updateBandWord(p);
+  }
+  /* R9(§4-2·0-2 #13): 초급 말 계기 '밝은 줄 사이' — 숫자 없이 지난 실행(직전 무늬)과 비교한 말.
+     실행 전·예측 중은 답이 새지 않게 비움('실행 뒤 보여요'). bandPrev = 직전 실행의 무늬 간격(줄무늬가 없었으면 'none') */
+  var bandPrev = null;
+  function bandNode() { if (!ui.bandEl) ui.bandEl = SK.h('span', { class: 'dsq-band is-wait', 'aria-live': 'polite', text: '실행 뒤 보여요' }); return ui.bandEl; }
+  function bandWord(p) {
+    if (resultsHidden() || !cur) return null;
+    if (!(SK.started || (p.send === 'wave' && hadRun))) return null;
+    if (p.send === 'electron' || p.send === 'photon') return count < 200 ? '점이 쌓이는 중이에요' : fringeMode(cur.g) ? '점이 줄무늬로 모였어요' : '줄무늬 없이 넓게 쌓였어요';
+    if (p.send === 'marble') return '띠 두 개가 생겼어요';
+    if (!fringeMode(cur.g)) return '줄무늬가 없어요 — 넓은 띠 하나';
+    if (bandPrev === null) return '처음 기록이에요 — 색이나 틈을 바꿔 한 번 더 해 봐요';
+    if (bandPrev === 'none') return '줄무늬가 다시 생겼어요';
+    var now = fringe(cur.g), r = now / bandPrev;
+    return r > 1.02 ? '지난번보다 넓어졌어요' : r < 0.98 ? '지난번보다 좁아졌어요' : '지난번과 같아요';
+  }
+  function updateBandWord(p) {
+    if (!ui.bandEl) return;
+    var w = bandWord(p), t = w || '실행 뒤 보여요';
+    if (ui.bandEl.textContent !== t) ui.bandEl.textContent = t;
+    ui.bandEl.classList.toggle('is-wait', !w);
   }
 
   /* ==================================================================
@@ -1221,6 +1245,13 @@
         theoryOpen = true; ui.eqKey = null; updateBand(SK.params); if (ui.recTable) ui.recTable.render();
       });
       l2.appendChild(b);
+    } else if (SK.level && SK.level() === 'adv') {
+      // R9(§4-2): 고급 — 이론 · 측정 · 오차 % 한 줄(잠금 규칙 R8 C7 은 중급과 같음: 기록 → 답 확인하기 뒤)
+      var tha = fringe(g), mga = measuredGap();
+      add(l2, [SK.h('span', { class: 'dsq-muted', text: '이론 ' }), SK.h('b', { class: 'dsq-nowrap', text: SK.fmt(tha, 2) + ' ' + u })]);
+      if (mga !== null) add(l2, [SK.h('span', { class: 'dsq-muted dsq-nowrap', text: ' · 측정 ' }), SK.h('b', { class: 'dsq-nowrap', text: SK.fmt(mga, 2) + ' ' + u }),
+        SK.h('span', { class: 'dsq-muted dsq-nowrap', text: ' · 오차 ' }), SK.h('b', { class: 'dsq-nowrap dsq-err', text: SK.fmt(Math.abs(mga - tha) / tha * 100, 1) + '%' })]);
+      else add(l2, [SK.h('span', { class: 'dsq-muted dsq-nowrap', text: ' · 측정은 확대 보기에서' })]);
     } else {
       var th = fringe(g), mgv = measuredGap();
       add(l2, ['= ', SK.h('b', { class: 'dsq-nowrap', text: SK.fmt(th, 1) + ' ' + u })]);
@@ -1324,6 +1355,7 @@
     onPredictOpen: function () { SK.requestRender(); },
     onPredictClose: function () { SK.requestRender(); },
     reset: function (p) {
+      if (hadRun && cur && cur.p.send === 'wave') bandPrev = fringeMode(cur.g) ? fringe(cur.g) : 'none';   // R9: 초급 말 계기의 '지난번'
       if (hadRun && !suppressCapture) snapshotGhostDots();
       hadRun = false;
       rebuild(p); clearDots();
@@ -1381,13 +1413,18 @@
     ],
     // R6(B1): 심플 모드 — 12물리03-01(λ·d 와 무늬 간격) · 12전자03-01(하나씩 쌓이면 무늬). L·V·빠르기·슬릿·측정기는 더 보기(패널).
     // 모드에 따라 숨는 키(빛 λ·d / 전자 dR)는 공통 틀이 레일에서 저절로 뺀다. 'entry' = 모드 창과 같은 값(빛/전자) 큰 두 단추
-    simple: {
-      task: function () { return entrance === 'physics' ? '파장과 슬릿 간격을 바꿔 줄무늬 간격을 봐요' : '전자를 하나씩 보내 점이 어디에 쌓이는지 봐요'; },
-      params: ['lam', 'd', 'dR'], situation: ['entry'],
-      meters: [{ key: 'dy', label: '줄무늬 간격', symbol: 'Δy', unit: 'mm', decimals: 1 }, { key: 'count', label: '쌓인 점', unit: '개', decimals: 0 }],
-      presets: ['빨강과 파랑', '슬릿 간격 2배', '전자 하나씩', '측정기를 켜면?'],
-      // R8(A4·C7): 안내줄 [예측 ▸] = 지금 갈래 카드 ① 의 예측 객체(빛: 무늬 모양 · 전자: 쌓이면?) — 공통 틀이 카드가 없을 때 쓴다
-      get predict() { var c = PRESETS && PRESETS[entrance] && PRESETS[entrance][0]; return c && c.predict ? c.predict : 'button'; }
+    // R9(§4-2): 단계 — 예전 cfg.simple(λ·d·dR + 갈래 칩, 줄무늬 간격·쌓인 점)은 이 basic 으로 바뀜(?simple=1 = 초급)
+    //   초급 = 빛 갈래만(전자는 실험 고르기 '다른 갈래 보기 ▸'), 색·틈 두 값, 말 계기 '밝은 줄 사이'(넓어졌어요/좁아졌어요), 식·계산 줄 숨김, 카드 ①②③⑤ 쉬운 말
+    //   중급 = R8 그대로(카드 ①~⑤) · 고급 = + 슬릿 폭·빠르기·전자 d·L 을 패널로, 카드 ⑥(전압 4배)·⑦(슬릿 폭 2배), 이론·측정·오차 칸
+    levels: {
+      basic: {
+        task: function () { return entrance === 'physics' ? '빛의 색과 두 틈 사이를 바꿔 줄무늬를 봐요' : '전자를 하나씩 보내 점이 어디에 쌓이는지 봐요'; },
+        params: ['lam', 'd'], situation: [],
+        meters: [{ key: 'band', label: '밝은 줄 사이', plain: true, node: function () { return bandNode(); } }],
+        presets: [0, 1, 2, 4], predict: 'button', modes: ['physics']
+      },
+      mid: { presets: [0, 1, 2, 3, 4] },
+      adv: { expose: ['a', 'rate', 'dR', 'LR'] }
     }
   });
   if (SK.onMode) SK.onMode(function () { ui.eqKey = null; SK.requestRender(); });
@@ -1793,6 +1830,25 @@
   var BASE = { lam: 650, d: 0.25, L: 2.0, V: 1000, dR: 5, LR: 5, a: 0.05, slit: 'both', det: false };
   function withBase(o) { var r = copy(BASE); for (var k in o) r[k] = o[k]; return r; }
   var SLIT_INFO = '슬릿 = 빛이 지나가는 아주 좁은 틈';
+  /* R9(§4-2): 고급 카드 ⑥⑦ — 번호는 두 갈래 공통(⑥ 전자 전압 4배 · ⑦ 슬릿 폭 2배). 다른 갈래의 카드를 고르면 그 갈래로 옮겨 같은 번호 카드를 연다(다리 카드) */
+  var ADV6 = { name: '전압 4배', tag: '탐구 재현', changes: '전자 가속 전압 1000 → 4000 V', fixed: '전자 · d 5 · L 5 눈금 · 측정기 끔',
+    values: withBase({ send: 'electron', rate: 1000, V: 4000 }),
+    predict: { question: '전자의 가속 전압을 1000 V 에서 4000 V 로 4배 높이면 무늬 간격은?', choices: ['2배로 넓어진다', '½로 좁아진다', '¼로 좁아진다'],
+      info: '실험 ①(1000 V)을 먼저 기록해 두면 두 무늬를 나란히 비교할 수 있어요.',
+      answer: 2, why: '$λ$ = {{frac:$h$|√(2$meV$)}} 라서 $V$ 4배 → $λ$ ½(38.8 → 19.4 pm) → 무늬 간격도 ½이에요. ¼을 골랐다면 제곱근을 빠뜨렸는지 확인해요.' },
+    onApply: function () { presetHint = '▶ 실행 후 1000 V 무늬와 간격을 비교해요'; } };
+  var ADV7 = { name: '슬릿 폭 2배', tag: '심화', changes: '슬릿 폭 0.05 → 0.10 mm', fixed: 'λ 650 nm · d 0.25 mm · L 2.0 m',
+    values: withBase({ send: 'wave', a: 0.10 }),
+    predict: { question: '슬릿 하나의 폭 $a$ 를 0.05 → 0.10 mm 로 두 배 넓히면 스크린 무늬는?', choices: ['줄 간격이 넓어진다', '바깥쪽 줄이 더 빨리 어두워진다', '줄무늬가 사라진다'],
+      answer: 2, why: '줄 간격 $Δy$ = {{frac:$λL$|$d$}} 에는 $a$ 가 없어 그대로예요. 한 틈에서 퍼지는(회절) 밝은 띠의 폭이 $a$ 에 반비례해 좁아지므로, 줄무늬를 감싸는 밝기가 바깥쪽에서 더 빨리 어두워져요.' },
+    onApply: function () { presetHint = '▶ 실행 후 바깥쪽 줄의 밝기를 봐요'; } };
+  function bridgeCard(card, mode, idx) {
+    return { name: card.name, tag: card.tag, changes: card.changes, fixed: card.fixed, values: {},
+      onApply: function () {
+        setTimeout(function () { if (entrance !== mode) pickEntrance(mode); SK.applyPreset(idx, { noConfirm: true }); }, 0);
+      } };
+  }
+  var ADV6_BRIDGE = bridgeCard(ADV6, 'quantum', 5), ADV7_BRIDGE = bridgeCard(ADV7, 'physics', 6);
   var PRESETS = {
     physics: [
       { name: '밝은 줄 간격 재기', tag: '탐구 재현', changes: '빨간 빛 650 nm 그대로', fixed: 'λ 650 nm · d 0.25 mm · L 2.0 m',
@@ -1800,17 +1856,25 @@
         predict: { question: '빨간 레이저 빛이 두 {{슬릿}}을 지나면 스크린에 어떤 무늬가 생길까?', info: SLIT_INFO, figure: predictFigure('wave'),
           choices: ['밝은 점 하나', '밝은 줄 두 개', '밝고 어두운 줄 여러 개'],
           answer: 3, why: '두 틈에서 나온 빛이 겹쳐요. 보강(같은 방향이 겹쳐 더 밝아짐)된 곳은 밝은 줄, 상쇄(반대 방향이 겹쳐 지워짐)된 곳은 어두운 줄이 돼요.' },
+        // R9(§4-2, 기획B §4): 초급 — 재기 없이 관찰만, 같은 정답(③)
+        basic: { name: '빨간 빛 보기', changes: '빨간 빛 그대로', q: '빨간 빛이 두 틈을 지나면 스크린에 무엇이 생길까?',
+          choices: ['밝은 점 하나', '밝은 줄 두 개', '밝고 어두운 줄이 번갈아'], answer: 3,
+          why: '두 틈에서 나온 빛이 스크린에서 다시 만나요. 서로 힘을 보태는 곳은 밝은 줄, 서로 지우는 곳은 어두운 줄이 되어 번갈아 생겨요.' },
         onApply: function () { presetHint = '▶ 실행으로 빛을 켜고 간격을 재요'; } },
       { name: '빨강과 파랑', tag: '대표 문항', changes: '빨강 650 nm → 파랑 450 nm', fixed: 'd 0.25 mm · L 2.0 m',
         values: withBase({ send: 'wave', lam: 450 }),
         predict: { question: '빨강(650 nm) 대신 파랑(450 nm) 빛을 비추면 무늬 간격은?', choices: ['넓어진다', '좁아진다', '그대로다'],
           info: '실험 ①에서 빨강을 재고 기록해 두면 두 무늬를 나란히 비교할 수 있어요.',
           answer: 2, why: '$Δy$ = {{frac:$λL$|$d$}} 에서 $λ$ 가 약 0.7배라 간격도 5.2 → 약 3.6 mm 로 좁아져요.' },
+        basic: { name: '빨강을 파랑으로', changes: '빨간 빛 → 파란 빛', q: '빨간 빛 대신 파란 빛을 비추면 밝은 줄 사이가?', choices: ['넓어진다', '좁아진다', '그대로'], answer: 2,
+          why: '파란 빛은 빨간 빛보다 파장이 짧아요. 그래서 밝은 줄 사이가 더 좁아져요.' },
         onApply: function () { presetHint = '▶ 실행 후 파란 무늬 간격을 재요'; } },
       { name: '슬릿 간격 2배', tag: '탐구 재현', changes: '슬릿 간격 0.25 → 0.50 mm', fixed: 'λ 650 nm · L 2.0 m',
         values: withBase({ send: 'wave', d: 0.5 }),
         predict: { question: '두 슬릿 사이를 두 배(0.50 mm)로 넓히면 무늬 간격은?', choices: ['두 배로 넓어진다', '반으로 좁아진다', '그대로다'],
           answer: 2, why: '$d$ 는 식의 분모라서 두 배가 되면 $Δy$ 는 ½배 — 5.2 → 2.6 mm 예요.' },
+        basic: { name: '두 틈을 넓히면', changes: '두 틈 사이를 두 배로', q: '두 틈 사이를 더 넓히면 밝은 줄 사이가?', choices: ['넓어진다', '좁아진다', '그대로'], answer: 2,
+          why: '두 틈이 멀어질수록 밝은 줄이 더 촘촘하게 생겨요. 그래서 밝은 줄 사이가 좁아져요.' },
         onApply: function () { presetHint = '▶ 실행 후 촘촘한 줄을 간격 여러 개로 재요'; } },
       { name: '스크린을 멀리', tag: '탐구 재현', changes: '스크린 거리 2.0 → 3.0 m', fixed: 'λ 650 nm · d 0.25 mm',
         values: withBase({ send: 'wave', L: 3.0 }),
@@ -1821,7 +1885,11 @@
         values: withBase({ send: 'wave', slit: 'top' }),
         predict: { question: '슬릿을 하나만 열면 줄무늬가 사라질까? 스크린 무늬는?', choices: ['밝은 줄 수가 반으로 준다', '넓은 밝은 띠 하나', '그대로다'],
           answer: 2, why: '겹칠 빛이 없어 간섭이 생기지 않아요. 한 틈에서 퍼진(회절) 넓은 띠 하나만 보여요.' },
-        onApply: function () { presetHint = '▶ 실행 후 줄무늬가 있는지 봐요'; } }
+        basic: { name: '틈 하나만 열면', changes: '위쪽 틈만 열기', q: '틈을 하나만 열면 줄무늬가?', choices: ['그대로', '사라지고 넓은 띠 하나', '어두워지기만'], answer: 2,
+          why: '만나서 겹칠 다른 빛이 없어요. 그래서 줄무늬가 사라지고 한 틈에서 퍼진 넓은 띠 하나만 보여요.' },
+        onApply: function () { presetHint = '▶ 실행 후 줄무늬가 있는지 봐요'; } },
+      ADV6_BRIDGE,
+      ADV7
     ],
     quantum: [
       { name: '전자 하나씩', tag: '탐구 재현', changes: '전자를 1초에 1개씩', fixed: '1000 V · d 5 · L 5 눈금 · 측정기 끔',
@@ -1850,14 +1918,33 @@
         values: withBase({ send: 'electron', rate: 1000, slit: 'top' }),
         predict: { question: '전자도 슬릿을 하나만 열면 줄무늬가 사라질까?', choices: ['줄무늬가 그대로', '넓은 띠 하나', '점이 안 찍힌다'],
           answer: 2, why: '길이 하나뿐이면 간섭할 상대가 없어 넓은 띠 하나만 생겨요. 전자도 빛과 똑같아요.' },
-        onApply: function () { presetHint = '▶ 실행 후 슬릿을 다시 열어 봐요'; } }
+        onApply: function () { presetHint = '▶ 실행 후 슬릿을 다시 열어 봐요'; } },
+      ADV6,
+      ADV7_BRIDGE
     ]
   };
   // R5: 예측 창은 위쪽(place:'top') — 레이저·슬릿은 왼쪽 가운데, 무늬·확대창은 오른쪽이라 위는 상태 칩뿐
   // R7 학생점검(A3): ƒ 식 탭이 여는 설명 장 — 빛 갈래 = 4장 'dy', 하나씩 갈래 = 7장 'matter-wave'
   ['physics', 'quantum'].forEach(function (k) { PRESETS[k].forEach(function (c) { if (c.predict) c.predict.place = 'top'; c.formulaCh = k === 'physics' ? 'dy' : 'matter-wave'; }); });
 
+  /** R9(§4-2, 기획B §5): 초급 결과 해설 — 기호 없이 '~했어요', 크다·작다·같다·넓다·좁다만 */
+  function basicTakeaway(p) {
+    if (p.send === 'marble') return { line: '구슬은 띠 두 개만 생겼어요', lesson: 'wave-words',
+      more: '구슬은 한 틈만 곧게 지나가서 서로 겹치지 않아요. 그래서 줄무늬 없이 틈 뒤에 띠 두 개만 생겨요.' };
+    if (p.slit !== 'both') return { line: '틈이 하나면 넓은 띠 하나만 생겨요', lesson: 'wave-words',
+      more: '만나서 겹칠 다른 빛이 없어 줄무늬가 생기지 않아요. 한 틈에서 퍼진 넓은 띠 하나만 남아요. 그림의 막힌 틈을 눌러 다시 열고 비교해 봐요.' };
+    if (p.det && p.send !== 'wave') return { line: '어느 틈으로 갔는지 알게 되자 줄무늬가 사라졌어요', lesson: 'wave-words',
+      more: '어느 틈을 지났는지 기록이 남으면 두 길이 겹칠 수 없어요. 그래서 줄무늬 없이 넓게 쌓여요.' };
+    if (p.send === 'wave') {
+      var w = bandWord(p), cmp = w && /^지난번/.test(w) ? ' 이번에는 밝은 줄 사이가 ' + w + '.' : '';
+      return { line: '밝은 줄과 어두운 줄이 번갈아 생겼어요', lesson: 'wave-words',
+        more: '두 틈에서 나온 빛이 스크린에서 다시 만나요. 서로 힘을 보태는 곳은 밝아지고, 서로 지우는 곳은 어두워져요. 빛의 색이 빨강 쪽일수록(파장이 길수록), 두 틈 사이가 좁을수록 밝은 줄 사이가 넓어요.' + cmp };
+    }
+    return { line: '하나씩 보내도 쌓이면 줄무늬가 돼요', lesson: 'wave-words',
+      more: '점 하나가 어디에 찍힐지는 알 수 없지만, 많이 쌓이면 늘 같은 줄무늬가 돼요. 빛처럼 두 길이 겹쳐서 생기는 무늬예요.' };
+  }
   SK.takeaway(function (p) {
+    if (SK.level && SK.level() === 'basic') return basicTakeaway(p);
     var u = unitY(p);
     if (p.send === 'marble') return { line: '구슬은 그림자 자리에 띠 두 개만 생겼어요', lesson: 'matter-wave',
       more: '구슬은 알갱이처럼 한 슬릿만 곧게 지나가요. 두 길이 겹치지 않으니 간섭이 없고, 각 슬릿 뒤 그림자 띠 두 개가 생겨요. 전자·광자의 줄무늬와 비교해 보세요.' };
@@ -1895,7 +1982,7 @@
   ];
   THINKS.forEach(function (t) {
     var m = t.mode, o = copy(t); delete o.mode;
-    o.when = function () { return entrance === m; };
+    o.when = function () { return entrance === m && !(SK.level && SK.level() === 'basic'); };   // R9: 초급 정리는 설명 층 초급 문항(levels:['basic'])만 — 이 카드들은 Δy·경로차를 써서 중급부터
     SK.think(o);
   });
 
@@ -2080,6 +2167,58 @@
       ] },
       { title: '확인할 것', items: ['교과서 쪽수·활동 이름 (확인 필요)', '[12전자03-02] 는 연계(정성)로만 다룸'] }
     ]
+  });
+
+  /* ---- R9(§4-2·§1-6): 단계 — 초급 이름·눈금 글자(색 이름·좁게↔넓게), 실험 고르기 '다른 갈래 보기 ▸', 고급 이론·측정 칸 ----
+     값(λ·d·L·V…)·기록·측정 선은 그대로 두고 글자·노드만 바꾼다. 전자 갈래인 채 초급으로 내리면 공통 틀이 '이 갈래는 중급부터 나와요'(갈래 유지) */
+  var LV_TICKS = { lam: ['보라', '초록', '빨강'], d: ['좁게', '', '넓게'] };
+  var LV_LABEL = { lam: '빛의 색', d: '두 틈 사이' };
+  function prepLevelLabels() {
+    ['lam', 'd'].forEach(function (k) {
+      var lab = SK.controls[k].el.querySelector('.var__label');
+      if (!lab || lab._lv) return;
+      var mid = SK.h('span', { class: 'dsq-lab-mid' });
+      Array.prototype.slice.call(lab.childNodes).forEach(function (n) { if (!(n.classList && n.classList.contains('dsq-dot'))) mid.appendChild(n); });
+      lab.appendChild(mid);
+      lab.appendChild(SK.h('span', { class: 'dsq-lab-basic', text: LV_LABEL[k] }));
+      lab._lv = true;
+    });
+  }
+  function levelTicks(basic) {
+    Object.keys(LV_TICKS).forEach(function (k) {
+      var sp = SK.controls[k].el.querySelectorAll('.var__ticks > span');
+      Array.prototype.forEach.call(sp, function (t, i) {
+        if (t._lvOrig === undefined) { t._lvOrig = t.textContent; t._lvLong = t.classList.contains('is-long'); }
+        var want = basic ? (LV_TICKS[k][i] || '') : t._lvOrig;
+        if (t.textContent !== want) t.textContent = want;
+        t.classList.toggle('is-long', basic ? false : t._lvLong);
+      });
+    });
+  }
+  // 초급 실험 고르기 시트 맨 아래 접힘 — 전자 갈래는 막지 않고 눈에 덜 띄게(0-2 #12)
+  ui.otherBranch = SK.h('details', { class: 'dsq-otherbranch', hidden: true }, [
+    SK.h('summary', { class: 'dsq-otherbranch__sum', text: '다른 갈래 보기' }),
+    SK.h('p', { class: 'dsq-otherbranch__note', text: '전자를 하나씩 보내는 실험은 중급에서 배워요. 미리 볼 수 있어요.' })
+  ]);
+  ui.otherBtn = SK.h('button', { class: 'btn btn--secondary btn--sm dsq-otherbranch__btn', type: 'button' }, '전자 하나씩 보내기');
+  ui.otherBtn.addEventListener('click', function (e) {
+    if (e.detail > 0) ui.otherBtn.blur();
+    if (SK.pop && SK.pop.close) SK.pop.close();
+    var pc = SK.predicting && SK.predicting() && document.querySelector('.pop--band .predict__close');   // 빛 카드 ① 예측 띠가 떠 있으면 닫고
+    if (pc) pc.click();
+    if (entrance !== 'quantum') pickEntrance('quantum');
+    SK.applyPreset(0, { noConfirm: true });
+  });
+  ui.otherBranch.appendChild(ui.otherBtn);
+  if (SK.el.presets && SK.el.presets.parentNode) SK.el.presets.parentNode.appendChild(ui.otherBranch);
+  if (SK.onLevel) SK.onLevel(function (lv) {
+    var basic = lv === 'basic';
+    prepLevelLabels(); levelTicks(basic);
+    ui.otherBranch.hidden = !basic;
+    if (!basic) ui.otherBranch.open = false;
+    ui.eqKey = null; lastM = {};
+    updatePanel(); refreshChecklist(); SK.refreshThinks();
+    SK.requestRender(); SK.update();
   });
 
   installPointer();

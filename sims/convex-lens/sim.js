@@ -291,16 +291,36 @@
     ],
     // R2(A4): 카드를 누르면 값이 먼저 바뀌므로, 예측 창이 떠 있는 동안 상(像)·정면 창·계기판 결과를 숨긴다 (광선은 보임)
     autoPredict: true,
-    onPredictOpen: function () { SK.requestRender(); SK.update(); },
+    onPredictOpen: function () {
+      SK.requestRender(); SK.update();
+      // R9(U3-2a): 초급 첫 예측 띠는 접힌 채('예측 대기 ▾' 칩) — 렌즈 윗부분·광선 ①을 가리지 않게. 학생이 칩을 눌러 펼친다
+      bootPred = basicLv() && !(SK.activePreset && SK.activePreset() >= 0);
+      if (foldFirst && basicLv()) { foldFirst = false; setTimeout(function () { if (SK.pop && SK.pop.fold) SK.pop.fold(true); }, 0); }
+    },
     onPredictClose: function () { SK.requestRender(); SK.update(); },
-    // R6(C7) 심플 모드: 물체 거리·초점거리 둘 + 상 거리·배율·상의 모습. 카드 ②③④. 더 보기 아래 줄 '빛 다발' 켬/끔
-    simple: {
-      task: '물체를 렌즈 쪽으로 옮기면 상은 어떻게 변할까요?',
-      params: ['s', 'f'],
-      meters: ['si', 'm', 'look'],
-      presets: [1, 2, 3],
-      predict: { preset: 1 },   // R8(A4): 심플 첫 카드(② 물체를 2F에) 예측을 명시
-      extras: [{ key: 'fan', label: '빛 다발' }]
+    // R9(§4-5) 단계 — 예전 cfg.simple(R6: s·f + 상 거리·배율·상의 모습, 카드 ②③④)은 basic 으로 바뀜(?simple=1 = basic)
+    //   초급 = 슬라이더 없음(카드가 물체 자리를 정함 — s·f 값은 그대로 보존), 할 일 칩 '이 렌즈: 초점거리 10 cm', 측정 '상의 모습'만,
+    //          카드 ②③④⑤ 쉬운 말 변형(수치·F·2F 보기 없음), 시작은 '멀리'(30 cm) + 접힌 예측 띠
+    //   중급 = R8 그대로(카드 ①~⑤) · 고급 = + 물체 높이·종류·스크린 위치를 패널로, 상 거리 소수 1자리, '렌즈 공식' 계기, 카드 ⑥⑦
+    levels: {
+      basic: {
+        task: '카드를 골라 물체를 옮기고, 상이 어떻게 변하는지 봐요',
+        params: [],
+        situation: [],
+        chips: [{ text: function (p) { return '이 렌즈: 초점거리 ' + p.f + ' cm'; } }],
+        meters: ['look'],
+        presets: [1, 2, 3, 4],
+        // 시작 = 지금 자리(멀리 30 cm)에서 묻는 쉬운 질문 — 카드 값을 덮지 않는다(정답은 계산으로 판정)
+        predict: {
+          question: '물체를 렌즈에서 멀리(30 cm) 두면 스크린에 생기는 상의 크기는?',
+          choices: ['물체보다 작아요', '물체와 같아요', '물체보다 커요'], answer: 1,
+          judge: function (p) { var im = Phys.image(p); if (im.kind !== 'real' || im.far) return null; var m = Math.abs(im.m); return m < 0.95 ? 1 : m > 1.05 ? 3 : 2; },
+          why: '물체가 렌즈에서 멀리 있으면 빛이 렌즈 가까운 곳에 모여 작은 상이 생겨요. 카메라와 눈도 이렇게 풍경을 작게 담아요.'
+        },
+        extras: [{ key: 'fan', label: '빛 다발' }]
+      },
+      mid: { presets: [0, 1, 2, 3, 4] },
+      adv: { expose: ['h', 'type', 'screenX'] }   // 가림판(blocker)은 이미 패널 '상황 바꾸기'에 있어 옮기지 않음
     },
     // R8(A7): 기록 2개째 한 줄 비교
     compareLine: function (a, b) { return compareLine(a, b); },
@@ -353,7 +373,7 @@
         var k = Phys.image(SK.params).kind;
         sharpWas = k === 'real' && SK.params.screen ? !blurryReal(SK.params) : null;
         SK.finish(k === 'real' ? (blurryReal(SK.params) ? BLURRY_MSG : (SK.params.screen ? '선명해요 — 기록해요' : '상이 생겼어요 — 기록하기 버튼으로 저장해요'))
-          : k === 'virtual' ? '허상이 보여요 — 기록하기 버튼으로 저장해요'
+          : k === 'virtual' ? (basicLv() ? '렌즈 너머로 큰 상이 보여요 — 기록해요' : '허상이 보여요 — 기록하기 버튼으로 저장해요')
           : '상이 안 생겨요 — 기록하기 버튼으로 저장해요');
       }
     },
@@ -363,6 +383,7 @@
     load: function (s) { animT = s.a; },
     status: status,
     statusNote: statusNote,
+    noticeTop: true,   // 팀장 R9 결과(학생M): 토스트를 위 가운데에 — 아래 [◂ 물체 ▸][◂ 스크린 ▸] 손잡이를 가리지 않게
     onStep: onStep,
     onTeacher: function () { syncUI(); renderTable(); SK.update(); SK.requestRender(); }
   });
@@ -462,8 +483,11 @@
     { key: 'si', label: '상 거리', unit: 'cm', decimals: 0, size: 'md', core: true },   // R7(C6): core = 상 거리·배율 (+ 오른쪽 '상의 모습' 칸), 선명도는 [수치 더 보기]
     { key: 'm', label: '{{배율}}', unit: '배', decimals: 1, size: 'md', core: true },
     { key: 'sharp', label: '{{선명도}}', unit: '%', decimals: 0, size: 'md' },
-    { key: 'look', label: '상의 모습', unit: '', simpleOnly: true }   // R6(C7): 심플 측정 칸 전용 — 하단 띠 '상의 모습' 한 줄과 같은 문구
+    { key: 'look', label: '상의 모습', unit: '', simpleOnly: true },   // R6(C7): 심플 측정 칸 전용 — 하단 띠 '상의 모습' 한 줄과 같은 문구
+    // R9(§4-5) 고급 전용 계기(중급·초급은 CSS 로 숨김 — 칸 자리를 차지하지 않음): 공식 s′ 와 스크린(측정) 비교 ✓ / 차이 cm
+    { key: 'check', label: '렌즈 공식', unit: '', size: 'md', core: true }
   ]);
+  (function () { var c = meters.el.querySelector('.meter[data-key="check"]'); if (c) c.title = '렌즈 공식 1/s + 1/s′ = 1/f 로 구한 상 거리와 스크린 위치(측정) 비교 — ✓ 일치 / 차이 cm'; })();
   var siLabel = meters.el.querySelector('.meter[data-key="si"] .meter__label');
   kindEls = {
     main: h('span', { class: 'lens-kind__main', text: '–' }),
@@ -504,7 +528,15 @@
   function preset(extra) { var o = {}, k; for (k in BASE) o[k] = BASE[k]; for (k in extra) o[k] = extra[k]; return o; }
   /** R7(C6): 정면 창을 보며 하는 카드(①·④·⑤)는 창을 펼친다(펼침은 기억) */
   function openWinForCard() { if (!SK.isSimple() && !winOpen) { setWinOpen(true); SK.requestRender(); } }
-  function presetApplied() { ghostData = null; SK.ghost = null; committed = snap(SK.params); eqOn = false; eqBtn.setAttribute('aria-pressed', 'false'); pinH = false; syncUI(); renderTable(); refreshFindF(); }
+  // R9: 초급 시작 질문(카드와 무관한 '멀리 30 cm' 예측)이 열린 채 카드를 고르면 그 띠는 닫는다 — 바뀐 자리와 질문이 어긋나지 않게(카드 예측은 [예측 ▸])
+  var bootPred = false;
+  function closeBootPred() {
+    if (!bootPred) return;
+    bootPred = false;
+    var x = SK.predicting() && document.querySelector('.pop--band .predict__close');
+    if (x) x.click();
+  }
+  function presetApplied() { closeBootPred(); ghostData = null; SK.ghost = null; committed = snap(SK.params); eqOn = false; eqBtn.setAttribute('aria-pressed', 'false'); pinH = false; syncUI(); renderTable(); refreshFindF(); }
   SK.setPresets([
     {
       name: '초점거리 찾기', tag: '탐구 재현', changes: '초점거리 숨김', formulaCh: 'terms',
@@ -513,6 +545,7 @@
       values: preset({ type: 'far', s: 40, screenX: 30, hideF: true, ray1: false, ray2: false, ray3: false }),
       predict: {
         question: '먼 풍경의 상은 렌즈에서 얼마나 떨어진 곳에 생길까?',   // R5: 창 높이 상한(58%) 안 — 질문 1줄 · 안내 1줄
+        info: 'F = 빛이 모이는 점(초점) · 2F = 그 두 배 자리',   // R9(U3-2a): 보기 옆 한 줄 풀이(문구만 — 보기·정답 그대로)
         choices: ['F 자리', '2F 자리', '렌즈 바로 뒤', '아주 멀리'],   // R8(F6): 그림의 F·2F 와 같은 대문자, 짧게   // R7 학생점검(A3): 한 줄 20자 안쪽 (f 풀이는 설명 3장·용어)   // R5: f 풀이는 보기 안으로(창 높이 상한)
         answer: 1,
         why: '아주 먼 곳의 빛은 거의 나란히 들어와 초점에 모여요. 그래서 상은 렌즈에서 f 만큼 떨어진 곳에 생기고, 그 거리를 재면 f 를 알 수 있어요.',
@@ -533,6 +566,12 @@
         answer: 2,
         why: '2F(렌즈에서 2f = 20 cm 자리)에 둔 물체의 빛은 반대쪽 2F 에 모여요. 물체 거리와 상 거리가 같으니 크기도 같고, 거꾸로 서요(배율 1배).'
       },
+      // R9(§4-5) 초급: 숫자·F·2F 없이 크기만 묻는다(정답 '같아요' = 같은 카드의 결과)
+      basic: {
+        name: '가운데 두기', changes: '렌즈에서 20 cm', change: '물체를 렌즈에서 20 cm(초점거리의 두 배)에 두기', fixed: '이 렌즈: 초점거리 10 cm · 스크린은 끌어서 선명한 곳 찾기',
+        q: '물체를 렌즈에서 20 cm(초점거리의 두 배)에 두면 상의 크기는?', choices: ['작아져요', '물체와 같아요', '커져요'], answer: 2,
+        why: '렌즈에서 20 cm(이 렌즈 초점거리의 두 배)에 둔 물체의 빛은 렌즈 반대쪽 20 cm 에 모여요. 거리가 같아서 상의 크기도 물체와 같고, 거꾸로 서요.'
+      },
       onApply: presetApplied
     },
     {
@@ -544,6 +583,13 @@
         choices: ['렌즈 쪽으로', '렌즈에서 멀리', '어느 쪽이든 같다'],
         answer: 1,
         why: '물체가 초점 쪽으로 다가갈수록 상은 멀어지고 커져요. 그래서 슬라이드는 렌즈 쪽으로, 스크린은 더 멀리 옮겨요. 단, 초점 안쪽까지 들어가면 스크린에 상이 맺히지 않아요.'
+      },
+      // R9(§4-5) 초급: '가까이 옮기기' — 20 cm 에서 15 cm 로(물체는 화살표), 상이 커지는지만 묻는다. 초급 전용 정답(③ 커져요)
+      basic: {
+        name: '가까이 옮기기', changes: '렌즈 쪽으로 15 cm', change: '물체를 20 cm 에서 15 cm 로 렌즈 쪽에 가까이', fixed: '이 렌즈: 초점거리 10 cm · 스크린은 끌어서 선명한 곳 찾기',
+        set: { type: 'arrow' },
+        q: '물체를 렌즈 쪽으로 가까이(15 cm) 옮기면 스크린의 상은?', choices: ['작아져요', '그대로예요', '커져요'], answer: 3, judge: null,
+        why: '물체가 렌즈에 가까워질수록 상은 렌즈에서 멀어지고 커져요. 그래서 스크린도 더 멀리 옮겨야 선명해요. 프로젝터가 이렇게 그림을 크게 비춰요.'
       },
       onApply: presetApplied
     },
@@ -558,6 +604,12 @@
         answer: 2,
         why: '초점 안쪽 물체의 빛은 렌즈를 지나도 모이지 않고 퍼져요. 눈은 그 빛이 렌즈 앞쪽에서 온 것처럼 느껴서 바로 선 큰 상(허상)을 봐요. 돋보기의 원리예요.'
       },
+      // R9(§4-5) 초급: 같은 보기·같은 정답(②), '허상' 낱말만 뺌
+      basic: {
+        changes: '스크린에 안 맺힘', change: '물체를 렌즈 아주 가까이(5 cm), 스크린 치움 — 렌즈 너머로 봐요', fixed: '이 렌즈: 초점거리 10 cm',
+        q: '물체를 렌즈 아주 가까이(5 cm) 두고 렌즈 너머로 보면?',
+        why: '물체가 초점보다 렌즈에 가까우면 렌즈를 지난 빛이 모이지 않고 퍼져요. 눈은 그 빛을 따라 렌즈 너머에서 바로 선 큰 상을 봐요. 이 상은 스크린에는 맺히지 않아요. 돋보기의 원리예요.'
+      },
       onApply: function (p) { presetApplied(p); openWinForCard(); }
     },
     {
@@ -570,7 +622,32 @@
         answer: 2,
         why: '물체 한 점의 빛은 렌즈 어느 부분을 지나도 같은 점에 모여요. 아래 절반을 지난 빛만으로도 상 전체가 생기고, 빛의 양만 절반이 돼요.'
       },
+      basic: { fixed: '이 렌즈: 초점거리 10 cm · 물체 30 cm · 스크린 15 cm' },   // R9: 같은 질문·정답(②) — 부제의 f 기호만 말로
       onApply: function (p) { presetApplied(p); openWinForCard(); }
+    },
+    // R9(§4-5) 고급 카드 ⑥⑦ — 중급 목록(cfg.levels.mid.presets)에는 없음
+    {
+      name: '렌즈 공식 확인', tag: '고급', changes: 'f 20 cm · s 50 cm', formulaCh: 'by-position',
+      change: '초점거리 20 cm, 물체 거리 50 cm — 공식으로 상 거리를 먼저 계산', fixed: '물체 높이 4 cm, 스크린은 끌어서 선명한 곳 찾기',
+      values: preset({ type: 'arrow', f: 20, s: 50, screenX: 45 }),
+      predict: {
+        question: 'f = 20 cm 렌즈에서 50 cm 떨어진 물체 — 1/s + 1/s′ = 1/f 로 구한 상 거리는?',
+        choices: ['25.0 cm', '33.3 cm', '50.0 cm'], answer: 2,
+        why: '1/s′ = 1/20 − 1/50 = 3/100 이라서 s′ = 33.3 cm 예요. 배율은 s′/s = 33.3/50 ≈ 0.67배 — 작고 거꾸로 선 실상이에요. 스크린을 33 cm 쯤으로 옮기면 가장 선명해요.',
+        afterHint: '▶ 실행 뒤 스크린을 끌어 선명한 곳과 공식 값을 비교해요'
+      },
+      onApply: presetApplied
+    },
+    {
+      name: 's = f 에 두면', tag: '고급', changes: '물체를 초점에', formulaCh: 'by-position',
+      change: '물체 거리 = 초점거리 = 10 cm (경계)', fixed: 'f 10 cm, 물체 높이 4 cm',
+      values: preset({ type: 'arrow', s: 10, screenX: 40 }),
+      predict: {
+        question: '물체를 초점(s = f = 10 cm)에 두면 상은 어떻게 될까?',
+        choices: ['아주 먼 곳에 아주 큰 상', '상이 생기지 않는다 (빛이 나란히)', '렌즈 바로 뒤에 작은 상'], answer: 2,
+        why: '1/s′ = 1/f − 1/s = 0 이라서 s′ 가 끝없이 커져요. 렌즈를 지난 빛이 모두 나란히 나가 다시 만나지 않으니 상이 없어요(손전등·등대). 조금만 바깥이면 아주 먼 큰 실상, 안쪽이면 허상 — 초점이 그 경계예요.'
+      },
+      onApply: presetApplied
     }
   ]);
   // R7-2(C5): 식 팝업의 광선 기호 → 실험 화면 광선 ①②③ 을 1.5초 굵게(drawRays 가 SK.isFlashing('stage:rayN') 로 그림). 꺼져 있으면 켜는 키 안내
@@ -715,7 +792,30 @@
   });
 
   /** 실행이 끝나면 패널 맨 위 '이번 실험 결과' — {line: 한 줄, more: 왜 그럴까? 안 전문} */
+  // R9(§4-5): 초급 = 실상·허상·F·2F·배율 낱말 없이 '~했어요' · 고급 = 중급 문장 + '공식 · 작도 · 측정' 비교 한 줄 (중급 문장은 그대로)
   SK.takeaway(function (p) {
+    if (basicLv()) return basicTake(p);
+    var tk = lensTake(p);
+    if (tk && SK.level && SK.level() === 'adv') {
+      var im = Phys.image(p);
+      if (im.kind === 'real' && !im.far && !hidden()) {
+        var sf = p.s * p.f / (p.s - p.f);
+        tk.more += SK.atLevel({ mid: '', adv: ' 비교: 공식 ' + fmt(sf, 1) + ' cm · 작도 약 ' + Math.round(im.si) + ' cm · 측정(스크린) ' + (p.screen ? fmt(p.screenX, 0) + ' cm' : '–') + '.' });
+      }
+    }
+    return tk;
+  });
+  function basicTake(p) {
+    var im = Phys.image(p);
+    if (p.blocker !== 'none') return { line: '렌즈를 가려도 상은 그대로 다 생기고, 어두워지기만 했어요.', more: '물체의 한 점에서 나온 빛은 렌즈 어디를 지나도 같은 곳에 모여요. 남은 빛만으로도 상 전체가 생기고, 빛의 양만 줄어요.', lesson: 'misc' };
+    if (im.kind === 'none') return { line: '상이 생기지 않았어요.', more: '물체가 초점에 있으면 렌즈를 지난 빛이 모두 나란히 나가서 다시 만나지 않아요.', lesson: 'by-position' };
+    if (im.kind === 'virtual') return { line: '렌즈 너머로 바로 선 큰 상이 보였어요.', more: '물체가 렌즈에 아주 가까우면 빛이 모이지 않고 퍼져요. 눈은 렌즈 너머에서 바로 선 큰 상을 봐요(돋보기). 스크린에는 맺히지 않아요.', lesson: 'magnify' };
+    var m = Math.abs(im.m);
+    if (m > 1.05) return { line: '스크린에 거꾸로 선 큰 상이 맺혔어요.', more: '물체가 렌즈에 가까워질수록 상은 렌즈에서 멀어지고 커져요. 프로젝터가 이렇게 크게 비춰요.', lesson: 'by-position' };
+    if (m < 0.95) return { line: '스크린에 거꾸로 선 작은 상이 맺혔어요.', more: '물체가 렌즈에서 멀리 있으면 상은 렌즈 가까이에 작게 생겨요. 카메라와 눈이 이렇게 담아요.', lesson: 'by-position' };
+    return { line: '스크린에 물체와 같은 크기의 거꾸로 선 상이 맺혔어요.', more: '물체를 렌즈에서 초점거리의 두 배만큼 떨어진 곳에 두면 상도 반대쪽 같은 거리에 같은 크기로 생겨요.', lesson: 'by-position' };
+  }
+  function lensTake(p) {
     var im = Phys.image(p), sc = Phys.screen(p, im), bright = Math.round(Phys.blocker(p.blocker).bright * 100);
     if (p.blocker !== 'none') return { line: '렌즈를 가려도 상은 그대로, 어두워질 뿐이에요.',
       more: '물체 한 점에서 나온 빛은 렌즈 어디를 지나도 같은 점에 모여요. 가림판이 빛 일부를 막아도 남은 빛이 상 전체를 만들어요. 줄어드는 것은 빛의 양(밝기 ' + bright + '%)뿐이에요.', lesson: 'misc' };
@@ -729,7 +829,7 @@
     if (Math.abs(r - 2) < 0.02) return { line: '물체가 2F 에 있으면 상도 2F 에, 같은 크기로 생겨요.', more: '물체 거리와 상 거리가 ' + dist(p.s, true) + ' cm 로 같아요. 배율 = {{frac:상 거리|물체 거리}} = 1배라서 크기가 같고, 거꾸로 선 실상이에요.', lesson: 'by-position' };
     if (r < 2) return { line: '물체가 F 와 2F 사이면 상은 더 멀리, 크게 생겨요.', more: '상 거리 ' + dist(im.si) + ' cm 가 물체 거리 ' + dist(p.s, true) + ' cm 보다 길어서 배율이 ' + m + '배예요(프로젝터). 물체가 초점에 다가갈수록 상은 더 멀어지고 커져요.', lesson: 'magnify' };
     return { line: '물체가 2F 보다 멀면 상은 F 와 2F 사이에 작게 생겨요.', more: '상 거리 ' + dist(im.si) + ' cm 가 물체 거리 ' + dist(p.s, true) + ' cm 보다 짧아서 배율이 ' + m + '배예요(카메라·눈). 물체가 멀어질수록 상은 초점 쪽으로 다가가고 작아져요.', lesson: 'by-position' };
-  });
+  }
 
   /* 정리 단계 질문 판 — 답을 고르면 '답은 ○○' + 이유. 보기 없는 질문은 '답 확인하기'로 모범 답 */
   SK.think({
@@ -933,20 +1033,20 @@
       [el, vEl].forEach(function (x) { if (!x) return; if (hid) x.setAttribute('data-reason', '정리 때 공개'); else if (x.getAttribute('data-reason') === '정리 때 공개') x.removeAttribute('data-reason'); });
     });
     // 범례 한 줄 (왼쪽 위 모서리)
-    var lg = !p.marks ? '점선 = 광축' : hid ? '점선 = 광축 · 초점 표시는 숨겼어요' : 'F = 초점 · 2F = 초점의 두 배 · 점선 = 광축';
+    var lg = !p.marks ? '점선 = 광축' : hid ? '점선 = 광축 · 초점 표시는 숨겼어요' : basicLv() ? 'F = 빛이 모이는 점(초점) · 점선 = 광축' : 'F = 초점 · 2F = 초점의 두 배 · 점선 = 광축';
     if (legendEl && legendEl.textContent !== lg) legendEl.textContent = lg;
     SK.requestRender();
   }
   var HID_TIP = '숨긴 초점거리는 정리 단계에서 답 확인하기로 공개돼요';
   function status(p) {
-    var fT = p.hideF ? (SK.isTeacher() ? '$f$ ' + p.f + ' cm (학생에겐 숨김)' : '$f$ ? cm — 스크린으로 찾아요') : '$f$ ' + p.f + ' cm';
+    var fT = p.hideF ? (SK.isTeacher() ? '$f$ ' + p.f + ' cm (학생에겐 숨김)' : '$f$ ? cm — 스크린으로 찾아요') : basicLv() ? '초점거리 ' + p.f + ' cm' : '$f$ ' + p.f + ' cm';   // 팀장 R9 결과(학생M): 초급은 기호 없이
     // R7-3(C6b): 공통 칩 1개에 2개까지 — [f, 스크린] (가림판은 켰을 때만 스크린 자리에). 나머지는 statusNote
     return [fT, p.blocker !== 'none' ? '가림판 ' + BLOCKER_TEXT[p.blocker] : p.screen ? '스크린' : '스크린 치움'];
   }
   /** R7-3(S2): ⚙ 설정·실험 고르기 머리 한 줄 — 스크린·가림판 상태 + 허상 안내(예측 중에는 답이 되므로 뺌) */
   function statusNote(p) {
     var t = '스크린 ' + (p.screen ? '켜짐' : '꺼짐') + ' · 가림판 ' + BLOCKER_TEXT[p.blocker];
-    if (!SK.predicting() && Phys.image(p).kind === 'virtual') t += ' · 허상은 스크린에 맺히지 않고 렌즈 너머로 보여요';
+    if (!SK.predicting() && Phys.image(p).kind === 'virtual') t += basicLv() ? ' · 이 상은 스크린에 맺히지 않고 렌즈 너머로 보여요' : ' · 허상은 스크린에 맺히지 않고 렌즈 너머로 보여요';
     return t;
   }
   /** 상태 칩 'f ? cm' 에 숨김 이유 말풍선 (칩은 공통 틀이 만든다) */
@@ -1140,6 +1240,7 @@
     if (showF) {
       [[-2, '2F'], [-1, 'F'], [1, 'F'], [2, '2F']].forEach(function (m) {
         var xcm = m[0] * p.f; if (xcm < -50 || xcm > 100) return;
+        if (Math.abs(m[0]) === 2 && basicLv()) return;   // R9: 초급은 F(빛이 모이는 점)만 — 2F 표시는 중급부터
         ctx.save(); ctx.fillStyle = C('--color-sim-lens'); ctx.strokeStyle = C('--color-ink'); ctx.lineWidth = 1.5;
         ctx.beginPath(); ctx.arc(X(xcm), AXIS, (Math.abs(m[0]) === 1 ? (SK.isFlashing('f') ? 9 : 7) : 5) * KS, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
         ctx.restore();
@@ -1150,12 +1251,13 @@
   function drawFMarks(ctx, p) {
     [[-2, '2F'], [-1, 'F'], [1, 'F'], [2, '2F']].forEach(function (m) {
       var xcm = m[0] * p.f; if (xcm < -50 || xcm > 100) return;
+      if (Math.abs(m[0]) === 2 && basicLv()) return;   // R9: 초급은 F 만
       var x = X(xcm);
       ctx.save();
       ctx.fillStyle = C('--color-sim-lens'); ctx.strokeStyle = C('--color-ink'); ctx.lineWidth = 2;
       ctx.lineJoin = 'miter'; ctx.beginPath(); ctx.moveTo(x, RAIL - 1); ctx.lineTo(x - 13 * KS, RAIL - 1 - 24 * KS); ctx.lineTo(x + 13 * KS, RAIL - 1 - 24 * KS); ctx.closePath(); ctx.fill(); ctx.stroke();
       ctx.restore();
-      label(ctx, m[1], x, RAIL - 18 - 24 * KS, { size: FS(Math.round(22 * KS)), weight: 500, color: '--color-sim-lens-text', bg: '--color-paper-raised' });
+      label(ctx, basicLv() ? '초점 ' + m[1] : m[1], x, RAIL - 18 - 24 * KS, { size: FS(Math.round(22 * KS)), weight: 500, color: '--color-sim-lens-text', bg: '--color-paper-raised' });   // 팀장 R9 결과(교사P): 초급은 'F' 가 초점임을 눈금에서 바로
     });
   }
 
@@ -1335,20 +1437,20 @@
         if (ly < tipY + 18) ly = tipY + 18;
         ctx.save(); ctx.strokeStyle = C('--color-sim-lens-text'); ctx.lineWidth = 2; ctx.setLineDash([]);
         ctx.beginPath(); ctx.moveTo(x + 4, tipY + 4); ctx.lineTo(lx - 4, ly - 8); ctx.stroke(); ctx.restore();
-        q('실상', lx, ly, { size: 24, weight: 500, align: 'left', color: '--color-sim-lens-text', leader: false });
+        q(basicLv() ? '상' : '실상', lx, ly, { size: 24, weight: 500, align: 'left', color: '--color-sim-lens-text', leader: false });
       }
       if (Y(hi) > RAIL - 4) q('상이 화면보다 커요 (' + fmt(Math.abs(hi), 1) + ' cm)', x + 14, RAIL - 130, { size: 22, align: 'left', color: '--color-sim-lens-text' });
     } else {
       if (si < -50) {
         SK.arrow(ctx, XL + 110, AXIS - 46, XL + 4, AXIS - 46, { color: '--color-sim-lens', width: 5, dash: [8, 6] });
-        q('허상은 렌즈 앞쪽 ' + dist(-si) + ' cm (화면 밖)', XL + 8, AXIS - 86, { size: 22, align: 'left', color: '--color-sim-lens-text' });
+        q((basicLv() ? '보이는 상은 렌즈 앞쪽 ' : '허상은 렌즈 앞쪽 ') + dist(-si) + ' cm (화면 밖)', XL + 8, AXIS - 86, { size: 22, align: 'left', color: '--color-sim-lens-text' });
         return;
       }
       var xv = X(si);
       drawShape(ctx, p.type, xv, AXIS, Math.abs(hi) * SY, hi * SY, { body: col.body, flame: col.flame, trunk: col.trunk, alpha: 0.9 * bl.bright, dashed: true });
       var ty = clamp(Y(hi) - (FS(24) * 0.6 + 12) * KS, 30 - OFF(), RAIL - 30);   // R7-3(C4): 허상 화살표 꼭대기 위
 
-      q('허상', xv, ty, { size: 24, weight: 500, align: 'center', color: '--color-sim-lens-text', ray: true });
+      q(basicLv() ? '보이는 상' : '허상', xv, ty, { size: 24, weight: 500, align: 'center', color: '--color-sim-lens-text', ray: true });
       LQ[LQ.length - 1].up = true;   // R8(F4): 허상 위 바깥으로만 비킨다
       if (Y(hi) < 4) q('상이 화면보다 커요 (' + fmt(Math.abs(hi), 1) + ' cm)', xv - 14, 64, { size: 22, align: 'right', color: '--color-sim-lens-text' });
     }
@@ -1382,7 +1484,7 @@
       if (below) cx = Math.max(cx, Math.min(x1, x2) + 4 + tw / 2);   // 선 아래 글은 렌즈 왼쪽(물체 거리 구간)으로 넘어가지 않게
       var sx = p.screen ? X(p.screenX) : null;
       // 선 위 글은 스크린 막대와 12u 띄워 비킨다. 선 아래 글은 제 구간 밑에 둔다(종이 띠가 막대를 잠깐 덮음 — 어느 구간 글인지가 먼저)
-      if (!below && sx !== null && sx + 5 + 12 > cx - tw / 2 && sx - 5 - 12 < cx + tw / 2) {
+      if (sx !== null && sx + 5 + 12 > cx - tw / 2 && sx - 5 - 12 < cx + tw / 2) {   // 팀장 R9 결과(학생M): 선 아래 글('상 거리')도 스크린 막대를 비킨다
         cx = sx <= cx ? sx + 5 + 12 + tw / 2 : sx - 5 - 12 - tw / 2;
       }
       var al = 'center';
@@ -1553,12 +1655,19 @@
       meters.update({ si: null, m: null, sharp: null });   // R8(A11): 자물쇠 + '실행 뒤'(아래 lockMeters)
       main = '상의 모습은 실행하면 보여요'; sub = SK.predicting() ? '먼저 예측을 골라요' : '▶ 실행으로 확인해요';
     } else {
+      var adv = SK.level && SK.level() === 'adv';   // R9(§0-2 #14): 고급만 상 거리 소수 첫째 자리(13.3 cm)
       meters.update({
-        si: hidden() ? (p.screen ? '?' : '–') : im.kind === 'none' ? '∞' : virt ? dist(-im.si) : dist(im.si),
+        si: hidden() ? (p.screen ? '?' : '–') : im.kind === 'none' ? '∞' : virt ? (adv ? fmt(-im.si, 1) : dist(-im.si)) : (adv ? fmt(im.si, 1) : dist(im.si)),
         m: (far || im.kind === 'none') ? '–' : fmt(Math.abs(im.m), 1),
         sharp: (p.screen && sc.formed && done) ? Math.round(sc.sharp * 100) : '–'
       });
+      meters.set('check', checkText(p, im));
       if (im.kind === 'none') { main = '상이 생기지 않아요'; sub = '물체가 초점에 있어 빛이 나란히 나가요'; }
+      else if (basicLv()) {   // R9(§4-5) 초급: 실상·허상·배율 낱말 없이 — 모습과 크기만
+        var bm = Math.abs(im.m), bsz = far ? '아주 작아요' : bm > 1.05 ? '물체보다 커요' : bm < 0.95 ? '물체보다 작아요' : '물체와 같은 크기';
+        main = (virt ? '바로 선 상' : '거꾸로 선 상') + ' · ' + bsz;
+        sub = virt ? '스크린에는 안 맺혀요 — 렌즈 너머로 보여요' : '스크린에 맺혀요';
+      }
       else if (far) { main = '거꾸로 선 작은 실상'; sub = hidden() ? '스크린을 옮겨 가장 선명한 곳을 찾아요' : '먼 풍경의 상은 초점 근처에 생겨요'; }
       else if (hidden()) { main = virt ? '바로 선 허상' : '거꾸로 선 실상'; sub = virt ? '스크린에 맺히지 않아요' : '스크린을 옮겨 가장 선명한 곳을 찾아요'; }
       else {
@@ -1568,14 +1677,28 @@
       }
       if (p.blocker !== 'none' && im.kind !== 'none') sub += ' · 밝기 ' + Math.round(Phys.blocker(p.blocker).bright * 100) + '%';
     }
-    meters.set('look', pred ? '실행하면 보여요' : main);   // R6(C7): 심플 측정 칸 — 상의 모습 문구
+    if (pred) meters.set('check', null);
+    // R6(C7): 심플 측정 칸 — 상의 모습 문구 · R9(U3-2a): 초급 예측 중에는 비워 둔다(먼저 예측을 고르게)
+    meters.set('look', pred ? (basicLv() && SK.predicting() ? null : '실행하면 보여요') : main);
     var lt = virt && !hidden() && !pred ? '상 거리(앞쪽)' : '상 거리';   // R8(A11): '(숨김)' 글자 없앰 — 잠금은 자물쇠 표시로
     if (siLabel.textContent !== lt) siLabel.textContent = lt;
-    lockMeters(['si', 'm', 'sharp'], !!pred);
+    lockMeters(['si', 'm', 'sharp', 'check'], !!pred);
     var key = main + sub;
     if (key !== lastKind) { lastKind = key; kindEls.main.textContent = main; kindEls.sub.textContent = sub; }
   }
 
+  /** R9: 지금 단계가 초급인지(초급 문구·그림 분기) */
+  function basicLv() { return !!(SK.level && SK.level() === 'basic'); }
+  /** R9(§4-5) 고급 계기 '렌즈 공식' — 공식 s′ = sf/(s − f) 와 스크린 위치(측정)를 비교: ✓ 일치 / 차이 ±x cm. 물리 계산(Phys)은 그대로, 표시만 */
+  function checkText(p, im) {
+    if (!(SK.level && SK.level() === 'adv') || hidden() || im.far) return '–';
+    if (im.kind === 'none') return '상 없음 (1/s′ = 0)';
+    var sf = p.s * p.f / (p.s - p.f);
+    if (im.kind === 'virtual') return '앞쪽 ' + fmt(-sf, 1) + ' cm';
+    if (!p.screen) return '공식 ' + fmt(sf, 1) + ' cm';
+    var d = p.screenX - sf;
+    return Math.abs(d) < 0.5 ? '✓ 일치' : (d > 0 ? '+' : '−') + fmt(Math.abs(d), 1) + ' cm';   // 스크린 − 공식
+  }
   /** R8(A11): 숨긴 계기 칸 = 자물쇠 + '실행 뒤' (공통 CSS .meter.is-locked[data-reason]) */
   function lockMeters(keys, on) {
     keys.forEach(function (k) {
@@ -1602,8 +1725,15 @@
     return head.join(' · ') + ' : 상 거리 ' + A.sImgT + '→' + B.sImgT + ' cm · 배율 ' + mt(A.mT) + '→' + mt(B.mT);
   }
   // R8(F5·F9): 심플로 들어오면 첫 실행 전까지 정답을 감추고(simpleFresh), 축척(KS·광축)을 다시 잡는다
-  SK.onMode(function (on) { simpleFresh = !!on; if (SK.view && SK.view.resize) SK.view.resize(); SK.requestRender(); });
-  setTimeout(function () { if (SK.isSimple()) { simpleFresh = true; if (SK.view && SK.view.resize) SK.view.resize(); SK.requestRender(); } }, 0);
+  // R9(U3-3): 단계마다(처음 한 번 prev=null 포함) — 초급 진입 = 첫 실행 전 정답 감춤 + 첫 예측 띠는 접힌 채, 캔버스 글자 크기(SK.isSimple 기준)·고급 계기 다시
+  var foldFirst = false;
+  SK.onLevel(function (lv, prev) {
+    var basic = SK.isSimple();
+    if (basic && prev !== 'basic') { simpleFresh = true; foldFirst = true; }
+    if (!basic) { simpleFresh = false; foldFirst = false; }
+    if (SK.view && SK.view.resize) SK.view.resize();
+    syncUI(); SK.update(); SK.requestRender();
+  });
 
   /* ------------------------------------------------------------------
      15. 규칙 카드 (빈칸마다 보기 버튼 + 답 확인하기) · 심화 그림

@@ -63,6 +63,11 @@
   --color-copper-text:    #7A4612; /* 구리색 글자 (6.8:1) */
   --color-copper-tint:    #F1E4D3; /* 안내 칩·'다시 시작' 꼬리표 바탕 */
 
+  /* R9: '중학교에서 배운 것'(복습 장) 표시색 — 청록·구리와 다른 남보라 */
+  --color-review:         #5B5F97;
+  --color-review-text:    #484C82;
+  --color-review-tint:    #E7E8F3;
+
   /* ---------- 3. 물리량 공통 색 (모든 시뮬레이터에서 같은 뜻) ----------- */
   --color-q-velocity:      var(--color-primary); /* 속도 화살표 */
   --color-q-force:         var(--color-copper);  /* 힘·가속도 화살표 */

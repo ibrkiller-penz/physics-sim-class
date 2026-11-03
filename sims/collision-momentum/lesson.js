@@ -66,7 +66,7 @@
     slug: 'collision-momentum',
     title: '부딪치면 무엇이 그대로일까?',
     standards: [{ code: '12물리01-03', subj: '물리학', text: '작용·반작용과 운동량 보존을 여러 상황에 적용 (탐구: 일차원 충돌에서 운동량 보존 확인)' }],
-    simple: ['goal', 'momentum', 'conserve', 'bounce-stick', 'check'],
+    // R9: data.simple 은 장마다 levels 로 대체(초급 = goal · momentum · bounce-stick · check, 앞에 복습 3장)
     /* R7-2: 용어·기호 사전 — 설명·식 팝업·결과 해설·정리 문항이 같은 말·같은 기호를 쓴다 (where = 실험 화면에서 강조할 곳) */
     terms: [
       { term: '운동량', sym: '$p$', unit: 'kg·m/s', mean: '질량 × 속도, $p$ = $mv$. 방향이 있어 오른쪽 +, 왼쪽 −', where: 'meter:p' },
@@ -79,35 +79,113 @@
       { term: '작용·반작용', mean: '두 물체가 서로 주는 힘은 크기가 같고 방향이 반대', where: 'stage:force' }
     ],
     chapters: [
-      /* 1장 */
-      { id: 'goal', type: 'goal', title: '부딪치면 무엇이 그대로일까?',
-        question: '부딪치기 전과 뒤에 안 변하는 것은?',
+
+      /* ── R9 중학교에서 배운 것 (복습 1~3) — 원고 docs/교과설명/collision-momentum_중학교.md · 성취기준 코드 없음 ──
+         운동량·충격량은 중학교에 없는 고등 새 양 — 복습 3 에서 '움직임의 양'으로만 도입한다 */
+      { id: 'mid-school-1', type: 'review', no: 1, of: 3, title: '속력과 관성',
+        source: '중학교 과학 「힘과 운동」·「운동과 에너지」 계열 단원',
         body: [
+          '속력은 **거리 ÷ 시간** 이에요. 멈춘 물체는 계속 멈춰 있으려 하고, 움직이는 물체는 힘이 없으면 같은 속력으로 계속 가려 해요. 이 성질이 **관성**이에요.',
+          '무거울수록 속도를 바꾸기 어려워요. 같은 힘으로 밀어도 무거운 상자는 조금, 가벼운 상자는 많이 움직여요.'
+        ],
+        terms: ['관성', '질량', '속력'],
+        bridge: '중학교에서는 무거울수록 움직임을 바꾸기 어렵다는 것까지 배웠어요. 이제 \'질량과 속도를 함께\' 재는 새 양을 더해요.',
+        selfcheck: { q: '마찰이 없는 얼음 위에서 굴러가는 수레에 힘을 더 주지 않으면 어떻게 될까요?', choices: ['점점 느려져요', '같은 속력으로 계속 가요', '점점 빨라져요'], answerIdx: 1, why: '힘이 없으면 움직이던 물체는 그 속력 그대로 가요(관성).' },
+        teacherNote: ['성취기준 코드 미확인 — 단원명만 표기(학년·단원명 확인 필요 — 학생 화면에는 표시하지 않음). 관성을 중학교에서 어느 학년에 다루는지는 (확인 필요).'],
+        svg: function (D) {
+          var k = [];
+          k.push(track(D, 50, 750, 190), track(D, 50, 750, 350));
+          k.push(cart(D, 100, 190, 160, 70, CA, '큰 상자'));
+          k.push(D.arrow(40, 150, 98, 150, { kind: 'f' }));
+          k.push(vArrow(D, 270, 320, 150, '조금 움직여요', { size: 20 }));
+          k.push(cart(D, 100, 350, 120, 40, CB, '작은 상자'));
+          k.push(D.arrow(40, 320, 98, 320, { kind: 'f' }));
+          k.push(vArrow(D, 230, 430, 320, '많이 움직여요', { size: 20 }));
+          k.push(D.label(560, 90, '같은 힘, 다른 변화', { anchor: 'middle', weight: 500 }));
+          return D.svg(k, { title: '얼음 위 상자 밀기', how: '굵은 화살표 = 미는 힘(길이 같음) · 가는 화살표 = 움직인 정도 — 무거울수록 조금 움직여요' });
+        } },
+      { id: 'mid-school-2', type: 'review', no: 2, of: 3, title: '작용과 반작용',
+        source: '중학교 과학 「힘과 운동」 계열 단원',
+        body: [
+          '내가 벽을 밀면 벽도 나를 같은 크기로 반대 방향으로 밀어요(**작용·반작용**). 두 물체가 부딪칠 때도 서로 주는 힘은 크기가 같고 방향은 반대예요.',
+          '그런데 가벼운 쪽의 속도가 더 많이 바뀌어요. 같은 힘을 받아도 가벼우면 많이 움직이니까요.'
+        ],
+        terms: ['작용', '반작용', '힘의 크기·방향'],
+        bridge: '중학교에서는 서로 미는 두 힘이 크기가 같다는 것까지 배웠어요. 이제 부딪친 뒤 \'움직임의 양\'이 어떻게 되는지 새 양으로 재 봐요.',
+        selfcheck: { q: '무거운 쪽과 가벼운 쪽이 서로 밀었어요. 속도가 더 많이 바뀌는 쪽은?', choices: ['무거운 쪽', '가벼운 쪽', '똑같이 바뀌어요'], answerIdx: 1, why: '미는 힘은 같지만, 가벼울수록 속도가 더 많이 바뀌어요.' },
+        teacherNote: ['성취기준 코드 미확인. 힘의 크기를 직접 묻는 질문은 일부러 뺐다 — 중급 오해 카드(트럭·승용차)에서 학생이 직접 발견하게 한다.'],
+        svg: function (D) {
+          var k = [];
+          k.push(D.ball(300, 190, 34, { color: 'muted' })); k.push(D.ball(500, 206, 20));
+          k.push(D.label(300, 190, '어른', { anchor: 'middle', size: 22, bg: false, color: 'paper' })); k.push(D.label(500, 150, '아이', { anchor: 'middle', size: 22 }));
+          k.push(D.arrow(380, 110, 340, 110, { kind: 'f' })); k.push(D.arrow(420, 110, 460, 110, { kind: 'f' }));
+          k.push(D.label(400, 76, '서로 미는 힘: 같은 크기', { anchor: 'middle', weight: 500 }));
+          k.push(D.line(60, 262, 740, 262, { color: 'muted', w: 1.5, dash: '5 6' }));
+          k.push(D.ball(240, 340, 34, { color: 'muted' })); k.push(D.ball(640, 356, 20));
+          k.push(vArrow(D, 200, 140, 340, '조금', { size: 20, lx: 130 })); k.push(vArrow(D, 680, 770, 356, '많이', { size: 20, lx: 700 }));
+          k.push(D.label(400, 410, '밀고 난 뒤: 가벼운 쪽이 더 빨라요', { anchor: 'middle', size: 22 }));
+          return D.svg(k, { title: '스케이트 위에서 서로 밀기', how: '굵은 화살표 = 힘(길이 같음) · 가는 화살표 = 속도 — 가벼운 아이가 더 멀리 가요' });
+        } },
+      { id: 'mid-school-3', type: 'review', no: 3, of: 3, title: '에너지 전환과 \'움직임의 양\'',
+        source: '중학교 과학 「운동과 에너지」 계열 단원 — \'움직임의 양\'(운동량)은 고등학교에서 처음 나와요',
+        body: [
+          '움직이는 물체는 운동 에너지가 있어요. 부딪쳐 찌그러지거나 소리·열이 나면 일부가 다른 에너지로 바뀌어요.',
+          '이제 "빠르기만이 아니라 무게도 함께 본 **움직임의 양**"을 정해요. 무거운 수레가 느리게 가는 것과 가벼운 수레가 빠르게 가는 것은 둘 다 \'움직임이 꽤 있다\'고 할 수 있어요.',
+          '이 양을 **운동량**이라 불러요. 고등학교에서 식으로 써요.'
+        ],
+        terms: ['운동 에너지', '에너지 전환', '움직임의 양(운동량)'],
+        bridge: '중학교에서는 질량·속력·에너지를 따로 배웠어요. 이제 질량과 속도를 곱한 \'운동량\'을 더해요.',
+        selfcheck: { q: '같은 속력으로 달리는 승용차와 트럭을 같은 힘으로 멈추려면 더 오래 걸리는 쪽은?', choices: ['승용차', '트럭', '똑같아요'], answerIdx: 1, why: '무거울수록 움직임의 양이 커서 멈추는 데 더 오래 걸려요.' },
+        teacherNote: ['성취기준 코드 미확인. 운동량 이름은 이 장에서 한 번 소개하고, 초급의 계기·해설은 \'움직임의 양(운동량)\' 으로 쓴다. 맞히면 건너뛰기 안내.'],
+        svg: function (D) {
+          var k = [], VB = 'var(--color-q-velocity)';
+          k.push(D.label(190, 80, '무거운 수레 × 느림', { anchor: 'middle', weight: 500, size: 22 }));
+          k.push(D.label(610, 80, '가벼운 수레 × 빠름', { anchor: 'middle', weight: 500, size: 22 }));
+          k.push(track(D, 60, 330, 190), track(D, 470, 740, 190));
+          k.push(cart(D, 100, 190, 150, 70, CA, '무거움')); k.push(vArrow(D, 260, 300, 150, '', {}));
+          k.push(cart(D, 520, 190, 70, 34, CB, '')); k.push(vArrow(D, 600, 720, 150, '', {}));
+          k.push(D.line(400, 100, 400, 400, { color: 'muted', w: 1.5, dash: '4 6' }));
+          k.push(D.bar(160, 360, 60, 110, { fill: VB })); k.push(D.bar(580, 360, 60, 110, { fill: VB }));
+          k.push(D.label(190, 385, '움직임의 양', { anchor: 'middle', size: 20, bg: false })); k.push(D.label(610, 385, '움직임의 양', { anchor: 'middle', size: 20, bg: false }));
+          k.push(D.label(400, 430, '두 막대가 같은 높이 — 움직임의 양이 같아요', { anchor: 'middle', size: 20, weight: 500, bg: false }));
+          return D.svg(k, { title: '무게와 빠르기를 함께 본 양', how: '화살표 길이 = 속도 · 막대 높이 = 움직임의 양 — 무거워서 느린 것과 가벼워서 빠른 것이 같을 수 있어요' });
+        } },
+      /* 1장 */
+      { id: 'goal', type: 'goal', title: '부딪치면 무엇이 그대로일까?', levels: ['basic', 'mid', 'adv'],
+        question: '부딪치기 전과 뒤에 안 변하는 것은?',
+        body: { basic: [
+          '같은 무게의 수레가 부딪치면 어떻게 될까요? 속도는 크게 바뀌어도 **그대로인 것**을 찾으면 충돌을 예측할 수 있어요.',
+          '여기서는 수레의 속도 화살표와 "움직임의 양"을 비교해 봐요.'
+        ], mid: [
           '같은 질량의 수레가 부딪치면 어떻게 될까요? 부딪치기 전과 뒤에 변하지 않는 것은 무엇일까요?',
           '속도는 크게 바뀌어도 **그대로인 것**을 찾으면 충돌을 예측할 수 있어요. 그대로인 것({{운동량}})과 그대로가 아닌 것({{운동 에너지}})을 구분하고, 에어백이 힘을 줄이는 이유도 살펴봐요.'
-        ],
-        goals: ['$p$ = $mv$ 와 부호(방향) 쓰기', '충돌 전후 운동량의 합이 같음을 확인하기', '운동 에너지는 튕기느냐에 따라 달라짐을 알기'],
+        ] },
+        goals: { basic: ['부딪친 뒤 속도 화살표가 어떻게 바뀌는지 보기', '움직임의 양(운동량)이 그대로임을 보기'], mid: ['$p$ = $mv$ 와 부호(방향) 쓰기', '충돌 전후 운동량의 합이 같음을 확인하기', '운동 에너지는 튕기느냐에 따라 달라짐을 알기'] },
         svg: function (D) {
+          var B = SK.level && SK.level() === 'basic';
           return D.svg([
             /* R7 학생점검(디자인C): 그림 글자가 본문보다 작아 보임(1180 에서 약 14px) → 26·24 */
             D.label(30, 80, '부딪치기 전', { weight: 500, size: 26 }),
             track(D, 120, 760, 160), cart(D, 180, 160, 100, 50, CA, 'A'), cart(D, 480, 160, 100, 50, CB, 'B'),
-            vArrow(D, 230, 310, 82, '+2 m/s', { size: 24 }), D.label(530, 82, '0 (정지)', { anchor: 'middle', size: 24 }),
+            vArrow(D, 230, 310, 82, B ? '2 m/s' : '+2 m/s', { size: 24 }), D.label(530, 82, '0 (정지)', { anchor: 'middle', size: 24 }),
             D.label(400, 235, '그대로인 것은?', { anchor: 'middle', weight: 500, size: 26, color: 'sim', bg: true }),
             D.label(30, 270, '부딪친 뒤', { weight: 500, size: 26 }),
             track(D, 120, 760, 360), cart(D, 330, 360, 100, 50, CA, 'A'), cart(D, 520, 360, 100, 50, CB, 'B'),
-            D.label(380, 282, '0 (정지)', { anchor: 'middle', size: 24 }), vArrow(D, 570, 650, 282, '+2 m/s', { size: 24 })
-          ], { title: '마찰 없는 트랙 위 두 수레', how: '청록 화살표 = 속도 · 위 = 부딪치기 전, 아래 = 부딪친 뒤 · 같은 질량 1 kg, 오른쪽이 +' });
+            D.label(380, 282, '0 (정지)', { anchor: 'middle', size: 24 }), vArrow(D, 570, 650, 282, B ? '2 m/s' : '+2 m/s', { size: 24 })
+          ], { title: '마찰 없는 트랙 위 두 수레', how: B ? '청록 화살표 = 속도 · 위 = 부딪치기 전, 아래 = 부딪친 뒤 · 같은 무게 1 kg' : '청록 화살표 = 속도 · 위 = 부딪치기 전, 아래 = 부딪친 뒤 · 같은 질량 1 kg, 오른쪽이 +' });
         },
-        teacherNote: '1분. 학생이 "속도가 바뀌었다"는 점을 먼저 말하게 한 뒤 "그대로인 것"으로 넘겨요. 탐구: 일차원 충돌에서 운동량 보존 확인하기.' },
+        teacherNote: '1분. 학생이 "속도가 바뀌었다"는 점을 먼저 말하게 한 뒤 "그대로인 것"으로 넘겨요. 탐구: 일차원 충돌에서 운동량 보존 확인하기.\n초급에서는 impulse·conserve·sign-sum·action-reaction·misc 를 건너뜁니다(복습 2·3 이 작용·반작용과 \'움직임의 양\'을 맡아요).' },
 
       /* 2장 */
-      { id: 'momentum', type: 'formula', title: '운동량: 움직임의 양',
-        body: [
+      { id: 'momentum', type: 'formula', title: { basic: '움직임의 양(운동량)', mid: '운동량: 움직임의 양' }, levels: ['basic', 'mid', 'adv'],
+        body: { basic: [
+          '무겁고 빠를수록 멈추기 어려워요. 그 정도를 **움직임의 양**(운동량)이라고 해요. 무게와 빠르기를 곱해서 정해요.',
+          '부딪치면 움직임의 양이 한 수레에서 다른 수레로 옮겨 가요. 둘을 합친 양은 그대로예요.'
+        ], mid: [
           '무겁고 빠를수록 멈추기 어려워요. 그 정도가 **{{운동량}}** $p$ 이고, 질량과 속도의 곱이에요.',
           '방향은 부호로: 오른쪽 +, 왼쪽 −.'
-        ],
-        eq: [{ tex: '$p$ = $mv$', caption: '운동량 = 질량 × 속도 (kg·m/s)' }],
+        ] },
+        eq: { basic: [{ tex: '움직임의 양 = 무게 × 빠르기', caption: '운동량이라고도 불러요' }], mid: [{ tex: '$p$ = $mv$', caption: '운동량 = 질량 × 속도 (kg·m/s)' }] },
         symbols: [
           { sym: '$p$', name: '운동량 (방향 있음)', unit: 'kg·m/s', target: 'meter:p' },
           { sym: '$m$', name: '질량 (수레 A $m_1$ · B $m_2$)', unit: 'kg', target: 'm1' },
@@ -120,6 +198,15 @@
           return '$p_1$ = ' + f(p.m1, 1) + ' × (' + sg(p.v1) + ') = ' + sg(p1) + ' · $p_2$ = ' + f(p.m2, 1) + ' × (' + sg(p.v2) + ') = ' + sg(p.m2 * p.v2) + ' kg·m/s';
         },
         svg: function (D) {
+          if (SK.level && SK.level() === 'basic') {   // R9: 초급 — 부호·기호 없이 두 수레의 '움직임의 양' 막대만
+            var VB = 'var(--color-q-velocity)';
+            return D.svg([
+              track(D, 40, 440, 160), cart(D, 70, 160, 70, 34, CA, '1 kg'), vArrow(D, 150, 250, 126, '2 m/s', { size: 20 }),
+              track(D, 40, 440, 330), cart(D, 70, 330, 150, 60, CA, '3 kg'), vArrow(D, 230, 330, 286, '2 m/s', { size: 20 }),
+              D.bar(520, 190, 60, 60, { fill: VB }), D.bar(520, 360, 60, 180, { fill: VB }),
+              D.label(600, 160, '움직임의 양: 보통', { size: 20, bg: false }), D.label(600, 300, '움직임의 양: 3배', { size: 20, weight: 500, bg: false })
+            ], { title: '속도가 같으면 무거울수록 커요', how: '막대 높이 = 움직임의 양 · 같은 속도 2 m/s 라도 3배 무거우면 3배예요' });
+          }
           /* R7-3(B5): 막대 1 kg·m/s = 36 — '+6' 글자가 그림 안(2차는 viewBox 밖 35) · 막대 무늬 + 부호 글자 + 범례 */
           var ax = 470, k = 36, rows = [[120, 1, 2, '+2', CA], [230, 3, 2, '+6', CA], [340, 1, -2, '−2', CB]], out = [hatchDefs('cmH2')];
           out.push(D.line(ax, 70, ax, 380, { color: 'ink', w: 3 }));
@@ -264,17 +351,31 @@
         teacherNote: '운동 에너지: 같은 장면의 합은 ½×1×2² + ½×1×2² = 4 J — 달라붙어 멈추면 4 J 이 전부 열·소리로, 튕기면 속도를 맞바꿔 4 J 그대로. 이 장의 질문: "멈추면 운동량이 사라졌나?" → 아니다, 처음 합이 0 이었다(보존). $v_2$ 는 ⚙ › 더 많은 설정에 있어 [해 보기] 가 채워 줘요.' },
 
       /* 6장 */
-      { id: 'bounce-stick', type: 'formula', title: '튕기기와 달라붙기',
-        body: [
+      { id: 'bounce-stick', type: 'formula', title: '튕기기와 달라붙기', levels: ['basic', 'mid', 'adv'],
+        body: { basic: [
+          '같은 무게의 수레 A 가 멈춰 있는 B 에 부딪쳐요.',
+          '**튕기면** A 는 멈추고 B 가 같은 속도로 가요(속도를 맞바꿔요). **달라붙으면** 둘이 함께 절반 속도로 가요.',
+          '움직임의 양은 두 경우 모두 그대로예요.'
+        ], mid: [
           '같은 질량 A(+2 m/s)가 정지한 B 에 **튕기면** 속도를 맞바꾸고, **달라붙으면** 함께 +1 m/s 로 가요.',
           '운동량 합은 둘 다 그대로, $E_k$ 는 붙으면 2 J → 1 J 로 줄어요(열·소리로).'
-        ],
-        eq: [{ tex: '$E_k$ = ½$mv^2$', caption: '운동 에너지 (J) — 방향이 없어요' }],
+        ] },
+        eq: { basic: [], mid: [{ tex: '$E_k$ = ½$mv^2$', caption: '운동 에너지 (J) — 방향이 없어요' }] },
         symbols: [
           { sym: '$E_k$', name: '운동 에너지 합 (전 → 후)', unit: 'J', target: 'meter:k' },
           { sym: '$e$', name: '반발 계수(심화) = 부딪친 뒤 멀어지는 빠르기 ÷ 다가오던 빠르기 (튕기기 1 · 달라붙기 0)', unit: '', target: 'kind' }
         ],
         svg: function (D) {
+          if (SK.level && SK.level() === 'basic') {   // R9: 초급 — 수레 그림으로 '무엇이 어떻게 되나'만
+            return D.svg([
+              D.label(30, 70, '튕기면', { weight: 500 }), track(D, 120, 760, 130),
+              cart(D, 140, 130, 90, 44, CA, 'A'), cart(D, 380, 130, 90, 44, CB, 'B'), vArrow(D, 190, 270, 70, '2 m/s', { size: 20 }),
+              track(D, 120, 760, 230), cart(D, 280, 230, 90, 44, CA, 'A'), cart(D, 520, 230, 90, 44, CB, 'B'), D.label(325, 160, '멈춰요', { anchor: 'middle', size: 20 }), vArrow(D, 570, 660, 170, '2 m/s', { size: 20 }),
+              D.label(30, 290, '달라붙으면', { weight: 500 }), track(D, 120, 760, 350),
+              cart(D, 140, 350, 90, 44, CA, 'A'), cart(D, 380, 350, 90, 44, CB, 'B'), vArrow(D, 190, 270, 296, '2 m/s', { size: 20 }),
+              track(D, 120, 760, 430), cart(D, 400, 430, 180, 44, CA, 'A+B'), vArrow(D, 500, 540, 376, '1 m/s', { size: 20, lx: 548 })
+            ], { title: '같은 무게 수레의 충돌', how: '튕기면 속도를 맞바꾸고, 달라붙으면 함께 절반 속도로 가요 — 움직임의 양은 그대로' });
+          }
           var base = 360, k = 110;
           function ebar(x, j, label) { return rect(x, base - j * k, 70, j * k, EK, { rx: 3 }) + D.label(x + 35, base - j * k - 18, label, { anchor: 'middle', size: 20, weight: 500 }); }
           return D.svg([
@@ -324,6 +425,29 @@
         life: ['스케이트보드 위에서 벽을 밀면 내가 뒤로 가요.', '가벼운 아이와 무거운 어른이 서로 밀면 힘은 같고, 가벼운 쪽이 더 빨리 밀려나요.'],
         teacherNote: '"더 큰 힘"과 "더 큰 영향($Δv$)"을 구분하게 해요. 나중 속도 $v_2′$ = +4 와 속도 변화 $Δv$ = +6 도 구분해요. 실험 ③의 힘-시간 탭에서 두 곡선이 겹쳐요.' },
 
+      /* ── R9 고급 전용 ── */
+      { id: 'restitution', type: 'formula', levels: ['adv'], title: '반발 계수 $e$ 로 보존식 풀기',
+        body: [
+          '$e$ = (부딪친 뒤 멀어지는 빠르기) ÷ (다가오던 빠르기). 튕기기는 $e$ = 1, 달라붙기는 $e$ = 0, 그 사이는 $E_k$ 가 조금 줄어요.',
+          '식 두 개로 두 모르는 값($v_1′$, $v_2′$)을 풀어요. 예: $e$ = 0.5, $m_1$ = $m_2$ = 1 kg, $v_1$ = +2, $v_2$ = 0 → $v_1′$ = 0.5, $v_2′$ = 1.5 m/s, $E_k$ 2 J → 1.25 J.'
+        ],
+        eq: [
+          { tex: '$m_1v_1 + m_2v_2 = m_1v_1′ + m_2v_2′$', caption: '① 운동량 보존' },
+          { tex: '$v_2′ − v_1′ = e(v_1 − v_2)$', caption: '② 반발 계수' },
+          { tex: '$v_2′$ =', frac: ['$(1 + e) m_1 v_1$', '$m_1 + m_2$'], caption: '$v_2$ = 0 일 때' }
+        ],
+        symbols: [{ sym: '$e$', name: '반발 계수 (0 ~ 1)', target: 'e' }, { sym: '$v_1′$', name: '부딪친 뒤 A 의 속도', target: 'meter:v2' }],
+        try: { label: '$e$ = 0.5 로 해 보기', preset: 0, set: { e: 0.5 }, predict: false },
+        teacherNote: '고급 전용. 손으로 두 식을 풀게 한 뒤 실험 값(0.5, 1.5 m/s)과 맞춘다. $E_k$ 손실 0.75 J 은 소리·열.' },
+      { id: 'limits', type: 'concept', levels: ['adv'], title: '운동량 보존은 바깥 힘이 없을 때만',
+        body: [
+          '두 수레의 운동량 합이 그대로인 것은 **바깥에서 미는 힘이 없을 때**예요.',
+          '마찰이 있거나 벽이 막아 주면 수레끼리의 합은 변해요. 벽·지구까지 합쳐서 봐야 보존이에요(실험 ⑤ 벽).',
+          '충돌 시간이 아주 짧아서 바깥 힘의 영향을 무시할 수 있을 때 근사로 써요.'
+        ],
+        condition: '바깥 힘이 없거나, 충돌 시간이 아주 짧을 때',
+        teacherNote: '고급 전용. 실험 ⑤(벽)에서 수레 운동량이 사라진 듯 보이는 장면을 "벽·지구 포함"으로 되묻는다.' },
+
       /* 8장 — 오해 카드: 내 생각 → [해 보기] → 실행이 끝나면 '깨졌어요 ✓ + result' */
       { id: 'misc', type: 'misconception', title: '흔한 오해',
         items: [
@@ -340,21 +464,32 @@
         teacherNote: '보조 오개념: "붙으면 멈춰요"(→ 실험 ②, 합 2 그대로라 1 m/s) · "운동량이 보존되면 운동 에너지도 보존"(→ 실험 ② 운동 에너지 탭) · "벽에 부딪쳐 멈추면 운동량이 사라져요"(→ 실험 ⑤, 벽·지구로 넘어감) · "에어백은 충격량을 줄인다"(→ 시간을 늘려 힘을 줄임).' },
 
       /* 9장 */
-      { id: 'check', type: 'check', title: '시뮬레이터에서 확인할 질문',
+      { id: 'check', type: 'check', levels: ['basic', 'mid', 'adv'], title: '시뮬레이터에서 확인할 질문',
         questions: [
-          { q: '같은 질량의 A(+2 m/s)가 멈춘 B 와 부딪혀 튕기면?', preset: 0, chapter: 'bounce-stick' },
-          { q: '이번엔 달라붙으면?', preset: 1, chapter: 'bounce-stick' },
-          { q: '3배 무거운 트럭과 승용차가 정면충돌하면 누가 더 큰 힘을 받을까?', preset: 2, chapter: 'action-reaction' },
-          { q: '멈춘 대포가 포탄을 쏘면 대포는?', preset: 3, chapter: 'conserve' },
-          { q: '딱딱한 범퍼로 한 번 기록한 뒤, 푹신한 범퍼(0.2 s)로 바꿔 또 해 보세요. 충돌 시간이 길어지면 힘은 어떻게 될까요?', preset: 4, set: { tau: 0.01 }, chapter: 'impulse' },
-          { q: '+2 m/s 와 −2 m/s 로 마주 오던 두 수레가 달라붙으면?', cardName: '마주 오다 부딪치기', preset: OPPOSITE.preset, set: OPPOSITE.set, predict: false, chapter: 'sign-sum' }
+          { q: { basic: '같은 무게의 수레 A 가 멈춘 B 에 부딪혀 튕기면 A 는 어떻게 될까?', mid: '같은 질량의 A(+2 m/s)가 멈춘 B 와 부딪혀 튕기면?' }, preset: 0, chapter: 'bounce-stick' },
+          { q: { basic: '이번엔 달라붙으면 합쳐진 수레의 속도는?', mid: '이번엔 달라붙으면?' }, preset: 1, chapter: 'bounce-stick' },
+          { q: { basic: '3배 무거운 트럭과 승용차가 부딪치면 서로 주는 힘은?', mid: '3배 무거운 트럭과 승용차가 정면충돌하면 누가 더 큰 힘을 받을까?' }, preset: 2, chapter: 'action-reaction' },
+          { q: '멈춘 대포가 포탄을 쏘면 대포는?', levels: ['mid', 'adv'], preset: 3, chapter: 'conserve' },
+          { q: '딱딱한 범퍼로 한 번 기록한 뒤, 푹신한 범퍼(0.2 s)로 바꿔 또 해 보세요. 충돌 시간이 길어지면 힘은 어떻게 될까요?', levels: ['mid', 'adv'], preset: 4, set: { tau: 0.01 }, chapter: 'impulse' },
+          { q: '+2 m/s 와 −2 m/s 로 마주 오던 두 수레가 달라붙으면?', levels: ['mid', 'adv'], cardName: '마주 오다 부딪치기', preset: OPPOSITE.preset, set: OPPOSITE.set, predict: false, chapter: 'sign-sum' },
+          { q: '$e$ 를 0 에서 1 로 바꿔 가며 부딪치면 부딪친 뒤 속도와 $E_k$ 는 어떻게 바뀔까?', levels: ['adv'], preset: 6, chapter: 'restitution' }
         ],
-        teacherNote: '질문 1 이 끝나면 "튕기는 대신 붙으면 에너지 1 J 는 어디로?" → 질문 2. 질문 6 은 카드 ⑥ 「마주 오다 부딪치기」로 열려요(붙으면 멈추고, 튕기면 속도를 맞바꿔요).' },
+        teacherNote: '초급 질문은 ①②③ 세 장면만. 고급은 ⑦ 로 반발 계수를 0→1 로 바꿔 보게 한다.\n질문 1 이 끝나면 "튕기는 대신 붙으면 에너지 1 J 는 어디로?" → 질문 2. 질문 6 은 카드 ⑥ 「마주 오다 부딪치기」로 열려요(붙으면 멈추고, 튕기면 속도를 맞바꿔요).' },
 
       /* 정리 — 설명 순서에서 빠지고 정리 모달(형성평가 3문항 + 교사 [정답 공개])에서만 */
       { id: 'wrap', type: 'wrap', title: '실험 뒤 정리',
         summary: ['바깥 힘이 없으면 충돌 전후 운동량의 합(부호 포함)은 일정하고, 운동 에너지의 합은 튕기는 충돌에서만 일정해요. 부딪친 두 물체가 서로 주는 힘은 항상 크기가 같아요.'],
         quiz: [
+          /* ── R9 초급 3문항 (levels:['basic']) — 중급 3문항은 R8 그대로 ── */
+          { kind: 'concept', levels: ['basic'], q: '같은 질량의 수레 A 가 멈춘 수레 B 에 부딪혀 튕겼어요. 부딪친 뒤 A 는?',
+            choices: ['같은 속도로 계속 가요', '멈추고 B 가 가요', '되튀어요'], answerIdx: 1,
+            why: '같은 질량이면 속도를 맞바꿔요(움직임의 양이 B 로 옮겨 가요).', chapter: 'bounce-stick', try: { preset: 0 } },
+          { kind: 'compare', levels: ['basic'], q: '같은 수레 둘이 부딪쳐 달라붙으면 합쳐진 수레의 속도는 처음 A 의 속도의 몇 배일까?',
+            choices: ['같아요', '절반이에요', '두 배예요'], answerIdx: 1,
+            why: '움직임의 양은 그대로인데 무게가 두 배가 되어 속도가 절반이에요.', chapter: 'bounce-stick', try: { preset: 1 } },
+          { kind: 'misconception', levels: ['basic'], q: '트럭이 승용차에 부딪칠 때 서로 주는 힘은?',
+            choices: ['트럭이 더 커요', '승용차가 더 커요', '같아요'], answerIdx: 2,
+            why: '작용·반작용이라 같아요. 가벼운 승용차의 속도가 더 많이 바뀌어요.', chapter: 'momentum', try: { preset: 2 } },
           { kind: 'concept', q: '질량 2 kg 수레가 오른쪽으로 3 m/s 로 가요. 오른쪽을 + 로 할 때 운동량 $p$ 는?',
             choices: ['+6 kg·m/s', '−6 kg·m/s', '+1.5 kg·m/s'], answerIdx: 0,
             why: '$p$ = $mv$ = 2 × (+3) = +6 kg·m/s. 오른쪽이라 부호가 + 예요.', chapter: 'momentum',
@@ -369,6 +504,8 @@
             try: { preset: 2 } }
         ],
         more: [
+          { levels: ['adv'], q: '(계산) $e$ = 0.5, $m_1$ = $m_2$ = 1 kg, $v_1$ = +2, $v_2$ = 0 m/s 일 때 부딪친 뒤 속도 $v_1′$, $v_2′$ 는?', answer: '$v_1′$ = 0.5, $v_2′$ = 1.5 m/s ($E_k$ 2 J → 1.25 J)',
+            why: '$v_2′$ = {{frac:(1 + 0.5) × 2|2}} = 1.5, $v_1′$ = $v_2′$ − 0.5 × 2 = 0.5. $E_k$ 손실 0.75 J.', chapter: 'restitution' },
           { q: '(심화) 같은 충돌에서 푹신한 범퍼가 평균 힘을 작게 하는 이유는?', answer: '충격량은 같고 시간이 길어져서',
             why: '충격량 $I$ (= 운동량 변화)는 같고 $Δt$ 가 길어지므로 $F$ = {{frac:$Δp$|$Δt$}} 가 작아요.', chapter: 'impulse' },
           { q: '+2 와 −2 가 달라붙어 멈추면 운동량은 어디로 갔을까?', answer: '사라지지 않았다 — 처음 합이 0',

@@ -205,3 +205,30 @@ html.is-simple .simple-meter[data-key="verdict"] { background: transparent; bord
 @media (max-width: 1100px) {
   html:not(.is-simple) .sim-panel [data-key="kind"] .seg__opt { padding-left: calc(2 * var(--u)); padding-right: calc(2 * var(--u)); font-size: max(15px, calc(20 * var(--u))); letter-spacing: -0.01em; }
 }
+
+/* ===== R9(UI팀2, §4-3): 단계 보조 규칙 — 공통 클래스(.level-chip·.simple-meter.is-plain 등)는 디자인팀, 여기는 이 sim 것만 ===== */
+/* 초급: 레일의 질량 이름 옆 기호(m₁·m₂)·충돌 종류 부제(탄성·비탄성)는 숨김 */
+html[data-level="basic"] .simple-rail .var__sym,
+html[data-level="basic"] .simple-rail [data-key="kind"] .btn__sub { display: none; }
+/* 초급 측정 칸 '움직임의 양(운동량)' — 두 수레 합 막대(가운데 0, 오른쪽 + · 왼쪽 −), 숫자 없음. '후' 는 부딪친 뒤에만 */
+.simple-meter[data-key="pbar"] { flex-direction: row; align-items: center; column-gap: var(--space-4); }
+.simple-meter[data-key="pbar"] .simple-meter__label { flex: none; max-width: 7.5em; white-space: normal; line-height: 1.15; }
+.simple-meter[data-key="pbar"] .simple-meter__bar { flex: 1 1 auto; min-width: 0; }
+/* 두 줄이 같은 열을 쓰게(display: contents) — '후' 의 말 칸 때문에 막대 길이가 달라 보이지 않게 */
+.cm-pbar { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(5.5em, auto); align-items: center; column-gap: var(--space-2); row-gap: calc(6 * var(--u)); width: 100%; }
+.cm-pbar__row { display: contents; }
+.cm-pbar__name { font-size: max(16px, calc(24 * var(--u))); color: var(--color-ink-chip); }
+.cm-pbar__track { position: relative; display: block; height: calc(22 * var(--u)); min-height: 12px; background: var(--color-paper-sunk); border-radius: 4px; overflow: hidden; }
+.cm-pbar__track[hidden] { display: none; }
+.cm-pbar__zero { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--color-line-strong); }
+.cm-pbar.is-pos .cm-pbar__zero { display: none; }
+.cm-pbar__fill { position: absolute; top: 0; bottom: 0; left: 50%; width: 0; background: var(--color-ink);
+  background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgba(255, 255, 255, .45) 6px 8px); transition: width .2s, left .2s; }
+.cm-pbar__note { font-size: max(16px, calc(24 * var(--u))); white-space: nowrap; color: var(--color-ink); }
+.cm-pbar__note.is-ok { color: var(--color-ok); font-weight: var(--font-weight-medium); }
+.cm-pbar__note.is-wait { grid-column: 2 / -1; color: var(--color-ink-muted); }
+@media (prefers-reduced-motion: reduce) { .cm-pbar__fill { transition: none; } }
+/* 고급: 띠 = 운동량 합 · 에너지 합 · 에너지 손실 · 판정 + [수치 더 보기] */
+.cm-band .band-cell--meters .meters.has-core.cm-meters--adv { grid-template-columns: 1.2fr 1.1fr .8fr .9fr auto; }
+.cm-band .meter[data-key="loss"][hidden], .pop--meters .meter[hidden] { display: none; }
+.sim-band.cm-band .meter[data-key="loss"] .meter__label { white-space: nowrap; overflow: hidden; text-overflow: clip; font-size: clamp(14px, calc(22 * var(--u)), 22px); }

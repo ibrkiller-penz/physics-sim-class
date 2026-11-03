@@ -201,3 +201,21 @@ html.is-simple .simple-meter__label .term-inline { display: none; }
   .sim-band .lens-kind__main { font-size: 17px !important; line-height: 1.15; white-space: nowrap; }
   .sim-band .lens-kind__sub { font-size: 16px !important; line-height: 1.15; }
 }
+
+/* ---------- R9 UI팀3 — 단계(초급·중급·고급) 보조 규칙 (html[data-level] · 이 파일만) ---------- */
+/* 고급 전용 계기 '렌즈 공식' — 중급·초급에서는 칸 자리도 차지하지 않는다(중급 = R8 띠 그대로) */
+html:not([data-level="adv"]) .sim-band .meter[data-key="check"] { display: none; }
+.sim-band .meter[data-key="check"] .meter__label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sim-band .meter[data-key="check"] .meter__value, .sim-band .meter[data-key="check"] .meter__value .num { white-space: nowrap; font-size: 22px !important; letter-spacing: 0; }/* 카드 ① 보기 'F 자리 · 2F 자리' 풀이 한 줄(predict.info) — 공통은 띠에서 info 를 숨기지만 렌즈는 보기 옆에 한 줄 보인다(R9 U3-2a, 문구만) */
+.pop--band .predict__info { display: -webkit-box; }
+/* 초급은 슬라이더가 없어 레일이 비므로 — 무대·측정 칸이 레일 자리까지 넓어진다(값 s·f 는 그대로, 카드가 정함) */
+html.is-simple .simple-rail { display: none !important; }
+@media (min-aspect-ratio: 17/10) {
+  html.is-simple .sim { --sw: calc(1840 * var(--u)); }
+}
+@media (orientation: landscape) and (max-aspect-ratio: 17/10) {
+  html.is-simple .sim { --rail-h: calc(0px - var(--gap-s)); }
+}
+@media (orientation: portrait) and (min-width: 601px) {
+  html.is-simple .sim { --rail-h: calc(0px - 8 * var(--p)); }
+}
